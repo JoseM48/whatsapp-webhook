@@ -7,7 +7,7 @@ app.use(bodyParser.json());
 
 const VERIFY_TOKEN = "miverificacion";
 const WHATSAPP_API_URL = "https://graph.facebook.com/v17.0/677794848759133/messages";
-const ACCESS_TOKEN = "EAAUfFpnLVusBPC7eLIxiv2TZBdy3YSZB12RCIXNGmgV9U3gWQ4mlQgWsaIs5XQQAYpLoqhpqFcOZCjI1VSrQZC8XcJgcvxkaFqgZBlcLpfJZCNhVnHIbSE6y04vlTrASZAsIW7b2s4jKbJyOv7ndYNvnZCtqzFhbMIdS0ZCV3lsUEHa84pZB73fjyFu8zYmVFvlFXzXIDcZCOiSglWzmkkDQrFG2YZCRkwdNoKjIaMZAZCxPG0YgZDZD"; // Reemplaza por tu token de acceso real
+const ACCESS_TOKEN = "EAAUfFpnLVusBPB5FazeTYxc3K10IDETZAXxZBp2WSgGQ8SOTP3uYkRHd4AvwR7CF1uOCjwYpyp4FhrTc6ozV4zCB5R8bLveaW6hkn9Ct8CwspZBwDomPDNOMhHcX4Hhk7oYQRIBTPwrmqeu1dFkpPaKY7FX3mh6qz03jfqZB5th6vIIHZANfB8rtsmetCqlcDhSrZAZCrYBpgGcEmIcdRtNaXaMH1qc9gWYj1Y2IETA5gZDZD"; // Reemplaza por tu token de acceso real
 
 // --- Endpoint para verificación inicial del webhook ---
 app.get("/webhook", (req, res) => {
