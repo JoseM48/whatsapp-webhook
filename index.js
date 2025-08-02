@@ -1,12 +1,15 @@
 const express = require("express");
 const bodyParser = require("body-parser");
+const axios = require("axios");
 
 const app = express();
 app.use(bodyParser.json());
 
-const VERIFY_TOKEN = "miverificacion"; // Cámbialo por el que usarás en Meta
+const VERIFY_TOKEN = "miverificacion";
+const WHATSAPP_API_URL = "https://graph.facebook.com/v17.0/677794848759133/messages";
+const ACCESS_TOKEN = "EAAUfFpnLVusBPC7eLIxiv2TZBdy3YSZB12RCIXNGmgV9U3gWQ4mlQgWsaIs5XQQAYpLoqhpqFcOZCjI1VSrQZC8XcJgcvxkaFqgZBlcLpfJZCNhVnHIbSE6y04vlTrASZAsIW7b2s4jKbJyOv7ndYNvnZCtqzFhbMIdS0ZCV3lsUEHa84pZB73fjyFu8zYmVFvlFXzXIDcZCOiSglWzmkkDQrFG2YZCRkwdNoKjIaMZAZCxPG0YgZDZD"; // Reemplaza por tu token de acceso real
 
-// Endpoint para la verificación
+// --- Endpoint para verificación inicial del webhook ---
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -20,14 +23,78 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-// Endpoint para recibir mensajes
-app.post("/webhook", (req, res) => {
+// --- Endpoint para recibir mensajes entrantes ---
+app.post("/webhook", async (req, res) => {
   const body = req.body;
-  console.log(JSON.stringify(body, null, 2));
-  res.sendStatus(200);
+
+  try {
+    const entry = body.entry?.[0];
+    const message = entry?.changes?.[0]?.value?.messages?.[0];
+    const from = message?.from;
+    const text = message?.text?.body;
+
+    if (text) {
+      const reply = await generarRespuesta(text, from);
+      console.log("Respondido:", reply);
+    }
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("Error procesando mensaje:", error);
+    res.sendStatus(500);
+  }
 });
 
-// Puerto para Render
+// --- Generador de respuesta ---
+async function generarRespuesta(texto, numero) {
+  const mensaje = texto.trim();
+
+  let respuesta;
+
+  if (mensaje === "1") {
+    respuesta = "Por favor indícame el número de tu apartamento para darte la clave WiFi.";
+    // Aquí luego conectaremos a Google Sheets
+  } else if (mensaje === "2") {
+    respuesta = "El check in es desde las 3 pm 🕒 y el check out hasta las 11 am 🕚. Recepción 24 h.";
+  } else if (mensaje === "3") {
+    respuesta = `Puedes pagar por transferencia Bancolombia 90700002147 (Versadaa) o con este link: https://checkout.wompi.co/l/CR3cEA 💳`;
+  } else if (mensaje === "4") {
+    respuesta = "Servicios disponibles: early check-in, late check-out, upgrades y guardado de maletas.";
+  } else if (mensaje === "5") {
+    respuesta = "Reglas: No fiestas, reportar daños, salidas tarde sin aviso generan multa. ¡Te enviamos el resumen si deseas!";
+  } else if (mensaje === "6") {
+    respuesta = "Te pondremos en contacto con un humano lo más pronto posible 👤";
+  } else {
+    respuesta = `¡Hola! Soy el asistente de Mio La Frontera 🌟
+Estas son las opciones que puedo ayudarte:
+
+1. Clave del WiFi 🔐
+2. Horarios de check in / check out 🕒
+3. Formas de pago 💵
+4. Servicios adicionales 🧺
+5. Reglas de la casa 🏠
+6. Hablar con un humano 👤
+
+Responde con el número de la opción que necesitas.`;
+  }
+
+  // Enviar mensaje de vuelta
+  await axios.post(
+    WHATSAPP_API_URL,
+    {
+      messaging_product: "whatsapp",
+      to: numero,
+      text: { body: respuesta }
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${ACCESS_TOKEN}`,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+}
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log("Servidor escuchando en el puerto", port);
