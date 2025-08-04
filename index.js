@@ -1,3 +1,8 @@
+const { google } = require('googleapis');
+const credentials = require("/etc/secrets/google-creds.json"); // JSON como variable de entorno
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID; // ID del Sheet
+
+const aptoSeekers = {}; // Guarda los números que esperan dato de apto
 const express = require("express");
 const bodyParser = require("body-parser");
 const axios = require("axios");
@@ -8,6 +13,33 @@ app.use(bodyParser.json());
 const VERIFY_TOKEN = "miverificacion";
 const WHATSAPP_API_URL = "https://graph.facebook.com/v17.0/677794848759133/messages";
 const ACCESS_TOKEN = "EAAUfFpnLVusBPB5FazeTYxc3K10IDETZAXxZBp2WSgGQ8SOTP3uYkRHd4AvwR7CF1uOCjwYpyp4FhrTc6ozV4zCB5R8bLveaW6hkn9Ct8CwspZBwDomPDNOMhHcX4Hhk7oYQRIBTPwrmqeu1dFkpPaKY7FX3mh6qz03jfqZB5th6vIIHZANfB8rtsmetCqlcDhSrZAZCrYBpgGcEmIcdRtNaXaMH1qc9gWYj1Y2IETA5gZDZD"; // Reemplaza por tu token de acceso real
+
+// --- Función auxiliar para buscar en Google Sheets ---
+async function obtenerWifiPorApartamento(apto) {
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
+  const sheets = google.sheets({ version: "v4", auth });
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "Sheet1!A:D", // Apto, Estado, Red, Clave
+  });
+
+  const rows = res.data.values || [];
+  for (let i = 1; i < rows.length; i++) {
+    const fila = rows[i];
+    const aptoSheet = fila[0]?.trim();
+    const estado = fila[1]?.toLowerCase();
+    const red = fila[2];
+    const clave = fila[3];
+
+    if (aptoSheet === apto && estado === "activo") {
+      return { red, clave };
+    }
+  }
+  return null;
+}
 
 // --- Endpoint para verificación inicial del webhook ---
 app.get("/webhook", (req, res) => {
@@ -45,15 +77,24 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// --- Generador de respuesta ---
+// --- Generador de respuesta principal ---
 async function generarRespuesta(texto, numero) {
   const mensaje = texto.trim();
-
   let respuesta;
 
   if (mensaje === "1") {
+    aptoSeekers[numero] = true;
     respuesta = "Por favor indícame el número de tu apartamento para darte la clave WiFi.";
-    // Aquí luego conectaremos a Google Sheets
+  } else if (aptoSeekers[numero]) {
+    const datosWifi = await obtenerWifiPorApartamento(mensaje);
+    delete aptoSeekers[numero];
+
+    if (datosWifi) {
+      respuesta = `✅ Apartamento ${mensaje}\nRed WiFi: ${datosWifi.red}\nClave: ${datosWifi.clave}`;
+    } else {
+      respuesta = `No encontré información para el apartamento ${mensaje}. ¿Podrías verificar el número?`;
+    }
+
   } else if (mensaje === "2") {
     respuesta = "El check in es desde las 3 pm 🕒 y el check out hasta las 11 am 🕚. Recepción 24 h.";
   } else if (mensaje === "3") {
@@ -78,7 +119,6 @@ Estas son las opciones que puedo ayudarte:
 Responde con el número de la opción que necesitas.`;
   }
 
-  // Enviar mensaje de vuelta
   await axios.post(
     WHATSAPP_API_URL,
     {
