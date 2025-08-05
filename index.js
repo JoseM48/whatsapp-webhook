@@ -1,3 +1,4 @@
+console.log("TOKEN:", process.env.ACCESS_TOKEN);
 const { google } = require('googleapis');
 const credentials = require("/etc/secrets/google-creds.json"); // JSON como variable de entorno
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID; // ID del Sheet
