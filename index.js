@@ -141,3 +141,34 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log("Servidor escuchando en el puerto", port);
 });
+async function obtenerWifiPorApartamento(apto) {
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
+
+  const sheets = google.sheets({ version: "v4", auth });
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "Sheet1!A:H", // Apto hasta Lavadora
+  });
+
+  const rows = res.data.values || [];
+  for (let i = 1; i < rows.length; i++) {
+    const fila = rows[i];
+    const aptoSheet = fila[0]?.trim();
+    const estado = fila[1]?.toLowerCase();
+    const red = fila[2];
+    const clave = fila[3];
+
+    if (aptoSheet === apto && estado === "activo") {
+      return {
+        red,
+        clave,
+      };
+    }
+  }
+
+  return null;
+}
