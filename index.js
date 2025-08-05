@@ -1,146 +1,133 @@
-console.log("TOKEN:", process.env.ACCESS_TOKEN);
-const { google } = require('googleapis');
-const credentials = require("/etc/secrets/google-creds.json"); // JSON desde Secret File
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID; // ID del Sheet como variable de entorno
+// index.js
 
-const aptoSeekers = {}; // Guarda los números que esperan dato de apto
+console.log("TOKEN:", process.env.ACCESS_TOKEN);
+
 const express = require("express");
 const bodyParser = require("body-parser");
 const axios = require("axios");
+const { google } = require("googleapis");
+const { Configuration, OpenAIApi } = require("openai");
+
+const credentials = require("/etc/secrets/google-creds.json");
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
 const app = express();
 app.use(bodyParser.json());
 
 const VERIFY_TOKEN = "miverificacion";
-const WHATSAPP_API_URL = "https://graph.facebook.com/v17.0/677794848759133/messages";
+const WHATSAPP_API_URL = `https://graph.facebook.com/v17.0/${process.env.PHONE_NUMBER_ID}/messages`;
 
-// --- Función auxiliar para buscar en Google Sheets ---
+const openai = new OpenAIApi(new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+}));
+
+// Mapa para acciones pendientes
+const aptoSeekers = {};
+const repromptCount = {};
+
+// Función GPT
+async function consultarChatGPT(pregunta) {
+  const resp = await openai.createChatCompletion({
+    model: "gpt-3.5-turbo",
+    messages: [
+      { role: "system", content: "Eres un asistente amable para huéspedes en apartamentos..." },
+      { role: "user", content: pregunta }
+    ],
+  });
+  return resp.data.choices[0].message.content;
+}
+
+// Función Sheets
 async function obtenerWifiPorApartamento(apto) {
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-  });
-
+  const auth = new google.auth.GoogleAuth({ credentials, scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"] });
   const sheets = google.sheets({ version: "v4", auth });
-
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:H", // Apto hasta Lavadora
-  });
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: "Sheet1!A:H" });
 
   const rows = res.data.values || [];
   for (let i = 1; i < rows.length; i++) {
-    const fila = rows[i];
-    const aptoSheet = fila[0]?.trim();
-    const estado = fila[1]?.toLowerCase();
-    const red = fila[2];
-    const clave = fila[3];
-
-    if (aptoSheet === apto && estado === "activo") {
-      return { red, clave };
-    }
+    const [a, est, red, clave] = rows[i];
+    if (a?.trim() === apto && est?.toLowerCase() === "activo") return { red, clave };
   }
-
   return null;
 }
 
-// --- Endpoint para verificación del webhook ---
+// Webhook verification
 app.get("/webhook", (req, res) => {
-  const mode = req.query["hub.mode"];
-  const token = req.query["hub.verify_token"];
-  const challenge = req.query["hub.challenge"];
-
-  if (mode && token === VERIFY_TOKEN) {
-    console.log("WEBHOOK_VERIFIED");
-    res.status(200).send(challenge);
-  } else {
-    res.sendStatus(403);
-  }
+  const { "hub.mode": mode, "hub.verify_token": token, "hub.challenge": challenge } = req.query;
+  mode && token === VERIFY_TOKEN ? res.status(200).send(challenge) : res.sendStatus(403);
 });
 
-// --- Endpoint para mensajes entrantes ---
+// Webhook listener
 app.post("/webhook", async (req, res) => {
-  const body = req.body;
-
   try {
-    const entry = body.entry?.[0];
-    const message = entry?.changes?.[0]?.value?.messages?.[0];
-    const from = message?.from;
-    const text = message?.text?.body;
+    const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    if (!msg?.text) return res.sendStatus(200);
 
-    if (text) {
-      const reply = await generarRespuesta(text, from);
-      console.log("Respondido:", reply);
-    }
-
+    const from = msg.from, text = msg.text.body.trim();
+    const reply = await generarRespuesta(text, from);
+    console.log("Respondido:", reply);
     res.sendStatus(200);
-  } catch (error) {
-    console.error("Error procesando mensaje:", error);
+  } catch (err) {
+    console.error("Error procesando mensaje:", err);
     res.sendStatus(500);
   }
 });
 
-// --- Generador de respuestas del bot ---
+// Lógica del bot
 async function generarRespuesta(texto, numero) {
-  const mensaje = texto.trim();
-  let respuesta;
-
-  if (mensaje === "1") {
+  let respuesta = "";
+  if (texto === "1") {
     aptoSeekers[numero] = true;
     respuesta = "Por favor indícame el número de tu apartamento para darte la clave WiFi.";
   } else if (aptoSeekers[numero]) {
-    const datosWifi = await obtenerWifiPorApartamento(mensaje);
+    const datos = await obtenerWifiPorApartamento(texto);
     delete aptoSeekers[numero];
-
-    if (datosWifi) {
-      respuesta = `✅ Apartamento ${mensaje}\nRed WiFi: ${datosWifi.red}\nClave: ${datosWifi.clave}`;
-    } else {
-      respuesta = `No encontré información para el apartamento ${mensaje}. ¿Podrías verificar el número?`;
+    repromptCount[numero] = 0;
+    respuesta = datos
+      ? `✅ Apartamento ${texto}\nRed WiFi: ${datos.red}\nClave: ${datos.clave}`
+      : `No encontré información para el apartamento ${texto}. ¿Podrías verificar el número?`;
+  } else if (texto === "2") {
+    respuesta = "Horarios: check‑in desde 3 pm y check‑out hasta 11 am.";
+  } else if (texto === "3") {
+    respuesta = "Puedes pagar vía transferencia (Bancolombia 9070…) o con este enlace: …";
+  } else if (texto === "4") {
+    respuesta = "Servicios: early check‑in, late‑check‑out, upgrades, guardado de maletas.";
+  } else if (texto === "5") {
+    respuesta = "Reglas: no fiestas, reportar daños, salidas tarde sin aviso tienen multa.";
+  } else if (texto === "6") {
+    respuesta = "Te pondremos en contacto con un humano en breve.";
+  } else {
+    // ChatGPT fallback + reprompt logic
+    try {
+      respuesta = await consultarChatGPT(texto);
+    } catch (e) {
+      console.error("Error consultando GPT:", e);
+      respuesta = `No entendí tu mensaje.`;
     }
 
-  } else if (mensaje === "2") {
-    respuesta = "El check in es desde las 3 pm 🕒 y el check out hasta las 11 am 🕚. Recepción 24 h.";
-  } else if (mensaje === "3") {
-    respuesta = "Puedes pagar por transferencia Bancolombia 90700002147 (Versadaa) o con este link: https://checkout.wompi.co/l/CR3cEA 💳";
-  } else if (mensaje === "4") {
-    respuesta = "Servicios disponibles: early check-in, late check-out, upgrades y guardado de maletas.";
-  } else if (mensaje === "5") {
-    respuesta = "Reglas: No fiestas, reportar daños, salidas tarde sin aviso generan multa. ¡Te enviamos el resumen si deseas!";
-  } else if (mensaje === "6") {
-    respuesta = "Te pondremos en contacto con un humano lo más pronto posible 👤";
-  } else {
-    respuesta = `¡Hola! Soy el asistente de Mio La Frontera 🌟
-Estas son las opciones que puedo ayudarte:
-
-1. Clave del WiFi 🔐
-2. Horarios de check in / check out 🕒
-3. Formas de pago 💵
-4. Servicios adicionales 🧺
-5. Reglas de la casa 🏠
-6. Hablar con un humano 👤
-
-Responde con el número de la opción que necesitas.`;
+    // Si no hay respuesta del usuario en 60 segundos, repregunta una vez
+    if (!repromptCount[numero]) repromptCount[numero] = 0;
+    if (repromptCount[numero] < 1) {
+      repromptCount[numero]++;
+      setTimeout(() => {
+        enviarWhatsApp(numero, "¿Aún estás ahí? 😊");
+      }, 60000);
+    }
   }
 
-  // Enviar respuesta a WhatsApp
+  await enviarWhatsApp(numero, respuesta);
+  return respuesta;
+}
+
+// Función para enviar mensajes
+async function enviarWhatsApp(numero, texto) {
   await axios.post(
     WHATSAPP_API_URL,
-    {
-      messaging_product: "whatsapp",
-      to: numero,
-      text: { body: respuesta }
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
-        "Content-Type": "application/json"
-      }
-    }
+    { messaging_product: "whatsapp", to: numero, text: { body: texto } },
+    { headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, "Content-Type": "application/json" } }
   );
 }
 
-// --- Iniciar servidor ---
+// Start server
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log("Servidor escuchando en el puerto", port);
-});
+app.listen(port, () => console.log("Servidor escuchando en el puerto", port));
