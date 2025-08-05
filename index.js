@@ -129,7 +129,8 @@ Responde con el número de la opción que necesitas.`;
     },
     {
       headers: {
-        Authorization: `Bearer ${ACCESS_TOKEN}`,
+        Authorization: `Bearer ${process.env.ACCESS_TOKEN}`
+,
         "Content-Type": "application/json"
       }
     }
