@@ -1,60 +1,104 @@
-// index.js
-
-console.log("TOKEN:", process.env.ACCESS_TOKEN);
+require("dotenv").config(); // Asegura que se carguen las variables de entorno
 
 const express = require("express");
 const bodyParser = require("body-parser");
 const axios = require("axios");
 const { google } = require("googleapis");
-const { Configuration, OpenAIApi } = require("openai");
-
+const { OpenAI } = require("openai");
 const credentials = require("/etc/secrets/google-creds.json");
-const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const app = express();
 app.use(bodyParser.json());
 
 const VERIFY_TOKEN = "miverificacion";
 const WHATSAPP_API_URL = `https://graph.facebook.com/v17.0/${process.env.PHONE_NUMBER_ID}/messages`;
 
-const openai = new OpenAIApi(new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-}));
-
 // Mapa para acciones pendientes
 const aptoSeekers = {};
 const repromptCount = {};
 
-// Función GPT
+// Función para enviar mensajes por WhatsApp
+async function enviarWhatsApp(to, body) {
+  try {
+    await axios.post(
+      WHATSAPP_API_URL,
+      {
+        messaging_product: "whatsapp",
+        to,
+        type: "text",
+        text: { body },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.ACCESS_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Error enviando mensaje de WhatsApp:", error.response?.data || error.message);
+  }
+}
+
+// Función GPT con modelo GPT-4
 async function consultarChatGPT(pregunta) {
-  const resp = await openai.createChatCompletion({
-    model: "gpt-3.5-turbo",
+  const respuesta = await openai.chat.completions.create({
+    model: "gpt-4",
     messages: [
-      { role: "system", content: "Eres un asistente amable para huéspedes en apartamentos..." },
-      { role: "user", content: pregunta }
+      {
+        role: "system",
+        content: "Responde como asistente del hotel Mio La Frontera en Medellín. Responde de forma clara, amable y breve. Si no sabes la respuesta, di que lo consultarás con el equipo humano.",
+      },
+      {
+        role: "user",
+        content: pregunta,
+      },
     ],
   });
-  return resp.data.choices[0].message.content;
+
+  return respuesta.choices[0].message.content;
 }
 
 // Función Sheets
 async function obtenerWifiPorApartamento(apto) {
-  const auth = new google.auth.GoogleAuth({ credentials, scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"] });
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
+
   const sheets = google.sheets({ version: "v4", auth });
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: "Sheet1!A:H" });
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "Sheet1!A:H",
+  });
 
   const rows = res.data.values || [];
   for (let i = 1; i < rows.length; i++) {
     const [a, est, red, clave] = rows[i];
-    if (a?.trim() === apto && est?.toLowerCase() === "activo") return { red, clave };
+    if (a?.trim() === apto && est?.toLowerCase() === "activo") {
+      return { red, clave };
+    }
   }
+
   return null;
 }
 
 // Webhook verification
 app.get("/webhook", (req, res) => {
-  const { "hub.mode": mode, "hub.verify_token": token, "hub.challenge": challenge } = req.query;
-  mode && token === VERIFY_TOKEN ? res.status(200).send(challenge) : res.sendStatus(403);
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode && token === VERIFY_TOKEN) {
+    res.status(200).send(challenge);
+  } else {
+    res.sendStatus(403);
+  }
 });
 
 // Webhook listener
@@ -63,7 +107,8 @@ app.post("/webhook", async (req, res) => {
     const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
     if (!msg?.text) return res.sendStatus(200);
 
-    const from = msg.from, text = msg.text.body.trim();
+    const from = msg.from;
+    const text = msg.text.body.trim();
     const reply = await generarRespuesta(text, from);
     console.log("Respondido:", reply);
     res.sendStatus(200);
@@ -76,6 +121,7 @@ app.post("/webhook", async (req, res) => {
 // Lógica del bot
 async function generarRespuesta(texto, numero) {
   let respuesta = "";
+
   if (texto === "1") {
     aptoSeekers[numero] = true;
     respuesta = "Por favor indícame el número de tu apartamento para darte la clave WiFi.";
@@ -97,7 +143,6 @@ async function generarRespuesta(texto, numero) {
   } else if (texto === "6") {
     respuesta = "Te pondremos en contacto con un humano en breve.";
   } else {
-    // ChatGPT fallback + reprompt logic
     try {
       respuesta = await consultarChatGPT(texto);
     } catch (e) {
@@ -105,7 +150,7 @@ async function generarRespuesta(texto, numero) {
       respuesta = `No entendí tu mensaje.`;
     }
 
-    // Si no hay respuesta del usuario en 60 segundos, repregunta una vez
+    // Repregunta si el usuario no responde en 60 segundos (una sola vez)
     if (!repromptCount[numero]) repromptCount[numero] = 0;
     if (repromptCount[numero] < 1) {
       repromptCount[numero]++;
@@ -119,15 +164,8 @@ async function generarRespuesta(texto, numero) {
   return respuesta;
 }
 
-// Función para enviar mensajes
-async function enviarWhatsApp(numero, texto) {
-  await axios.post(
-    WHATSAPP_API_URL,
-    { messaging_product: "whatsapp", to: numero, text: { body: texto } },
-    { headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, "Content-Type": "application/json" } }
-  );
-}
-
-// Start server
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log("Servidor escuchando en el puerto", port));
+// Inicia servidor
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("Servidor iniciado en el puerto", PORT);
+});
