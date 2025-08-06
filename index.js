@@ -6,7 +6,7 @@ const bodyParser = require("body-parser");
 const axios = require("axios");
 const { google } = require("googleapis");
 const { OpenAI } = require("openai");
-const credentials = require("/etc/secrets/google-creds.json");
+const credentials = require("./google-creds.json");
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
