@@ -1,4 +1,5 @@
-require("dotenv").config(); // Asegura que se carguen las variables de entorno
+require("dotenv").config();
+console.log("ACCESS_TOKEN:", process.env.ACCESS_TOKEN ? "✔️ Cargado correctamente" : "❌ No cargado");
 
 const express = require("express");
 const bodyParser = require("body-parser");
