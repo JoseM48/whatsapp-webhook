@@ -55,15 +55,15 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const WHATSAPP_API_URL = `https://graph.facebook.com/v17.0/${process.env.PHONE_NUMBER_ID}/messages`;
 
 // ===== Sheets: rango configurable y normalizador
-// Cambia en ENV si la pestaña se llama distinto
-const SHEETS_RANGE = process.env.SHEETS_RANGE || "Maestro Mio Bot La Frontera!A:D";
+// Si no setean SHEETS_RANGE en Render, usamos tu pestaña "Caracteristicas!A:Z"
+const SHEETS_RANGE = process.env.SHEETS_RANGE || "Caracteristicas!A:Z";
 function norm(s = "") {
   return String(s || "")
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toLowerCase().trim().replace(/\s+/g, " ");
 }
 
-// Estados simples por usuario
+// ===== Estados por usuario
 const aptoSeekers = Object.create(null);
 const repromptCount = Object.create(null);
 
@@ -127,32 +127,82 @@ async function consultarChatGPT(pregunta) {
   return r.choices[0]?.message?.content?.trim() || "Gracias por tu mensaje.";
 }
 
-// ===== Google Sheets (usa SHEETS_RANGE y coincidencia robusta)
-async function obtenerWifiPorApartamento(apto) {
+// --------------------- Sheets helpers genéricos ---------------------
+async function cargarTabla() {
   if (!GOOGLE_CREDS) throw new Error("google_creds_missing");
   const auth = new google.auth.GoogleAuth({
     credentials: GOOGLE_CREDS,
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   });
   const sheets = google.sheets({ version: "v4", auth });
-  const res = await sheets.spreadsheets.values.get({
+  const r = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: SHEETS_RANGE, // <— configurable por ENV
+    range: SHEETS_RANGE,
   });
-  const rows = res.data.values || [];
-  if (rows.length <= 1) return null;
+  const all = r.data.values || [];
+  const headersRaw = all[0] || [];
+  const headers = headersRaw.map(h => norm(h));
+  const indexByHeader = Object.fromEntries(headers.map((h, i) => [h, i]));
+  const rows = all.slice(1);
+  return { headers, indexByHeader, rows };
+}
 
+function findAptoRow(apto, headers, rows) {
+  const hAptoIdx = headers.findIndex(h => /aparta?mento/.test(h)); // “Apartamento”
+  if (hAptoIdx < 0) return null;
   const target = norm(apto);
-  for (let i = 1; i < rows.length; i++) {
-    const [a, est, red, clave] = rows[i];
-    const aptoCell = norm(a);
-    const estadoCell = norm(est);
-    const isActivo = estadoCell.startsWith("activo"); // “Activo”, “ACTIVO”, etc.
-    if (aptoCell === target && isActivo) {
-      return { red, clave };
-    }
+  for (const row of rows) {
+    const cell = norm(row[hAptoIdx] || "");
+    if (cell === target) return row;
   }
   return null;
+}
+
+function pickField(row, headers, possibleNames = []) {
+  const wanted = possibleNames.map(norm);
+  let idx = headers.findIndex(h => wanted.includes(h));
+  if (idx >= 0) return row[idx] ?? null;
+  idx = headers.findIndex(h => wanted.some(w => h.startsWith(w)));
+  if (idx >= 0) return row[idx] ?? null;
+  return null;
+}
+
+// Lee una fila completa del apto y arma un objeto con campos “claves”
+async function obtenerDatosDeApartamento(apto) {
+  const { headers, rows } = await cargarTabla();
+  const row = findAptoRow(apto, headers, rows);
+  if (!row) return null;
+
+  const WIFI_SSID_HEADERS  = ["red wifi actual", "red wifi", "ssid", "red"];
+  const WIFI_PASS_HEADERS  = ["clave wifi actual", "clave wifi", "password", "contraseña", "pass"];
+  const BEDS_HEADERS       = ["camas/sofocamas", "camas y sofacama", "camas", "camas / sofacamas"];
+  const FLOOR_HEADERS      = ["piso", "nivel"];
+  const CAPACITY_HEADERS   = ["capacidad"];
+  const WASHER_HEADERS     = ["lavadora", "lavadora y secadora"];
+
+  const ssid   = pickField(row, headers, WIFI_SSID_HEADERS);
+  const clave  = pickField(row, headers, WIFI_PASS_HEADERS);
+  const camas  = pickField(row, headers, BEDS_HEADERS);
+  const piso   = pickField(row, headers, FLOOR_HEADERS);
+  const cap    = pickField(row, headers, CAPACITY_HEADERS);
+  const lava   = pickField(row, headers, WASHER_HEADERS);
+
+  return {
+    ssid: ssid || null,
+    clave: clave || null,
+    camas: camas || null,
+    piso: piso || null,
+    capacidad: cap || null,
+    lavadora: lava || null,
+  };
+}
+
+// Compat: función antigua que devuelve solo WiFi
+async function obtenerWifiPorApartamento(apto) {
+  const d = await obtenerDatosDeApartamento(apto);
+  if (!d) return null;
+  if (!d.ssid && !d.clave) return null;
+  return { red: d.ssid, clave: d.clave };
 }
 
 // ===== Health
@@ -210,13 +260,25 @@ async function generarRespuesta(texto, numero) {
     respuesta = "Por favor indícame el número de tu apartamento para darte la clave WiFi.";
   } else if (aptoSeekers[numero]) {
     try {
-      const datos = await obtenerWifiPorApartamento(texto);
-      respuesta = datos
-        ? `✅ Apartamento ${texto}\nRed WiFi: ${datos.red}\nClave: ${datos.clave}`
-        : `No encontré información para el apartamento ${texto}. ¿Podrías verificar el número?`;
+      const d = await obtenerDatosDeApartamento(texto);
+      if (d && (d.ssid || d.clave)) {
+        const extra = [
+          d.camas ? `Camas: ${d.camas}` : null,
+          d.piso ? `Piso: ${d.piso}` : null,
+          d.capacidad ? `Capacidad: ${d.capacidad}` : null,
+          d.lavadora ? `Lavadora: ${d.lavadora}` : null,
+        ].filter(Boolean).join("\n");
+        respuesta =
+          `✅ Apartamento ${texto}\n` +
+          (d.ssid ? `Red WiFi: ${d.ssid}\n` : "") +
+          (d.clave ? `Clave: ${d.clave}\n` : "") +
+          (extra ? `${extra}` : "");
+      } else {
+        respuesta = `No encontré datos para el apartamento ${texto}. ¿Podrías verificar el número?`;
+      }
     } catch (e) {
       console.error("Sheets error:", e?.response?.data || e?.message || e);
-      respuesta = "No pude consultar el WiFi ahora mismo. Te apoyo con un humano.";
+      respuesta = "No pude consultar la hoja ahora mismo. Te apoyo con un humano.";
     } finally {
       delete aptoSeekers[numero];
       repromptCount[numero] = 0;
@@ -251,7 +313,7 @@ async function generarRespuesta(texto, numero) {
   return respuesta;
 }
 
-// ===== Debug Sheets (existente)
+// ===== Debug Sheets
 app.get("/debug/sheets", async (req, res) => {
   try {
     const apto = String(req.query.apto || "").trim();
@@ -264,7 +326,7 @@ app.get("/debug/sheets", async (req, res) => {
   }
 });
 
-// ===== NUEVOS endpoints de debug
+// Vista previa de headers y primeras filas
 app.get("/debug/sheets/preview", async (_req, res) => {
   try {
     if (!GOOGLE_CREDS) return res.status(500).json({ ok: false, error: "google_creds_missing" });
@@ -289,29 +351,16 @@ app.get("/debug/sheets/preview", async (_req, res) => {
   }
 });
 
+// Fila cruda del apto (para depurar coincidencias)
 app.get("/debug/sheets/find", async (req, res) => {
   try {
     const apto = String(req.query.apto || "").trim();
     if (!apto) return res.status(400).json({ ok: false, error: "apto_required" });
     if (!GOOGLE_CREDS) return res.status(500).json({ ok: false, error: "google_creds_missing" });
 
-    const auth = new google.auth.GoogleAuth({
-      credentials: GOOGLE_CREDS,
-      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-    });
-    const sheets = google.sheets({ version: "v4", auth });
-    const r = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: SHEETS_RANGE,
-    });
-    const rows = r.data.values || [];
-    const target = norm(apto);
-    let match = null;
-    for (let i = 1; i < rows.length; i++) {
-      const [a] = rows[i];
-      if (norm(a) === target) { match = rows[i]; break; }
-    }
-    res.json({ ok: true, range: SHEETS_RANGE, apto, match });
+    const { headers, rows } = await cargarTabla();
+    const row = findAptoRow(apto, headers, rows);
+    return res.json({ ok: true, range: SHEETS_RANGE, apto, match: row || null, headers });
   } catch (e) {
     res.status(500).json({ ok: false, error: e?.message || "find_failed" });
   }
