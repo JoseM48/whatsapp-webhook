@@ -54,6 +54,15 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "dev-verify-token";
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const WHATSAPP_API_URL = `https://graph.facebook.com/v17.0/${process.env.PHONE_NUMBER_ID}/messages`;
 
+// ===== Sheets: rango configurable y normalizador
+// Cambia en ENV si la pestaña se llama distinto
+const SHEETS_RANGE = process.env.SHEETS_RANGE || "Maestro Mio Bot La Frontera!A:D";
+function norm(s = "") {
+  return String(s || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().trim().replace(/\s+/g, " ");
+}
+
 // Estados simples por usuario
 const aptoSeekers = Object.create(null);
 const repromptCount = Object.create(null);
@@ -118,7 +127,7 @@ async function consultarChatGPT(pregunta) {
   return r.choices[0]?.message?.content?.trim() || "Gracias por tu mensaje.";
 }
 
-// ===== Google Sheets
+// ===== Google Sheets (usa SHEETS_RANGE y coincidencia robusta)
 async function obtenerWifiPorApartamento(apto) {
   if (!GOOGLE_CREDS) throw new Error("google_creds_missing");
   const auth = new google.auth.GoogleAuth({
@@ -128,12 +137,18 @@ async function obtenerWifiPorApartamento(apto) {
   const sheets = google.sheets({ version: "v4", auth });
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A:H",
+    range: SHEETS_RANGE, // <— configurable por ENV
   });
   const rows = res.data.values || [];
+  if (rows.length <= 1) return null;
+
+  const target = norm(apto);
   for (let i = 1; i < rows.length; i++) {
     const [a, est, red, clave] = rows[i];
-    if (String(a || "").trim() === String(apto).trim() && String(est || "").toLowerCase() === "activo") {
+    const aptoCell = norm(a);
+    const estadoCell = norm(est);
+    const isActivo = estadoCell.startsWith("activo"); // “Activo”, “ACTIVO”, etc.
+    if (aptoCell === target && isActivo) {
       return { red, clave };
     }
   }
@@ -236,16 +251,69 @@ async function generarRespuesta(texto, numero) {
   return respuesta;
 }
 
-// ===== Debug Sheets
+// ===== Debug Sheets (existente)
 app.get("/debug/sheets", async (req, res) => {
   try {
     const apto = String(req.query.apto || "").trim();
     if (!apto) return res.status(400).json({ ok: false, error: "apto_required" });
     const data = await obtenerWifiPorApartamento(apto);
-    return res.json({ ok: true, apto, data, spreadsheetId: SPREADSHEET_ID });
+    return res.json({ ok: true, apto, data, spreadsheetId: SPREADSHEET_ID, range: SHEETS_RANGE });
   } catch (e) {
     console.error("[debug/sheets] error:", e?.response?.data || e?.message || e);
     return res.status(500).json({ ok: false, error: "sheets_failed" });
+  }
+});
+
+// ===== NUEVOS endpoints de debug
+app.get("/debug/sheets/preview", async (_req, res) => {
+  try {
+    if (!GOOGLE_CREDS) return res.status(500).json({ ok: false, error: "google_creds_missing" });
+    const auth = new google.auth.GoogleAuth({
+      credentials: GOOGLE_CREDS,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    });
+    const sheets = google.sheets({ version: "v4", auth });
+    const r = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: SHEETS_RANGE,
+    });
+    const rows = r.data.values || [];
+    res.json({
+      ok: true,
+      range: SHEETS_RANGE,
+      headers: rows[0] || [],
+      sample: rows.slice(1, 11),
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e?.message || "preview_failed" });
+  }
+});
+
+app.get("/debug/sheets/find", async (req, res) => {
+  try {
+    const apto = String(req.query.apto || "").trim();
+    if (!apto) return res.status(400).json({ ok: false, error: "apto_required" });
+    if (!GOOGLE_CREDS) return res.status(500).json({ ok: false, error: "google_creds_missing" });
+
+    const auth = new google.auth.GoogleAuth({
+      credentials: GOOGLE_CREDS,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    });
+    const sheets = google.sheets({ version: "v4", auth });
+    const r = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: SHEETS_RANGE,
+    });
+    const rows = r.data.values || [];
+    const target = norm(apto);
+    let match = null;
+    for (let i = 1; i < rows.length; i++) {
+      const [a] = rows[i];
+      if (norm(a) === target) { match = rows[i]; break; }
+    }
+    res.json({ ok: true, range: SHEETS_RANGE, apto, match });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e?.message || "find_failed" });
   }
 });
 
