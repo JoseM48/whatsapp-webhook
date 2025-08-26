@@ -66,15 +66,15 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ===============================
 // Motor de reservas (adapter Puppeteer) – carga tolerante
-// ===============================
 let checkAvailability, createReservation, selectAndCheckout;
 try {
   ({ checkAvailability, createReservation, selectAndCheckout } =
     require('./services/bookingAdapter'));
   console.log('[booking] Adapter Puppeteer cargado ✔️');
 } catch (e) {
-  console.warn('[booking] Adapter no encontrado. Usando mock hasta que crees services/bookingAdapter.js');
+  console.warn('[booking] Adapter no encontrado:', e?.message || e);
 }
+
 
 // ===============================
 // Config general
