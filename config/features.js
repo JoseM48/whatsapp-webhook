@@ -1,18 +1,21 @@
-// config/features.js
-export const FEATURES = {
-  '1': true,   // Reservas, disponibilidad y tarifas
-  '2': false,  // Anticipo y formas de pago
-  '3': false,  // Horarios Check In/Out
-  '4': false,  // Ubicación e indicaciones
-  '5': false,  // Reglas de la casa
-  '6': true,   // Clave WiFi
-  '7': true,   // Funcionamiento apartamento
-  '8': true    // Hablar con un agente
+// config/features.js  (CommonJS)
+const FEATURES = {
+  "1": true,  // Reservas
+  "2": true,  // Reconfirmar / pagos
+  "3": true,  // Horarios
+  "4": true,  // Ubicación
+  "5": true,  // Reglas de la casa
+  "6": true,  // WiFi
+  "7": true,  // Funcionamiento apto
+  "8": true,  // Encuesta
+  "9": true   // Otras preguntas
 };
 
-export function enabledList() {
-  return Object.entries(FEATURES)
-    .filter(([, v]) => !!v)
-    .map(([k]) => k)
+function enabledList() {
+  return Object.keys(FEATURES)
+    .filter(k => FEATURES[k])
+    .sort((a,b) => Number(a) - Number(b))
     .join(', ');
 }
+
+module.exports = { FEATURES, enabledList };
