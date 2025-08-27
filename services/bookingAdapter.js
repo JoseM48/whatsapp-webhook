@@ -6,7 +6,17 @@
 // - Genera artefactos de debug: debug-*.{html,png,buttons.txt,text.txt,frameN.txt,xhr.json,scripts.json}
 
 const fs = require('fs');
-const puppeteer = require('puppeteer');
+
+// ⚠️ Puppeteer es ESM: cargar con import() dinámico en CJS
+let __puppeteerMod;
+async function getPuppeteer() {
+  if (!__puppeteerMod) {
+    __puppeteerMod = import('puppeteer');
+  }
+  const mod = await __puppeteerMod;
+  // algunas distros exponen default, otras no
+  return mod.default || mod;
+}
 
 const BOOKING_BASE_URL   = process.env.BOOKING_BASE_URL || 'https://la-frontera.hotelrunner.com/bv3/search';
 const BOOKING_TIMEOUT_MS = parseInt(process.env.BOOKING_TIMEOUT_MS || '60000', 10);
@@ -36,6 +46,7 @@ function buildSearchUrl({ checkin, checkout, people = 2 }) {
 }
 
 async function launchBrowser() {
+  const puppeteer = await getPuppeteer();
   const headless = process.env.HEADLESS === '0' ? false : 'new';
   const slowMo   = process.env.SLOWMO ? parseInt(process.env.SLOWMO, 10) : 0;
   return puppeteer.launch({
@@ -76,7 +87,6 @@ async function autoDismissOverlays(pageOrFrame) {
 }
 
 async function gentleHydrationWaits(page) {
-  // Esperas generosas para SPAs
   await page.waitForTimeout(1000);
   for (let i = 0; i < 4; i++) {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
@@ -84,15 +94,11 @@ async function gentleHydrationWaits(page) {
   }
 }
 
-function ctaRegex() {
-  return /agregar habitaci[oó]n|añadir habitaci[oó]n|add room|reservar|seleccionar|continuar|proceder|ir al pago|continue|proceed/i;
-}
+function ctaRegex() { return /agregar habitaci[oó]n|añadir habitaci[oó]n|add room|reservar|seleccionar|continuar|proceder|ir al pago|continue|proceed/i; }
 
 async function framesArray(page) {
   try { return page.frames(); } catch { return [page.mainFrame?.() || page]; }
 }
-
-// Ejecuta función en TODAS las frames
 async function evalFramesConcat(page, fn, arg) {
   const frames = await framesArray(page);
   const out = [];
@@ -105,7 +111,6 @@ async function evalFramesConcat(page, fn, arg) {
   }
   return out;
 }
-
 async function detectHasCtasAnyFrame(page) {
   const reSrc = ctaRegex().source;
   const hits = await evalFramesConcat(page, (reSrc) => {
@@ -117,7 +122,6 @@ async function detectHasCtasAnyFrame(page) {
   }, reSrc);
   return hits.some(Boolean);
 }
-
 async function findNoRoomsAnyFrame(page) {
   const hits = await evalFramesConcat(page, () =>
     /no hay habitaciones disponibles|no rooms available|no availability/i.test(document.body?.innerText || ''), null
@@ -125,7 +129,6 @@ async function findNoRoomsAnyFrame(page) {
   return hits.some(Boolean);
 }
 
-// -------- Buscador profundo: DOM + Shadow DOM --------
 async function collectOptionsFromAllFrames(page) {
   const reSrc = ctaRegex().source;
   return await evalFramesConcat(page, (reSrc) => {
@@ -137,10 +140,8 @@ async function collectOptionsFromAllFrames(page) {
       const pushKids = (node) => {
         if (!node) return;
         if (node.nodeType === 1) yield node;
-        // Shadow DOM
         const sr = node.shadowRoot || (node.attachShadow && node);
         if (sr && sr.children) for (const c of sr.children) yield* pushKids(c);
-        // Hijos normales
         if (node.children) for (const c of node.children) yield* pushKids(c);
       };
       yield* pushKids(root || document);
@@ -174,7 +175,6 @@ async function collectOptionsFromAllFrames(page) {
       if (!seen.has(key)) { seen.add(key); res.push({ apto, title, from, currency }); }
     }
 
-    // Si nada con CTA, al menos recoge títulos con número
     if (res.length === 0) {
       const titles = nodes.filter(n => n.matches?.('h2,h3,.title,.room-title,[class*="title"]'));
       for (const t of titles) {
@@ -190,42 +190,28 @@ async function collectOptionsFromAllFrames(page) {
   }, reSrc);
 }
 
-// -------- Extrae posibles rooms desde scripts JSON incrustados --------
 async function extractRoomsFromScriptsAnyFrame(page, tag) {
   const all = await evalFramesConcat(page, () => {
     const payloads = [];
-    const pushJson = (txt) => {
-      try {
-        const json = JSON.parse(txt);
-        payloads.push(json);
-      } catch {}
-    };
+    const pushJson = (txt) => { try { payloads.push(JSON.parse(txt)); } catch {} };
 
-    // <script type="application/json">...</script>
     const scriptJson = Array.from(document.querySelectorAll('script[type="application/json"], script[type="application/ld+json"]'));
     for (const s of scriptJson) pushJson(s.textContent || '');
 
-    // Otros scripts: intentar localizar objetos grandes con "room" o "rooms"
     const scripts = Array.from(document.scripts || []);
     for (const s of scripts) {
       const txt = s.textContent || '';
       if (!txt || txt.length < 50) continue;
       if (/"rooms?"|"room_name"|"rates?"|"inventory"/i.test(txt)) {
-        // heurística: intenta parsear el primer {...} grande
         const i = txt.indexOf('{'); const j = txt.lastIndexOf('}');
-        if (i >= 0 && j > i) {
-          const maybe = txt.slice(i, j + 1);
-          try { payloads.push(JSON.parse(maybe)); } catch {}
-        }
+        if (i >= 0 && j > i) { const maybe = txt.slice(i, j + 1); try { payloads.push(JSON.parse(maybe)); } catch {} }
       }
     }
     return payloads;
   });
 
-  // Dump para diagnosticar
   try { fs.writeFileSync(`debug-${tag}.scripts.json`, JSON.stringify({ count: all.length }, null, 2)); } catch {}
 
-  // Aplana y extrae
   function fromJson(payloads) {
     const results = [];
     const seen = new Set();
@@ -245,22 +231,15 @@ async function extractRoomsFromScriptsAnyFrame(page, tag) {
         if (apto) pushable = true;
       }
       if (!pushable && price != null && typeof price === 'number') {
-        from = Math.round(price);
-        pushable = true;
+        from = Math.round(price); pushable = true;
       }
       if (currency) curr = currency.includes('USD') ? 'USD' : 'COP';
 
       if (pushable) {
         const key = `${t||''}|${from||''}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          results.push({ apto, title: t || '', from: from || null, currency: curr || 'COP' });
-        }
+        if (!seen.has(key)) { seen.add(key); results.push({ apto, title: t || '', from: from || null, currency: curr || 'COP' }); }
       }
-      for (const k in o) {
-        const v = o[k];
-        if (v && typeof v === 'object') visit(v);
-      }
+      for (const k in o) { const v = o[k]; if (v && typeof v === 'object') visit(v); }
     }
     for (const p of payloads) visit(p);
     return results;
@@ -269,49 +248,34 @@ async function extractRoomsFromScriptsAnyFrame(page, tag) {
   return fromJson(all);
 }
 
-// ---------- Sniffer XHR (ampliado) ----------
 function tryParseAnyJson(text) {
   try { return JSON.parse(text); } catch {}
-  // Intenta localizar bloques JSON
   const i = text.indexOf('{'); const j = text.lastIndexOf('}');
-  if (i >= 0 && j > i) {
-    try { return JSON.parse(text.slice(i, j+1)); } catch {}
-  }
+  if (i >= 0 && j > i) { try { return JSON.parse(text.slice(i, j+1)); } catch {} }
   return null;
 }
-
 function extractRoomsFromJsonPayloads(payloads) {
-  const results = [];
-  const seen = new Set();
+  const results = []; const seen = new Set();
   function visit(o) {
     if (!o || typeof o !== 'object') return;
     const title = o.name || o.title || o.room_name || o.room || o.description || null;
     const price = o.price || o.amount || o.total || o.rate || o.nightly || o.daily || null;
     const currency = (typeof o.currency === 'string' && /usd|cop|\$|mxn|eur/i.test(o.currency)) ? (o.currency.toUpperCase()) : null;
 
-    let pushable = false;
-    let apto = null; let t = null; let from = null; let curr = null;
+    let pushable = false; let apto = null; let t = null; let from = null; let curr = null;
 
     if (title && typeof title === 'string') {
       t = String(title).trim();
-      const m = t.match(/\b(\d{3,4})\b/);
-      apto = m?.[1] || null;
-      if (apto) pushable = true;
+      const m = t.match(/\b(\d{3,4})\b/); apto = m?.[1] || null; if (apto) pushable = true;
     }
-    if (!pushable && price != null && typeof price === 'number') {
-      from = Math.round(price);
-      pushable = true;
-    }
+    if (!pushable && price != null && typeof price === 'number') { from = Math.round(price); pushable = true; }
     if (currency) curr = currency.includes('USD') ? 'USD' : 'COP';
 
     if (pushable) {
       const key = `${t||''}|${from||''}`;
       if (!seen.has(key)) { seen.add(key); results.push({ apto, title: t || '', from: from || null, currency: curr || 'COP' }); }
     }
-    for (const k in o) {
-      const v = o[k];
-      if (v && typeof v === 'object') visit(v);
-    }
+    for (const k in o) { const v = o[k]; if (v && typeof v === 'object') visit(v); }
   }
   for (const p of payloads) visit(p);
   return results;
@@ -330,7 +294,6 @@ async function sniffNetwork(page, tag) {
       if (ct.includes('application/json')) {
         data = await res.json().catch(()=>null);
       } else {
-        // puede venir como text/javascript, text/html, etc.
         const txt = await res.text().catch(()=>null);
         if (txt) data = tryParseAnyJson(txt);
       }
@@ -349,7 +312,6 @@ async function sniffNetwork(page, tag) {
   };
 }
 
-// ---------- Debug ----------
 async function dumpDebug(page, tag) {
   try {
     await page.screenshot({ path: `debug-${tag}.png`, fullPage: true });
@@ -408,19 +370,15 @@ async function checkAvailability({ checkin, checkout, people = 2 }) {
     await dumpDebug(page, tag);
     await sniffer.dump();
 
-    // 1) DOM (todas las frames, con Shadow DOM)
     const domOptions = await collectOptionsFromAllFrames(page);
     const hasCtas    = await detectHasCtasAnyFrame(page);
     const noRoomsTxt = await findNoRoomsAnyFrame(page);
 
-    // 2) Scripts JSON embebidos
     const scriptOptions = await extractRoomsFromScriptsAnyFrame(page, tag);
 
-    // 3) XHR/JSON
     const raw          = sniffer.getRaw();
     const jsonOptions  = extractRoomsFromJsonPayloads(raw.map(r => r.data));
 
-    // Mezcla/dedup
     const allOptions = [...domOptions, ...scriptOptions, ...jsonOptions];
     const unique = [];
     const seen = new Set();
@@ -435,9 +393,6 @@ async function checkAvailability({ checkin, checkout, people = 2 }) {
     const nightly_rate = minFrom || null;
     const total        = nightly_rate ? nightly_rate * nights : null;
 
-    // Heurística de available:
-    //  - si no aparece mensaje "no hay habitaciones"
-    //  - y (hay opciones | hay CTAs | hubo XHR relevante)
     const available = !noRoomsTxt && (unique.length > 0 || hasCtas || raw.length > 0);
 
     await browser.close();
@@ -501,7 +456,6 @@ async function selectAndCheckout({ checkin, checkout, people = 2, apto }) {
           const t = (b.textContent || '').trim();
           if (re.test(t) && within(b, String(needle))) { b.click(); return true; }
         }
-        // Fallback: si hay link del apto, clic
         const links = Array.from(document.querySelectorAll('a'));
         for (const a of links) {
           if ((a.textContent || '').includes(String(needle))) { a.click(); return true; }
@@ -601,7 +555,6 @@ async function tryType(pageOrFrame, selectors, value) {
   }
   return false;
 }
-
 async function clickByText(pageOrFrame, text) {
   const lower = String(text).toLowerCase();
   try {
@@ -612,11 +565,8 @@ async function clickByText(pageOrFrame, text) {
       return false;
     }, lower);
     return !!clicked;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
-
 async function trySelectCountry(pageOrFrame, countryLabel) {
   const ok = await pageOrFrame.evaluate((wanted) => {
     const selects = Array.from(document.querySelectorAll('select'));
