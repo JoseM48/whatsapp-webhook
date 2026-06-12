@@ -13,18 +13,18 @@ const { OpenAI } = require('openai');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
-  ACCESS_TOKEN:           process.env.ACCESS_TOKEN ? '✔️' : '❌',
-  VERIFY_TOKEN:           process.env.VERIFY_TOKEN ? '✔️' : '❌',
-  PHONE_NUMBER_ID:        process.env.PHONE_NUMBER_ID ? '✔️' : '❌',
-  OPENAI_API_KEY:         process.env.OPENAI_API_KEY ? '✔️' : '❌',
-  SPREADSHEET_ID:         process.env.SPREADSHEET_ID ? '✔️' : '❌',
-  ADMIN_WA_NUMBER:        process.env.ADMIN_WA_NUMBER ? '✔️' : '❌',
-  POLITICA_URL:           process.env.POLITICA_URL ? '✔️' : '❌',
-  GOOGLE_FORMS_ENCUESTA:  process.env.GOOGLE_FORMS_ENCUESTA ? '✔️' : '❌',
-  BOOKING_BASE_URL:       process.env.BOOKING_BASE_URL ? '✔️' : '❌',
-  GPS_LAT:                process.env.GPS_LAT ? '✔️' : '❌',
-  GPS_LNG:                process.env.GPS_LNG ? '✔️' : '❌',
-  GPS_NAME:               process.env.GPS_NAME ? '✔️' : '❌',
+  ACCESS_TOKEN: process.env.ACCESS_TOKEN ? '✔️' : '❌',
+  VERIFY_TOKEN: process.env.VERIFY_TOKEN ? '✔️' : '❌',
+  PHONE_NUMBER_ID: process.env.PHONE_NUMBER_ID ? '✔️' : '❌',
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY ? '✔️' : '❌',
+  SPREADSHEET_ID: process.env.SPREADSHEET_ID ? '✔️' : '❌',
+  ADMIN_WA_NUMBER: process.env.ADMIN_WA_NUMBER ? '✔️' : '❌',
+  POLITICA_URL: process.env.POLITICA_URL ? '✔️' : '❌',
+  GOOGLE_FORMS_ENCUESTA: process.env.GOOGLE_FORMS_ENCUESTA ? '✔️' : '❌',
+  BOOKING_BASE_URL: process.env.BOOKING_BASE_URL ? '✔️' : '❌',
+  GPS_LAT: process.env.GPS_LAT ? '✔️' : '❌',
+  GPS_LNG: process.env.GPS_LNG ? '✔️' : '❌',
+  GPS_NAME: process.env.GPS_NAME ? '✔️' : '❌',
 });
 
 // ===============================
@@ -120,6 +120,7 @@ function parseAptoFromText(t) {
 // WhatsApp helpers
 // ===============================
 const WHATSAPP_API_URL = `https://graph.facebook.com/v20.0/${process.env.PHONE_NUMBER_ID}/messages`;
+const BRAIN_URL = process.env.BRAIN_URL || 'http://localhost:3010';
 
 async function enviarWhatsApp(to, body) {
   const phone = normalizePhone(to);
@@ -135,6 +136,23 @@ async function enviarWhatsApp(to, body) {
     });
   } catch (error) {
     console.error('Error enviando WhatsApp:', error?.response?.data || error.message);
+  }
+}
+
+async function consultarBrain({ from, text, payload }) {
+  try {
+    const r = await axios.post(`${BRAIN_URL}/answer`, {
+      question: text,
+      Telefono: from,
+      payload
+    }, {
+      timeout: 15000
+    });
+    
+    return r.data?.reply_text || null;
+  } catch (error) {
+    console.error('[brain] Error consultando Brain:', error?.response?.data || error.message);
+    return null;
   }
 }
 
@@ -219,10 +237,10 @@ function extractWifi(row) {
 function extractHowTo(row) {
   return {
     calentador: row?.Calentador || row?.calentador || '',
-    ducha:      row?.Ducha || '',
-    cocina:     row?.Cocina || '',
-    tv:         row?.TV || row?.Televisor || '',
-    otros:      row?.Notas || row?.Instrucciones || ''
+    ducha: row?.Ducha || '',
+    cocina: row?.Cocina || '',
+    tv: row?.TV || row?.Televisor || '',
+    otros: row?.Notas || row?.Instrucciones || ''
   };
 }
 
@@ -248,7 +266,7 @@ function getIncomingText(payload) {
 
   if (msg.text?.body) return { from, text: msg.text.body.trim() };
   if (msg.interactive?.button_reply?.title) return { from, text: msg.interactive.button_reply.title.trim() };
-  if (msg.interactive?.list_reply?.title)   return { from, text: msg.interactive.list_reply.title.trim() };
+  if (msg.interactive?.list_reply?.title) return { from, text: msg.interactive.list_reply.title.trim() };
   return { from, text: null };
 }
 
@@ -550,10 +568,10 @@ async function manejarOpcion(from, n, textoCrudo) {
 
       const msgs = [`🛠️ *Funcionamiento Apto ${apto}*`];
       if (how.calentador) msgs.push(`• Calentador: ${how.calentador}`);
-      if (how.ducha)      msgs.push(`• Ducha: ${how.ducha}`);
-      if (how.cocina)     msgs.push(`• Cocina: ${how.cocina}`);
-      if (how.tv)         msgs.push(`• TV: ${how.tv}`);
-      if (how.otros)      msgs.push(`• Otros: ${how.otros}`);
+      if (how.ducha) msgs.push(`• Ducha: ${how.ducha}`);
+      if (how.cocina) msgs.push(`• Cocina: ${how.cocina}`);
+      if (how.tv) msgs.push(`• TV: ${how.tv}`);
+      if (how.otros) msgs.push(`• Otros: ${how.otros}`);
       return enviarWhatsApp(from, msgs.join('\n'));
     }
 
@@ -583,7 +601,16 @@ app.post('/webhook', async (req, res) => {
     // Normaliza input de texto
     const raw = (text || '').trim();
     if (!raw) return res.sendStatus(200);
+    const brainReply = await consultarBrain({
+      from,
+      text: raw,
+      payload: req.body
+    });
 
+    if (brainReply) {
+      await enviarWhatsApp(from, brainReply);
+      return res.sendStatus(200);
+    }
     const t = raw;
     const tl = t.toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // quita tildes
@@ -669,7 +696,7 @@ app.get('/debug/booking/search', async (req, res) => {
   try {
     const { checkin, checkout, people = '2' } = req.query;
     if (typeof checkAvailability !== 'function') {
-      return res.json({ ok: true, r: { available: true, search_url: buildSearchUrl({ checkin, checkout, people: parseInt(people,10) }) }});
+      return res.json({ ok: true, r: { available: true, search_url: buildSearchUrl({ checkin, checkout, people: parseInt(people, 10) }) } });
     }
     const r = await checkAvailability({
       checkin,
@@ -680,7 +707,7 @@ app.get('/debug/booking/search', async (req, res) => {
   } catch (e) {
     console.error('[search] error', e);
     const { checkin, checkout, people = '2' } = req.query;
-    return res.json({ ok: true, r: { available: false, search_url: buildSearchUrl({ checkin, checkout, people: parseInt(people,10) }) } });
+    return res.json({ ok: true, r: { available: false, search_url: buildSearchUrl({ checkin, checkout, people: parseInt(people, 10) }) } });
   }
 });
 
@@ -694,7 +721,7 @@ app.get('/debug/booking/availability', async (req, res) => {
   } catch (e) {
     console.error('[debug/booking/availability]', e?.stack || e?.message || e);
     const { checkin, checkout, people = 2 } = req.query;
-    return res.json({ ok: true, r: { available: false, search_url: buildSearchUrl({ checkin, checkout, people: parseInt(people,10) || 2 }) } });
+    return res.json({ ok: true, r: { available: false, search_url: buildSearchUrl({ checkin, checkout, people: parseInt(people, 10) || 2 }) } });
   }
 });
 
@@ -728,18 +755,18 @@ app.post('/debug/booking/reserve', async (req, res) => {
       checkin, checkout, people = 2, apto,
       name, lastname, country = 'Colombia', email, phone, payment_method = 'Transferencia'
     } = req.body || {};
-    if (!apto) return res.status(400).json({ ok:false, error:'apto_required' });
+    if (!apto) return res.status(400).json({ ok: false, error: 'apto_required' });
     if (!name || !lastname || !email || !phone) {
-      return res.status(400).json({ ok:false, error:'missing_fields', needed: ['name','lastname','email','phone'] });
+      return res.status(400).json({ ok: false, error: 'missing_fields', needed: ['name', 'lastname', 'email', 'phone'] });
     }
 
     if (typeof selectAndCheckout !== 'function' || typeof createReservation !== 'function') {
-      return res.json({ ok:false, error:'adapter_not_installed', search_url: buildSearchUrl({ checkin, checkout, people }) });
+      return res.json({ ok: false, error: 'adapter_not_installed', search_url: buildSearchUrl({ checkin, checkout, people }) });
     }
 
     const sel = await selectAndCheckout({ checkin, checkout, people, apto });
     if (!sel.ok || !sel.checkout_url) {
-      return res.status(400).json({ ok:false, error: sel?.error || 'select_failed', search_url: sel?.search_url || buildSearchUrl({ checkin, checkout, people }) });
+      return res.status(400).json({ ok: false, error: sel?.error || 'select_failed', search_url: sel?.search_url || buildSearchUrl({ checkin, checkout, people }) });
     }
 
     const r = await createReservation({
@@ -747,10 +774,10 @@ app.post('/debug/booking/reserve', async (req, res) => {
       name, lastname, country, email, phone, payment_method
     });
 
-    return res.json({ ok:true, r, checkout_url: sel.checkout_url });
+    return res.json({ ok: true, r, checkout_url: sel.checkout_url });
   } catch (e) {
     console.error('[reserve] error', e);
-    return res.status(500).json({ ok:false, error:'reserve_failed', message: e?.message });
+    return res.status(500).json({ ok: false, error: 'reserve_failed', message: e?.message });
   }
 });
 
