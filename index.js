@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const axios = require('axios');
+const crypto = require('crypto');
 const { FEATURES, enabledList } = require('./config/features.js');
 const { google } = require('googleapis');
 const { OpenAI } = require('openai');
@@ -121,6 +122,38 @@ function parseAptoFromText(t) {
 // ===============================
 const WHATSAPP_API_URL = `https://graph.facebook.com/v20.0/${process.env.PHONE_NUMBER_ID}/messages`;
 const BRAIN_URL = process.env.BRAIN_URL || 'http://localhost:3010';
+const PMS_LITE_ENABLED = String(process.env.PMS_LITE_ENABLED || 'false').toLowerCase() === 'true';
+const PMS_LITE_INBOUND_URL = (process.env.PMS_LITE_INBOUND_URL || '').trim();
+const PMS_LITE_WEBHOOK_SECRET = (process.env.PMS_LITE_WEBHOOK_SECRET || '').trim();
+const PMS_LITE_TIMEOUT_MS = Number(process.env.PMS_LITE_TIMEOUT_MS || 1500);
+const PMS_LITE_ALLOWLIST_PHONES = (process.env.PMS_LITE_ALLOWLIST_PHONES || '')
+  .split(',')
+  .map((phone) => normalizePhone(phone.trim()))
+  .filter(Boolean);
+
+function maskPhone(raw) {
+  const phone = normalizePhone(raw);
+  if (!phone) return null;
+  return `***${phone.slice(-4)}`;
+}
+
+function getPmsLiteUrlPath() {
+  if (!PMS_LITE_INBOUND_URL) return null;
+  try {
+    return new URL(PMS_LITE_INBOUND_URL).pathname;
+  } catch {
+    return 'invalid_url';
+  }
+}
+
+console.log('[pms-lite] config', {
+  enabled: PMS_LITE_ENABLED,
+  inbound_url_present: Boolean(PMS_LITE_INBOUND_URL),
+  inbound_url_path: getPmsLiteUrlPath(),
+  webhook_secret_present: Boolean(PMS_LITE_WEBHOOK_SECRET),
+  allowlist_count: PMS_LITE_ALLOWLIST_PHONES.length,
+  timeout_ms: PMS_LITE_TIMEOUT_MS
+});
 
 async function enviarWhatsApp(to, body) {
   const phone = normalizePhone(to);
@@ -153,6 +186,117 @@ async function consultarBrain({ from, text, payload }) {
   } catch (error) {
     console.error('[brain] Error consultando Brain:', error?.response?.data || error.message);
     return null;
+  }
+}
+
+function isPmsLiteAllowlisted(from) {
+  if (PMS_LITE_ALLOWLIST_PHONES.length === 0) return false;
+  const normalized = normalizePhone(from);
+  return PMS_LITE_ALLOWLIST_PHONES.includes(normalized);
+}
+
+function getPmsLiteMessageId(payload) {
+  return payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id || null;
+}
+
+function getPmsLiteTimestamp(payload) {
+  const ts = payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.timestamp;
+  if (!ts) return new Date().toISOString();
+  const seconds = Number(ts);
+  return Number.isFinite(seconds) ? new Date(seconds * 1000).toISOString() : new Date().toISOString();
+}
+
+function getPmsLiteContactName(payload) {
+  return payload?.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.profile?.name || undefined;
+}
+
+function signPmsLitePayload(timestamp, body) {
+  if (!PMS_LITE_WEBHOOK_SECRET) return null;
+  return crypto
+    .createHmac('sha256', PMS_LITE_WEBHOOK_SECRET)
+    .update(`${timestamp}.${body}`)
+    .digest('hex');
+}
+
+async function enviarPmsLiteInbound({ from, text, payload }) {
+  const startedAt = Date.now();
+  const phoneMasked = maskPhone(from);
+  const messageId = getPmsLiteMessageId(payload);
+
+  if (!PMS_LITE_ENABLED) {
+    console.log('[pms-lite] skipped_disabled', {
+      phone: phoneMasked
+    });
+    return;
+  }
+  if (!PMS_LITE_INBOUND_URL || !PMS_LITE_WEBHOOK_SECRET) {
+    console.log('[pms-lite] missing_config', {
+      inbound_url_present: Boolean(PMS_LITE_INBOUND_URL),
+      webhook_secret_present: Boolean(PMS_LITE_WEBHOOK_SECRET),
+      phone: phoneMasked
+    });
+    return;
+  }
+  if (!isPmsLiteAllowlisted(from)) {
+    console.log('[pms-lite] skipped_not_allowlisted', {
+      phone: phoneMasked,
+      allowlist_count: PMS_LITE_ALLOWLIST_PHONES.length
+    });
+    return;
+  }
+
+  const timestamp = new Date().toISOString();
+  const body = {
+    telefono: normalizePhone(from),
+    nombre: getPmsLiteContactName(payload),
+    mensaje: text,
+    timestamp: getPmsLiteTimestamp(payload),
+    external_message_id: messageId || `wa-${normalizePhone(from)}-${Date.now()}`,
+    origen: 'whatsapp_oficial_render_controlado'
+  };
+  const rawBody = JSON.stringify(body);
+  const signature = signPmsLitePayload(timestamp, rawBody);
+
+  try {
+    console.log('[pms-lite] posting', {
+      phone: phoneMasked,
+      message_id_present: Boolean(messageId),
+      inbound_url_path: getPmsLiteUrlPath(),
+      timeout_ms: PMS_LITE_TIMEOUT_MS
+    });
+    const response = await axios.post(PMS_LITE_INBOUND_URL, body, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-PMS-Timestamp': timestamp,
+        'X-PMS-Signature': signature
+      },
+      timeout: PMS_LITE_TIMEOUT_MS
+    });
+    console.log('[pms-lite] inbound_ok', {
+      status: response?.status,
+      duration_ms: Date.now() - startedAt
+    });
+  } catch (error) {
+    const timedOut = error?.code === 'ECONNABORTED' || String(error?.message || '').toLowerCase().includes('timeout');
+    if (timedOut) {
+      console.log('[pms-lite] inbound_timeout', {
+        code: error?.code,
+        duration_ms: Date.now() - startedAt
+      });
+      return;
+    }
+    if (error?.response) {
+      console.log('[pms-lite] inbound_http_error', {
+        status: error.response.status,
+        code: error?.code,
+        duration_ms: Date.now() - startedAt
+      });
+      return;
+    }
+    console.log('[pms-lite] inbound_error', {
+      code: error?.code,
+      duration_ms: Date.now() - startedAt
+    });
   }
 }
 
@@ -601,6 +745,11 @@ app.post('/webhook', async (req, res) => {
     // Normaliza input de texto
     const raw = (text || '').trim();
     if (!raw) return res.sendStatus(200);
+    await enviarPmsLiteInbound({
+      from,
+      text: raw,
+      payload: req.body
+    });
     const brainReply = await consultarBrain({
       from,
       text: raw,
