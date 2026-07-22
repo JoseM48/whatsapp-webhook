@@ -11,6 +11,15 @@ const crypto = require('crypto');
 const { FEATURES, enabledList } = require('./config/features.js');
 const { google } = require('googleapis');
 const { OpenAI } = require('openai');
+const { PmsPilotClient } = require('./lib/pilot/pms-client');
+const { PilotAi } = require('./lib/pilot/ai');
+const { PilotOrchestrator } = require('./lib/pilot/orchestrator');
+const {
+  parseAllowlist,
+  isAllowlisted,
+  validateMetaSignature,
+  maskPhone: maskPilotPhone
+} = require('./lib/pilot/security');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -81,7 +90,10 @@ try {
 // Config general
 // ===============================
 const app = express();
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({
+  limit: '1mb',
+  verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); }
+}));
 
 // ===============================
 // Helpers comunes
@@ -130,6 +142,19 @@ const PMS_LITE_ALLOWLIST_PHONES = (process.env.PMS_LITE_ALLOWLIST_PHONES || '')
   .split(',')
   .map((phone) => normalizePhone(phone.trim()))
   .filter(Boolean);
+const MVP_LA_FRONTERA_ENABLED = String(process.env.MVP_LA_FRONTERA_ENABLED || 'false').toLowerCase() === 'true';
+const MVP_LA_FRONTERA_MEDIA_ENABLED = String(process.env.MVP_LA_FRONTERA_MEDIA_ENABLED || 'true').toLowerCase() === 'true';
+const MVP_LA_FRONTERA_ALLOWLIST_PHONES = parseAllowlist(
+  process.env.MVP_LA_FRONTERA_ALLOWLIST_PHONES || process.env.PMS_LITE_ALLOWLIST_PHONES || ''
+);
+const META_SIGNATURE_REQUIRED = String(process.env.META_SIGNATURE_REQUIRED || 'false').toLowerCase() === 'true';
+const DEBUG_ENDPOINTS_ENABLED = String(process.env.DEBUG_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
+const BOOKING_ENDPOINTS_ENABLED = String(process.env.BOOKING_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
+const PILOT_OPENAI_MODEL = (process.env.PILOT_OPENAI_MODEL || 'gpt-5.6-luna').trim();
+const PMS_LITE_BASE_URL = (process.env.PMS_LITE_BASE_URL || (() => {
+  try { return new URL(PMS_LITE_INBOUND_URL).origin; } catch { return ''; }
+})()).replace(/\/$/, '');
+const PMS_LITE_PUBLIC_BASE_URL = (process.env.PMS_LITE_PUBLIC_BASE_URL || PMS_LITE_BASE_URL).replace(/\/$/, '');
 
 function maskPhone(raw) {
   const phone = normalizePhone(raw);
@@ -153,6 +178,74 @@ console.log('[pms-lite] config', {
   webhook_secret_present: Boolean(PMS_LITE_WEBHOOK_SECRET),
   allowlist_count: PMS_LITE_ALLOWLIST_PHONES.length,
   timeout_ms: PMS_LITE_TIMEOUT_MS
+});
+
+console.log('[pilot-la-frontera] config', {
+  enabled: MVP_LA_FRONTERA_ENABLED,
+  ready: Boolean(PMS_LITE_ENABLED && PMS_LITE_BASE_URL && PMS_LITE_INBOUND_URL && PMS_LITE_WEBHOOK_SECRET && MVP_LA_FRONTERA_ALLOWLIST_PHONES.length),
+  allowlist_count: MVP_LA_FRONTERA_ALLOWLIST_PHONES.length,
+  media_enabled: MVP_LA_FRONTERA_MEDIA_ENABLED,
+  meta_signature_required: META_SIGNATURE_REQUIRED,
+  model: PILOT_OPENAI_MODEL,
+  debug_endpoints_enabled: DEBUG_ENDPOINTS_ENABLED,
+  booking_endpoints_enabled: BOOKING_ENDPOINTS_ENABLED
+});
+
+const pmsPilotClient = new PmsPilotClient({
+  http: axios,
+  baseUrl: PMS_LITE_BASE_URL,
+  inboundUrl: PMS_LITE_INBOUND_URL,
+  secret: PMS_LITE_WEBHOOK_SECRET,
+  timeoutMs: Number(process.env.MVP_LA_FRONTERA_TIMEOUT_MS || 8000),
+  publicBaseUrl: PMS_LITE_PUBLIC_BASE_URL,
+  mediaSigningSecret: process.env.PILOT_MEDIA_SIGNING_SECRET || PMS_LITE_WEBHOOK_SECRET
+});
+
+const pilotAi = new PilotAi({
+  http: axios,
+  apiKey: process.env.OPENAI_API_KEY,
+  model: PILOT_OPENAI_MODEL,
+  safetySalt: process.env.PILOT_SAFETY_SALT || PMS_LITE_WEBHOOK_SECRET
+});
+
+async function sendPilotWhatsAppText(to, body) {
+  const phone = normalizePhone(to);
+  if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  const response = await axios.post(WHATSAPP_API_URL, {
+    messaging_product: 'whatsapp', to: phone, text: { body }
+  }, {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    timeout: 15000
+  });
+  return response.data?.messages?.[0]?.id || null;
+}
+
+async function sendPilotWhatsAppImage(to, link) {
+  if (!MVP_LA_FRONTERA_MEDIA_ENABLED) return null;
+  const phone = normalizePhone(to);
+  if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  const response = await axios.post(WHATSAPP_API_URL, {
+    messaging_product: 'whatsapp', to: phone, image: { link }
+  }, {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    timeout: 20000
+  });
+  return response.data?.messages?.[0]?.id || null;
+}
+
+async function syncPilotLeadToBrain(lead) {
+  const headers = {};
+  if (process.env.BRAIN_SERVICE_TOKEN) headers['X-Brain-Service-Token'] = process.env.BRAIN_SERVICE_TOKEN;
+  await axios.post(`${BRAIN_URL}/lead/upsert`, lead, { timeout: 10000, headers });
+}
+
+const pilotOrchestrator = new PilotOrchestrator({
+  pms: pmsPilotClient,
+  ai: pilotAi,
+  brainSync: syncPilotLeadToBrain,
+  sendText: sendPilotWhatsAppText,
+  sendImage: sendPilotWhatsAppImage,
+  logger: console
 });
 
 async function enviarWhatsApp(to, body) {
@@ -739,12 +832,59 @@ async function escalateToHuman(from, payload) {
 // ===============================
 app.post('/webhook', async (req, res) => {
   try {
+    const metaAuth = validateMetaSignature({
+      rawBody: req.rawBody,
+      signatureHeader: req.get('X-Hub-Signature-256'),
+      appSecret: process.env.META_APP_SECRET,
+      required: META_SIGNATURE_REQUIRED
+    });
+    if (!metaAuth.ok) {
+      console.warn('[webhook] meta_signature_rejected', { code: metaAuth.error });
+      return res.status(metaAuth.status).json({ error: metaAuth.error });
+    }
+
     const { from, text } = getIncomingText(req.body) || {};
     if (!from) return res.sendStatus(200);
 
     // Normaliza input de texto
     const raw = (text || '').trim();
     if (!raw) return res.sendStatus(200);
+
+    const pilotAuthorized = MVP_LA_FRONTERA_ENABLED && isAllowlisted(from, MVP_LA_FRONTERA_ALLOWLIST_PHONES);
+    if (pilotAuthorized) {
+      const ready = PMS_LITE_ENABLED && PMS_LITE_BASE_URL && PMS_LITE_INBOUND_URL
+        && PMS_LITE_WEBHOOK_SECRET && MVP_LA_FRONTERA_ALLOWLIST_PHONES.length > 0;
+      const messageId = getPmsLiteMessageId(req.body);
+      if (!ready || !messageId) {
+        console.error('[pilot] capture_not_ready', {
+          ready: Boolean(ready), message_id_present: Boolean(messageId), phone: maskPilotPhone(from)
+        });
+        return res.sendStatus(503);
+      }
+      try {
+        await pilotOrchestrator.capture({
+          from: normalizePhone(from), text: raw, messageId,
+          timestamp: getPmsLiteTimestamp(req.body), name: getPmsLiteContactName(req.body)
+        });
+      } catch (error) {
+        console.error('[pilot] durable_capture_failed', {
+          status: error?.response?.status || null,
+          code: error?.code || 'capture_failed',
+          phone: maskPilotPhone(from)
+        });
+        return res.sendStatus(503);
+      }
+
+      res.sendStatus(200);
+      const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit'
+      }).format(new Date());
+      setImmediate(() => pilotOrchestrator.processCaptured({
+        from: normalizePhone(from), text: raw, messageId, today
+      }));
+      return;
+    }
+
     await enviarPmsLiteInbound({
       from,
       text: raw,
@@ -811,7 +951,7 @@ app.post('/webhook', async (req, res) => {
 
     return res.sendStatus(200);
   } catch (err) {
-    console.error('Error en /webhook:', err);
+    console.error('Error en /webhook:', { code: err?.code || 'webhook_error', status: err?.response?.status || null });
     // Mejor 200 que 5xx para evitar reintentos de Meta
     return res.sendStatus(200);
   }
@@ -820,7 +960,27 @@ app.post('/webhook', async (req, res) => {
 // ===============================
 // Health & debug
 // ===============================
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'whatsapp-webhook' }));
+app.get('/health', (_req, res) => res.json({
+  ok: true,
+  service: 'whatsapp-webhook',
+  pilot_la_frontera: {
+    enabled: MVP_LA_FRONTERA_ENABLED,
+    allowlist_count: MVP_LA_FRONTERA_ALLOWLIST_PHONES.length,
+    durable_capture_enabled: PMS_LITE_ENABLED,
+    media_enabled: MVP_LA_FRONTERA_MEDIA_ENABLED,
+    meta_signature_required: META_SIGNATURE_REQUIRED
+  }
+}));
+
+app.use('/debug', (req, res, next) => {
+  if (!DEBUG_ENDPOINTS_ENABLED) return res.status(404).json({ error: 'not_found' });
+  return next();
+});
+
+app.use('/booking', (req, res, next) => {
+  if (!BOOKING_ENDPOINTS_ENABLED) return res.status(404).json({ error: 'not_found' });
+  return next();
+});
 
 app.get('/debug/sheets', async (req, res) => {
   try {
@@ -933,6 +1093,47 @@ app.post('/debug/booking/reserve', async (req, res) => {
 // ===============================
 // Start server (Render: 0.0.0.0 + $PORT)
 // ===============================
+let pilotRecoveryRunning = false;
+async function recoverPilotQueues() {
+  if (pilotRecoveryRunning || !MVP_LA_FRONTERA_ENABLED || !PMS_LITE_ENABLED) return;
+  pilotRecoveryRunning = true;
+  try {
+    const [processing, outbound] = await Promise.all([
+      pmsPilotClient.retryableProcessing(5),
+      pmsPilotClient.retryableOutbound(5)
+    ]);
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date());
+    for (const record of processing || []) {
+      await pilotOrchestrator.processCaptured({
+        from: record.telefono,
+        text: record.mensaje,
+        messageId: record.external_message_id,
+        today
+      });
+    }
+    for (const record of outbound || []) {
+      await pilotOrchestrator.deliverClaimed({
+        outboxId: record.outbox_id,
+        recipient: record.recipient_phone
+      });
+    }
+  } catch (error) {
+    console.error('[pilot] recovery_poll_failed', {
+      status: error?.response?.status || null,
+      code: error?.code || 'recovery_failed'
+    });
+  } finally {
+    pilotRecoveryRunning = false;
+  }
+}
+
+if (MVP_LA_FRONTERA_ENABLED) {
+  const recoveryTimer = setInterval(recoverPilotQueues, Number(process.env.MVP_RECOVERY_INTERVAL_MS || 60000));
+  recoveryTimer.unref();
+}
+
 const PORT = process.env.PORT || 3021;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor iniciado en el puerto ${PORT}`);
