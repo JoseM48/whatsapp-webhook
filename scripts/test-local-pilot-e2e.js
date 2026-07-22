@@ -29,16 +29,28 @@ async function main() {
       sent.push({ type: 'image', url_path: new URL(url).pathname });
     },
     sendText: async (_to, text) => { sent.push({ type: 'text', length: text.length }); return 'wamid.synthetic.outbound'; },
+    context: {
+      organizationKey: 'versadaa', verticalKey: 'alojamientos_la_frontera', channelKey: 'whatsapp',
+      channelAccountKey: 'synthetic-account', conversationKey: () => 'whatsapp:synthetic-conversation'
+    },
     logger: { info() {}, warn() {}, error() {} }
   });
   const messageId = `wamid.synthetic.e2e.${Date.now()}`;
-  await orchestrator.capture({
+  const captured = await orchestrator.capture({
     from: '570000000777',
     text: 'Busco del 2026-08-01 al 2026-08-05 para 2 personas con balcón',
     messageId,
     timestamp: new Date().toISOString(),
     name: 'Lead Sintético E2E'
   });
+  if (captured.processing?.organization_key !== 'versadaa'
+    || captured.processing?.vertical_key !== 'alojamientos_la_frontera'
+    || captured.processing?.channel_key !== 'whatsapp'
+    || captured.processing?.channel_account_key !== 'synthetic-account'
+    || captured.processing?.conversation_key !== 'whatsapp:synthetic-conversation'
+    || captured.processing?.sender_role !== 'prospect') {
+    throw new Error('local_e2e_context_envelope_failed');
+  }
   const result = await orchestrator.processCaptured({
     from: '570000000777',
     text: 'Busco del 2026-08-01 al 2026-08-05 para 2 personas con balcón',

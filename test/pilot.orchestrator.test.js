@@ -10,7 +10,10 @@ function fixture() {
     capture: async (body) => { calls.push(['capture', body]); return { created_interaction: true }; },
     decide: async () => ({
       action: 'present', language: 'es', context_hash: 'a'.repeat(64),
-      alternatives: [{ item_id: '1', public_title: 'Estudio', summary: 'Resumen', cover_media: { id: '10' } }]
+      alternatives: [{ item_id: '1', public_title: 'Estudio', summary: 'Resumen', cover_media: { id: '10' } }],
+      presentation_contract: {
+        text: 'Respuesta segura', selected_item_ids: ['1'], selected_media_ids: ['10']
+      }
     }),
     verify: async () => ({ outbox_id: '20' }),
     claim: async () => ({ claimed: true, payload: { text: 'Respuesta segura', media_ids: ['10'] } }),
@@ -27,6 +30,10 @@ function fixture() {
     brainSync: async (body) => { calls.push(['brain', body]); },
     sendImage: async (to, url) => { calls.push(['image', { to, url }]); },
     sendText: async (to, text) => { calls.push(['text', { to, text }]); return 'wamid.outbound.test'; },
+    context: {
+      organizationKey: 'org-test', verticalKey: 'vertical-test', channelKey: 'whatsapp',
+      channelAccountKey: 'account-test', conversationKey: () => 'whatsapp:conversation-test'
+    },
     logger: { info() {}, warn() {}, error() {} }
   });
   return { orchestrator, calls, pms };
@@ -40,6 +47,12 @@ test('captura durable ocurre antes del procesamiento', async () => {
   });
   assert.equal(calls[0][0], 'capture');
   assert.equal(calls[0][1].external_message_id, 'wamid.inbound.test');
+  assert.equal(calls[0][1].organization_key, 'org-test');
+  assert.equal(calls[0][1].vertical_key, 'vertical-test');
+  assert.equal(calls[0][1].channel_key, 'whatsapp');
+  assert.equal(calls[0][1].channel_account_key, 'account-test');
+  assert.equal(calls[0][1].conversation_key, 'whatsapp:conversation-test');
+  assert.equal(calls[0][1].sender_role, 'prospect');
 });
 
 test('recorrido integrado verifica, reclama y registra envío', async () => {

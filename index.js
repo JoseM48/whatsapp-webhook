@@ -151,6 +151,9 @@ const META_SIGNATURE_REQUIRED = String(process.env.META_SIGNATURE_REQUIRED || 'f
 const DEBUG_ENDPOINTS_ENABLED = String(process.env.DEBUG_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const BOOKING_ENDPOINTS_ENABLED = String(process.env.BOOKING_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const PILOT_OPENAI_MODEL = (process.env.PILOT_OPENAI_MODEL || 'gpt-5.6-luna').trim();
+const PILOT_ORGANIZATION_KEY = (process.env.PILOT_ORGANIZATION_KEY || 'versadaa').trim();
+const PILOT_VERTICAL_KEY = (process.env.PILOT_VERTICAL_KEY || 'alojamientos_la_frontera').trim();
+const PILOT_CHANNEL_ACCOUNT_KEY = (process.env.PILOT_CHANNEL_ACCOUNT_KEY || process.env.PHONE_NUMBER_ID || '').trim();
 const PMS_LITE_BASE_URL = (process.env.PMS_LITE_BASE_URL || (() => {
   try { return new URL(PMS_LITE_INBOUND_URL).origin; } catch { return ''; }
 })()).replace(/\/$/, '');
@@ -245,6 +248,16 @@ const pilotOrchestrator = new PilotOrchestrator({
   brainSync: syncPilotLeadToBrain,
   sendText: sendPilotWhatsAppText,
   sendImage: sendPilotWhatsAppImage,
+  context: {
+    organizationKey: PILOT_ORGANIZATION_KEY,
+    verticalKey: PILOT_VERTICAL_KEY,
+    channelKey: 'whatsapp',
+    channelAccountKey: PILOT_CHANNEL_ACCOUNT_KEY || null,
+    conversationKey: (phone) => `whatsapp:${crypto.createHmac(
+      'sha256',
+      process.env.PILOT_CONVERSATION_SALT || process.env.PILOT_SAFETY_SALT || PMS_LITE_WEBHOOK_SECRET
+    ).update(String(phone)).digest('hex')}`
+  },
   logger: console
 });
 
