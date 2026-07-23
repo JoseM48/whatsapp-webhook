@@ -14,6 +14,7 @@ const { OpenAI } = require('openai');
 const { PmsPilotClient } = require('./lib/pilot/pms-client');
 const { PilotAi } = require('./lib/pilot/ai');
 const { PilotOrchestrator } = require('./lib/pilot/orchestrator');
+const { runStartupPreflight } = require('./lib/pilot/startup-preflight');
 const {
   parseAllowlist,
   validateMetaSignature,
@@ -150,6 +151,9 @@ const MVP_LA_FRONTERA_ALLOWLIST_PHONES = parseAllowlist(
 const META_SIGNATURE_REQUIRED = String(process.env.META_SIGNATURE_REQUIRED || 'false').toLowerCase() === 'true';
 const DEBUG_ENDPOINTS_ENABLED = String(process.env.DEBUG_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const BOOKING_ENDPOINTS_ENABLED = String(process.env.BOOKING_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
+const PMS_LITE_STARTUP_PREFLIGHT_ENABLED = String(
+  process.env.PMS_LITE_STARTUP_PREFLIGHT_ENABLED || 'false'
+).toLowerCase() === 'true';
 const PILOT_OPENAI_MODEL = (process.env.PILOT_OPENAI_MODEL || 'gpt-5.6-luna').trim();
 const PILOT_ORGANIZATION_KEY = (process.env.PILOT_ORGANIZATION_KEY || 'versadaa').trim();
 const PILOT_VERTICAL_KEY = (process.env.PILOT_VERTICAL_KEY || 'alojamientos_la_frontera').trim();
@@ -1165,4 +1169,21 @@ if (MVP_LA_FRONTERA_ENABLED) {
 const PORT = process.env.PORT || 3021;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor iniciado en el puerto ${PORT}`);
+  if (PMS_LITE_STARTUP_PREFLIGHT_ENABLED) {
+    setImmediate(async () => {
+      try {
+        const result = await runStartupPreflight({
+          http: axios,
+          pms: pmsPilotClient,
+          baseUrl: PMS_LITE_BASE_URL
+        });
+        console.info('[pms-preflight] result', result);
+      } catch (error) {
+        console.error('[pms-preflight] failed', {
+          status: error?.response?.status || null,
+          code: error?.code || 'preflight_failed'
+        });
+      }
+    });
+  }
 });
