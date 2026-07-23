@@ -16,10 +16,10 @@ const { PilotAi } = require('./lib/pilot/ai');
 const { PilotOrchestrator } = require('./lib/pilot/orchestrator');
 const {
   parseAllowlist,
-  isAllowlisted,
   validateMetaSignature,
   maskPhone: maskPilotPhone
 } = require('./lib/pilot/security');
+const { selectWebhookRoute } = require('./lib/pilot/webhook-routing');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -863,8 +863,23 @@ app.post('/webhook', async (req, res) => {
     const raw = (text || '').trim();
     if (!raw) return res.sendStatus(200);
 
-    const pilotAuthorized = MVP_LA_FRONTERA_ENABLED && isAllowlisted(from, MVP_LA_FRONTERA_ALLOWLIST_PHONES);
-    if (pilotAuthorized) {
+    const webhookRoute = selectWebhookRoute({
+      phone: from,
+      pmsEnabled: PMS_LITE_ENABLED,
+      mvpEnabled: MVP_LA_FRONTERA_ENABLED,
+      quarantineAllowlist: PMS_LITE_ALLOWLIST_PHONES,
+      pilotAllowlist: MVP_LA_FRONTERA_ALLOWLIST_PHONES
+    });
+
+    if (webhookRoute.action === 'quarantine') {
+      console.info('[pilot] quarantined_disabled', {
+        phone: maskPilotPhone(from),
+        message_id_present: Boolean(getPmsLiteMessageId(req.body))
+      });
+      return res.sendStatus(webhookRoute.status);
+    }
+
+    if (webhookRoute.action === 'pilot') {
       const ready = PMS_LITE_ENABLED && PMS_LITE_BASE_URL && PMS_LITE_INBOUND_URL
         && PMS_LITE_WEBHOOK_SECRET && MVP_LA_FRONTERA_ALLOWLIST_PHONES.length > 0;
       const messageId = getPmsLiteMessageId(req.body);
