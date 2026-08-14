@@ -21,6 +21,7 @@ const {
   maskPhone: maskPilotPhone
 } = require('./lib/pilot/security');
 const { selectWebhookRoute } = require('./lib/pilot/webhook-routing');
+const { createPhase2cPhoneTestCapture } = require('./lib/pilot/phase2c-phone-test');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -151,6 +152,7 @@ const MVP_LA_FRONTERA_ALLOWLIST_PHONES = parseAllowlist(
 const META_SIGNATURE_REQUIRED = String(process.env.META_SIGNATURE_REQUIRED || 'false').toLowerCase() === 'true';
 const DEBUG_ENDPOINTS_ENABLED = String(process.env.DEBUG_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const BOOKING_ENDPOINTS_ENABLED = String(process.env.BOOKING_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
+const PHASE2C_PHONE_TEST_ENABLED = String(process.env.PHASE2C_PHONE_TEST_ENABLED || 'false').toLowerCase() === 'true';
 const PMS_LITE_STARTUP_PREFLIGHT_ENABLED = String(
   process.env.PMS_LITE_STARTUP_PREFLIGHT_ENABLED || 'false'
 ).toLowerCase() === 'true';
@@ -162,6 +164,12 @@ const PMS_LITE_BASE_URL = (process.env.PMS_LITE_BASE_URL || (() => {
   try { return new URL(PMS_LITE_INBOUND_URL).origin; } catch { return ''; }
 })()).replace(/\/$/, '');
 const PMS_LITE_PUBLIC_BASE_URL = (process.env.PMS_LITE_PUBLIC_BASE_URL || PMS_LITE_BASE_URL).replace(/\/$/, '');
+const phase2cPhoneTestCapture = createPhase2cPhoneTestCapture({
+  enabled: PHASE2C_PHONE_TEST_ENABLED,
+  runtimeSafe: !PMS_LITE_ENABLED && !MVP_LA_FRONTERA_ENABLED,
+  allowlist: PMS_LITE_ALLOWLIST_PHONES,
+  managerPhone: process.env.ADMIN_WA_NUMBER
+});
 
 function maskPhone(raw) {
   const phone = normalizePhone(raw);
@@ -197,6 +205,8 @@ console.log('[pilot-la-frontera] config', {
   debug_endpoints_enabled: DEBUG_ENDPOINTS_ENABLED,
   booking_endpoints_enabled: BOOKING_ENDPOINTS_ENABLED
 });
+
+console.log('[phase2c-phone-test] config', phase2cPhoneTestCapture.status());
 
 const pmsPilotClient = new PmsPilotClient({
   http: axios,
@@ -876,6 +886,23 @@ app.post('/webhook', async (req, res) => {
     });
 
     if (webhookRoute.action === 'quarantine') {
+      if (PHASE2C_PHONE_TEST_ENABLED) {
+        const capture = phase2cPhoneTestCapture.capture({
+          phone: from,
+          text: raw,
+          messageId: getPmsLiteMessageId(req.body)
+        });
+        const log = {
+          captured: capture.captured,
+          reason: capture.reason || null,
+          role: capture.role || null,
+          command: capture.command || null,
+          state: capture.state,
+          message_id_fingerprint: capture.message_id_fingerprint || null
+        };
+        if (capture.captured) console.info('[phase2c-phone-test] command_received', log);
+        else console.warn('[phase2c-phone-test] command_rejected', log);
+      }
       console.info('[pilot] quarantined_disabled', {
         phone: maskPilotPhone(from),
         message_id_present: Boolean(getPmsLiteMessageId(req.body))
@@ -1001,6 +1028,9 @@ app.get('/health', (_req, res) => res.json({
     durable_capture_enabled: PMS_LITE_ENABLED,
     media_enabled: MVP_LA_FRONTERA_MEDIA_ENABLED,
     meta_signature_required: META_SIGNATURE_REQUIRED
+  },
+  phase2c_phone_test: {
+    ...phase2cPhoneTestCapture.status()
   }
 }));
 
