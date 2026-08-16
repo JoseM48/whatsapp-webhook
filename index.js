@@ -25,6 +25,7 @@ const { createPhase2cPhoneTestCapture } = require('./lib/pilot/phase2c-phone-tes
 const { createPmsWarmup } = require('./lib/pilot/pms-warmup');
 const { createTypingIndicator } = require('./lib/pilot/typing-indicator');
 const { createWaitAck } = require('./lib/pilot/wait-ack');
+const { resolvePmsIngress } = require('./lib/pilot/controlled-ingress');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -147,6 +148,9 @@ const PMS_LITE_ALLOWLIST_PHONES = (process.env.PMS_LITE_ALLOWLIST_PHONES || '')
   .split(',')
   .map((phone) => normalizePhone(phone.trim()))
   .filter(Boolean);
+const PMS_LITE_CONTROLLED_INGRESS_ENABLED = String(
+  process.env.PMS_LITE_CONTROLLED_INGRESS_ENABLED || 'false'
+).toLowerCase() === 'true';
 const MVP_LA_FRONTERA_ENABLED = String(process.env.MVP_LA_FRONTERA_ENABLED || 'false').toLowerCase() === 'true';
 const MVP_LA_FRONTERA_MEDIA_ENABLED = String(process.env.MVP_LA_FRONTERA_MEDIA_ENABLED || 'true').toLowerCase() === 'true';
 const MVP_LA_FRONTERA_ALLOWLIST_PHONES = parseAllowlist(
@@ -195,6 +199,7 @@ console.log('[pms-lite] config', {
   inbound_url_path: getPmsLiteUrlPath(),
   webhook_secret_present: Boolean(PMS_LITE_WEBHOOK_SECRET),
   allowlist_count: PMS_LITE_ALLOWLIST_PHONES.length,
+  controlled_ingress_enabled: PMS_LITE_CONTROLLED_INGRESS_ENABLED,
   timeout_ms: PMS_LITE_TIMEOUT_MS
 });
 
@@ -340,12 +345,6 @@ async function consultarBrain({ from, text, payload }) {
   }
 }
 
-function isPmsLiteAllowlisted(from) {
-  if (PMS_LITE_ALLOWLIST_PHONES.length === 0) return false;
-  const normalized = normalizePhone(from);
-  return PMS_LITE_ALLOWLIST_PHONES.includes(normalized);
-}
-
 function getPmsLiteMessageId(payload) {
   return payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id || null;
 }
@@ -373,6 +372,8 @@ async function enviarPmsLiteInbound({ from, text, payload }) {
   const startedAt = Date.now();
   const phoneMasked = maskPhone(from);
   const messageId = getPmsLiteMessageId(payload);
+  const ingress=resolvePmsIngress({phone:normalizePhone(from),allowlist:PMS_LITE_ALLOWLIST_PHONES,
+    controlledEnabled:PMS_LITE_CONTROLLED_INGRESS_ENABLED});
 
   if (!PMS_LITE_ENABLED) {
     console.log('[pms-lite] skipped_disabled', {
@@ -388,7 +389,7 @@ async function enviarPmsLiteInbound({ from, text, payload }) {
     });
     return;
   }
-  if (!isPmsLiteAllowlisted(from)) {
+  if (!ingress.allowed) {
     console.log('[pms-lite] skipped_not_allowlisted', {
       phone: phoneMasked,
       allowlist_count: PMS_LITE_ALLOWLIST_PHONES.length
@@ -403,7 +404,7 @@ async function enviarPmsLiteInbound({ from, text, payload }) {
     mensaje: text,
     timestamp: getPmsLiteTimestamp(payload),
     external_message_id: messageId || `wa-${normalizePhone(from)}-${Date.now()}`,
-    origen: 'whatsapp_oficial_render_controlado'
+    origen: ingress.origin
   };
   const rawBody = JSON.stringify(body);
   const signature = signPmsLitePayload(timestamp, rawBody);
@@ -413,7 +414,8 @@ async function enviarPmsLiteInbound({ from, text, payload }) {
       phone: phoneMasked,
       message_id_present: Boolean(messageId),
       inbound_url_path: getPmsLiteUrlPath(),
-      timeout_ms: PMS_LITE_TIMEOUT_MS
+      timeout_ms: PMS_LITE_TIMEOUT_MS,
+      ingress_mode: ingress.mode
     });
     const response = await axios.post(PMS_LITE_INBOUND_URL, body, {
       headers: {
@@ -437,6 +439,10 @@ async function enviarPmsLiteInbound({ from, text, payload }) {
       return;
     }
     if (error?.response) {
+      if(error.response.status===409&&ingress.mode==='controlled_cohort') {
+        console.log('[pms-lite] controlled_cap_reached',{duration_ms:Date.now()-startedAt});
+        return;
+      }
       console.log('[pms-lite] inbound_http_error', {
         status: error.response.status,
         code: error?.code,
@@ -1062,6 +1068,7 @@ app.get('/health', (_req, res) => res.json({
   pilot_la_frontera: {
     enabled: MVP_LA_FRONTERA_ENABLED,
     allowlist_count: MVP_LA_FRONTERA_ALLOWLIST_PHONES.length,
+    controlled_ingress_enabled: PMS_LITE_CONTROLLED_INGRESS_ENABLED,
     durable_capture_enabled: PMS_LITE_ENABLED,
     media_enabled: MVP_LA_FRONTERA_MEDIA_ENABLED,
     meta_signature_required: META_SIGNATURE_REQUIRED
