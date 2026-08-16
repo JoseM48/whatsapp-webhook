@@ -22,6 +22,9 @@ const {
 } = require('./lib/pilot/security');
 const { selectWebhookRoute } = require('./lib/pilot/webhook-routing');
 const { createPhase2cPhoneTestCapture } = require('./lib/pilot/phase2c-phone-test');
+const { createPmsWarmup } = require('./lib/pilot/pms-warmup');
+const { createTypingIndicator } = require('./lib/pilot/typing-indicator');
+const { createWaitAck } = require('./lib/pilot/wait-ack');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -216,6 +219,34 @@ const pmsPilotClient = new PmsPilotClient({
   timeoutMs: Number(process.env.MVP_LA_FRONTERA_TIMEOUT_MS || 8000),
   publicBaseUrl: PMS_LITE_PUBLIC_BASE_URL,
   mediaSigningSecret: process.env.PILOT_MEDIA_SIGNING_SECRET || PMS_LITE_WEBHOOK_SECRET
+});
+
+const pmsWarmup = createPmsWarmup({
+  enabled: String(process.env.PMS_LITE_WARMUP_ENABLED || 'false').toLowerCase() === 'true',
+  cooldownMs: Number(process.env.PMS_LITE_WARMUP_COOLDOWN_MS || 60_000),
+  warm: () => pmsPilotClient.warmup(Number(process.env.PMS_LITE_WARMUP_TIMEOUT_MS || 75_000)),
+});
+
+const pilotTypingIndicator = createTypingIndicator({
+  enabled: String(process.env.PILOT_TYPING_INDICATOR_ENABLED || 'false').toLowerCase() === 'true',
+  send: (payload) => axios.post(WHATSAPP_API_URL, payload, {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    timeout: 15_000,
+  }),
+});
+
+const pilotWaitAck = createWaitAck({
+  enabled: String(process.env.PILOT_WAIT_ACK_ENABLED || 'false').toLowerCase() === 'true',
+  send: async (recipient, text) => {
+    const phone = normalizePhone(recipient);
+    if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+    await axios.post(WHATSAPP_API_URL, {
+      messaging_product: 'whatsapp', to: phone, text: { body: text },
+    }, {
+      headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      timeout: 5_000,
+    });
+  },
 });
 
 const pilotAi = new PilotAi({
@@ -920,8 +951,11 @@ app.post('/webhook', async (req, res) => {
         });
         return res.sendStatus(503);
       }
+      pmsWarmup.trigger();
+      void pilotTypingIndicator.show(messageId);
+      let captureResult;
       try {
-        await pilotOrchestrator.capture({
+        captureResult = await pilotOrchestrator.capture({
           from: normalizePhone(from), text: raw, messageId,
           timestamp: getPmsLiteTimestamp(req.body), name: getPmsLiteContactName(req.body)
         });
@@ -935,12 +969,15 @@ app.post('/webhook', async (req, res) => {
       }
 
       res.sendStatus(200);
-      const today = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit'
-      }).format(new Date());
-      setImmediate(() => pilotOrchestrator.processCaptured({
-        from: normalizePhone(from), text: raw, messageId, today
-      }));
+      setImmediate(async () => {
+        await pilotWaitAck.afterCapture({ captureResult, recipient: normalizePhone(from) });
+        const today = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).format(new Date());
+        await pilotOrchestrator.processCaptured({
+          from: normalizePhone(from), text: raw, messageId, today
+        });
+      });
       return;
     }
 
