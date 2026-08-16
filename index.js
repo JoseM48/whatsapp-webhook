@@ -287,12 +287,12 @@ async function sendPilotWhatsAppImage(to, link) {
   return response.data?.messages?.[0]?.id || null;
 }
 
-async function sendPilotWhatsAppTemplate(to, templateName, parameters, documentLink = null) {
+async function sendPilotWhatsAppTemplate(to, templateName, parameters, documentProviderReference = null) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
   const components = [];
-  if (documentLink) {
-    components.push({ type: 'header', parameters: [{ type: 'document', document: { link: documentLink } }] });
+  if (documentProviderReference) {
+    components.push({ type: 'header', parameters: [{ type: 'document', document: { id: documentProviderReference } }] });
   }
   components.push({
     type: 'body',

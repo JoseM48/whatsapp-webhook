@@ -73,3 +73,23 @@ test('soporte al propietario no sale sin cabecera documental segura', async () =
   await assert.rejects(adapter.deliver({ claim, recipient: '573000000001' }), /supervised_document_header_not_available/);
   assert.deepEqual(calls.map((item) => item[0]), ['failed']);
 });
+
+test('soporte cifrado sólo se entrega con referencia autorizada al iniciar', async () => {
+  const { adapter, calls, claim } = fixture({ templateKey: 'payment_evidence_owner_reconciliation' });
+  claim.payload = { support_asset_id: 7, template_parameters: ['PR-1', 'LF-210', '500.000'] };
+  adapter.pms.beginSupervisedSubmission = async (id) => {
+    calls.push(['begin', id]);
+    return {
+      delivery_id: id,
+      destination_reference_hash: claim.destination_reference_hash,
+      delivery_mode: 'template',
+      template_key: claim.template_key,
+      template_parameters: claim.payload.template_parameters,
+      document_provider_reference: 'MIO_TEST_META_MEDIA_001',
+      submission_attempt_hash: 'A'.repeat(64)
+    };
+  };
+  await adapter.deliver({ claim, recipient: '573000000001' });
+  assert.deepEqual(calls.map((item) => item[0]), ['begin', 'template', 'complete']);
+  assert.equal(calls[1][4], 'MIO_TEST_META_MEDIA_001');
+});
