@@ -26,6 +26,7 @@ const { createPmsWarmup } = require('./lib/pilot/pms-warmup');
 const { createTypingIndicator } = require('./lib/pilot/typing-indicator');
 const { createWaitAck } = require('./lib/pilot/wait-ack');
 const { resolvePmsIngress } = require('./lib/pilot/controlled-ingress');
+const { SupervisedOutboundAdapter } = require('./lib/pilot/supervised-outbound-adapter');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -286,6 +287,29 @@ async function sendPilotWhatsAppImage(to, link) {
   return response.data?.messages?.[0]?.id || null;
 }
 
+async function sendPilotWhatsAppTemplate(to, templateName, parameters, documentLink = null) {
+  const phone = normalizePhone(to);
+  if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  const components = [];
+  if (documentLink) {
+    components.push({ type: 'header', parameters: [{ type: 'document', document: { link: documentLink } }] });
+  }
+  components.push({
+    type: 'body',
+    parameters: parameters.map((value) => ({ type: 'text', text: String(value) }))
+  });
+  const response = await axios.post(WHATSAPP_API_URL, {
+    messaging_product: 'whatsapp',
+    to: phone,
+    type: 'template',
+    template: { name: templateName, language: { code: 'es_CO' }, components }
+  }, {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    timeout: 15000
+  });
+  return response.data?.messages?.[0]?.id || null;
+}
+
 async function syncPilotLeadToBrain(lead) {
   const headers = {};
   if (process.env.BRAIN_SERVICE_TOKEN) headers['X-Brain-Service-Token'] = process.env.BRAIN_SERVICE_TOKEN;
@@ -310,6 +334,14 @@ const pilotOrchestrator = new PilotOrchestrator({
   },
   logger: console
 });
+
+const supervisedOutboundAdapter = new SupervisedOutboundAdapter({
+  pms: pmsPilotClient,
+  sendSessionText: sendPilotWhatsAppText,
+  sendTemplate: sendPilotWhatsAppTemplate,
+  logger: console
+});
+app.locals.supervisedOutboundAdapter = supervisedOutboundAdapter;
 
 async function enviarWhatsApp(to, body) {
   const phone = normalizePhone(to);
