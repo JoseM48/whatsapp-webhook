@@ -1103,7 +1103,13 @@ app.get('/health', (_req, res) => res.json({
     controlled_ingress_enabled: PMS_LITE_CONTROLLED_INGRESS_ENABLED,
     durable_capture_enabled: PMS_LITE_ENABLED,
     media_enabled: MVP_LA_FRONTERA_MEDIA_ENABLED,
-    meta_signature_required: META_SIGNATURE_REQUIRED
+    meta_signature_required: META_SIGNATURE_REQUIRED,
+    supervised_outbound_adapter: {
+      installed: Boolean(app.locals.supervisedOutboundAdapter),
+      active: false,
+      automatic_retry_on_unknown: false,
+      document_header_fail_closed: true
+    }
   },
   phase2c_phone_test: {
     ...phase2cPhoneTestCapture.status()
