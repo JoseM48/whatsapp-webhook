@@ -13,6 +13,7 @@ function route(overrides = {}) {
     phone: '+57 300 000 0001',
     pmsEnabled: false,
     mvpEnabled: false,
+    m0Enabled: false,
     quarantineAllowlist,
     pilotAllowlist,
     ...overrides
@@ -46,6 +47,14 @@ test('preserva la ruta piloto que delega deduplicacion a PMS Lite', () => {
   const result = route({ pmsEnabled: true, mvpEnabled: true });
   assert.equal(result.action, 'pilot');
   assert.equal(result.status, null);
+});
+
+test('M0 dirige incluso el telefono de prueba a captura controlada sin activar el piloto completo', () => {
+  assert.deepEqual(route({ pmsEnabled: true, m0Enabled: true }), {
+    action: 'legacy',
+    status: null,
+    reason: 'm0_controlled_capture'
+  });
 });
 
 test('preserva el flujo heredado para telefonos fuera de la allowlist', () => {

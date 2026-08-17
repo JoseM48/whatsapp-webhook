@@ -18,3 +18,9 @@ test('admite candidatos de cohorte solo cuando la bandera está activa', () => {
     allowed:true,mode:'controlled_cohort',origin:'whatsapp_oficial_controlled_ingress'
   });
 });
+
+test('M0 prioriza cohorte controlada incluso para un telefono de allowlist', () => {
+  assert.deepEqual(resolvePmsIngress({
+    phone:'+573000000001',allowlist:['573000000001'],controlledEnabled:true,preferControlled:true
+  }), {allowed:true,mode:'controlled_cohort',origin:'whatsapp_oficial_controlled_ingress'});
+});

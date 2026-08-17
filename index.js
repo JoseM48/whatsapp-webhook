@@ -26,6 +26,7 @@ const { createPmsWarmup } = require('./lib/pilot/pms-warmup');
 const { createTypingIndicator } = require('./lib/pilot/typing-indicator');
 const { createWaitAck } = require('./lib/pilot/wait-ack');
 const { resolvePmsIngress } = require('./lib/pilot/controlled-ingress');
+const { CONSENT_NOTICE_HASH, CONSENT_NOTICE_VERSION, decideM0Response } = require('./lib/pilot/m0-ingress');
 const { SupervisedOutboundAdapter } = require('./lib/pilot/supervised-outbound-adapter');
 
 // Logs de variables críticas (sin exponer valores)
@@ -152,6 +153,10 @@ const PMS_LITE_ALLOWLIST_PHONES = (process.env.PMS_LITE_ALLOWLIST_PHONES || '')
 const PMS_LITE_CONTROLLED_INGRESS_ENABLED = String(
   process.env.PMS_LITE_CONTROLLED_INGRESS_ENABLED || 'false'
 ).toLowerCase() === 'true';
+const PMS_LITE_M0_ENABLED = String(process.env.PMS_LITE_M0_ENABLED || 'false').toLowerCase() === 'true';
+if (PMS_LITE_M0_ENABLED && (!PMS_LITE_ENABLED || !PMS_LITE_CONTROLLED_INGRESS_ENABLED)) {
+  throw new Error('PMS_LITE_M0_ENABLED requires PMS_LITE_ENABLED and PMS_LITE_CONTROLLED_INGRESS_ENABLED');
+}
 const MVP_LA_FRONTERA_ENABLED = String(process.env.MVP_LA_FRONTERA_ENABLED || 'false').toLowerCase() === 'true';
 const MVP_LA_FRONTERA_MEDIA_ENABLED = String(process.env.MVP_LA_FRONTERA_MEDIA_ENABLED || 'true').toLowerCase() === 'true';
 const MVP_LA_FRONTERA_ALLOWLIST_PHONES = parseAllowlist(
@@ -201,6 +206,7 @@ console.log('[pms-lite] config', {
   webhook_secret_present: Boolean(PMS_LITE_WEBHOOK_SECRET),
   allowlist_count: PMS_LITE_ALLOWLIST_PHONES.length,
   controlled_ingress_enabled: PMS_LITE_CONTROLLED_INGRESS_ENABLED,
+  m0_enabled: PMS_LITE_M0_ENABLED,
   timeout_ms: PMS_LITE_TIMEOUT_MS
 });
 
@@ -335,6 +341,25 @@ const pilotOrchestrator = new PilotOrchestrator({
   logger: console
 });
 
+let m0AttestationFreshUntil = 0;
+let m0AttestationPromise = null;
+async function ensureM0RuntimeAttestation() {
+  if (!PMS_LITE_M0_ENABLED) return null;
+  if (Date.now() < m0AttestationFreshUntil) return { status: 'fresh' };
+  if (m0AttestationPromise) return m0AttestationPromise;
+  m0AttestationPromise = pmsPilotClient.attestM0({
+    component: 'whatsapp_webhook',
+    m0_enabled: true,
+    controlled_ingress_enabled: PMS_LITE_CONTROLLED_INGRESS_ENABLED,
+    notice_version: CONSENT_NOTICE_VERSION,
+    notice_text_hash: CONSENT_NOTICE_HASH
+  }).then((result) => {
+    m0AttestationFreshUntil = Date.now() + 5 * 60_000;
+    return result;
+  }).finally(() => { m0AttestationPromise = null; });
+  return m0AttestationPromise;
+}
+
 const supervisedOutboundAdapter = new SupervisedOutboundAdapter({
   pms: pmsPilotClient,
   sendSessionText: sendPilotWhatsAppText,
@@ -345,9 +370,9 @@ app.locals.supervisedOutboundAdapter = supervisedOutboundAdapter;
 
 async function enviarWhatsApp(to, body) {
   const phone = normalizePhone(to);
-  if (!phone) { console.error('enviarWhatsApp → número inválido:', to); return; }
+  if (!phone) { console.error('enviarWhatsApp → número inválido:', to); return { sent: false, providerReference: null }; }
   try {
-    await axios.post(WHATSAPP_API_URL, {
+    const response = await axios.post(WHATSAPP_API_URL, {
       messaging_product: 'whatsapp',
       to: phone,
       text: { body }
@@ -355,8 +380,11 @@ async function enviarWhatsApp(to, body) {
       headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
       timeout: 15000
     });
+    const providerReference = response?.data?.messages?.[0]?.id || null;
+    return { sent: Boolean(providerReference), providerReference };
   } catch (error) {
     console.error('Error enviando WhatsApp:', error?.response?.data || error.message);
+    return { sent: false, providerReference: null };
   }
 }
 
@@ -405,13 +433,13 @@ async function enviarPmsLiteInbound({ from, text, payload }) {
   const phoneMasked = maskPhone(from);
   const messageId = getPmsLiteMessageId(payload);
   const ingress=resolvePmsIngress({phone:normalizePhone(from),allowlist:PMS_LITE_ALLOWLIST_PHONES,
-    controlledEnabled:PMS_LITE_CONTROLLED_INGRESS_ENABLED});
+    controlledEnabled:PMS_LITE_CONTROLLED_INGRESS_ENABLED,preferControlled:PMS_LITE_M0_ENABLED});
 
   if (!PMS_LITE_ENABLED) {
     console.log('[pms-lite] skipped_disabled', {
       phone: phoneMasked
     });
-    return;
+    return { captured: false, ingressMode: ingress.mode, reason: 'disabled' };
   }
   if (!PMS_LITE_INBOUND_URL || !PMS_LITE_WEBHOOK_SECRET) {
     console.log('[pms-lite] missing_config', {
@@ -419,14 +447,14 @@ async function enviarPmsLiteInbound({ from, text, payload }) {
       webhook_secret_present: Boolean(PMS_LITE_WEBHOOK_SECRET),
       phone: phoneMasked
     });
-    return;
+    return { captured: false, ingressMode: ingress.mode, reason: 'missing_config' };
   }
   if (!ingress.allowed) {
     console.log('[pms-lite] skipped_not_allowlisted', {
       phone: phoneMasked,
       allowlist_count: PMS_LITE_ALLOWLIST_PHONES.length
     });
-    return;
+    return { captured: false, ingressMode: ingress.mode, reason: 'not_allowed' };
   }
 
   const timestamp = new Date().toISOString();
@@ -442,6 +470,7 @@ async function enviarPmsLiteInbound({ from, text, payload }) {
   const signature = signPmsLitePayload(timestamp, rawBody);
 
   try {
+    await ensureM0RuntimeAttestation();
     console.log('[pms-lite] posting', {
       phone: phoneMasked,
       message_id_present: Boolean(messageId),
@@ -461,6 +490,15 @@ async function enviarPmsLiteInbound({ from, text, payload }) {
       status: response?.status,
       duration_ms: Date.now() - startedAt
     });
+    return {
+      captured: true,
+      ingressMode: ingress.mode,
+      deduplicated: response?.data?.data?.deduplicated === true,
+      newlyEnrolled: response?.data?.data?.newly_enrolled === true,
+      leadId: response?.data?.data?.lead?.id || null,
+      interactionId: response?.data?.data?.interaction?.id || null,
+      consentNotice: response?.data?.data?.consent_notice || null
+    };
   } catch (error) {
     const timedOut = error?.code === 'ECONNABORTED' || String(error?.message || '').toLowerCase().includes('timeout');
     if (timedOut) {
@@ -468,24 +506,25 @@ async function enviarPmsLiteInbound({ from, text, payload }) {
         code: error?.code,
         duration_ms: Date.now() - startedAt
       });
-      return;
+      return { captured: false, ingressMode: ingress.mode, reason: 'timeout' };
     }
     if (error?.response) {
       if(error.response.status===409&&ingress.mode==='controlled_cohort') {
         console.log('[pms-lite] controlled_cap_reached',{duration_ms:Date.now()-startedAt});
-        return;
+        return { captured: false, ingressMode: ingress.mode, reason: 'cap_reached' };
       }
       console.log('[pms-lite] inbound_http_error', {
         status: error.response.status,
         code: error?.code,
         duration_ms: Date.now() - startedAt
       });
-      return;
+      return { captured: false, ingressMode: ingress.mode, reason: 'http_error' };
     }
     console.log('[pms-lite] inbound_error', {
       code: error?.code,
       duration_ms: Date.now() - startedAt
     });
+    return { captured: false, ingressMode: ingress.mode, reason: 'network_error' };
   }
 }
 
@@ -950,6 +989,7 @@ app.post('/webhook', async (req, res) => {
       phone: from,
       pmsEnabled: PMS_LITE_ENABLED,
       mvpEnabled: MVP_LA_FRONTERA_ENABLED,
+      m0Enabled: PMS_LITE_M0_ENABLED,
       quarantineAllowlist: PMS_LITE_ALLOWLIST_PHONES,
       pilotAllowlist: MVP_LA_FRONTERA_ALLOWLIST_PHONES
     });
@@ -1019,11 +1059,44 @@ app.post('/webhook', async (req, res) => {
       return;
     }
 
-    await enviarPmsLiteInbound({
+    const pmsCapture = await enviarPmsLiteInbound({
       from,
       text: raw,
       payload: req.body
     });
+    const m0 = decideM0Response({
+      enabled: PMS_LITE_M0_ENABLED,
+      ingressMode: pmsCapture?.ingressMode,
+      captured: pmsCapture?.captured,
+      deduplicated: pmsCapture?.deduplicated,
+      newlyEnrolled: pmsCapture?.newlyEnrolled,
+      noticePending: pmsCapture?.consentNotice?.status === 'pending',
+      text: raw
+    });
+    if (m0.handled) {
+      if (m0.response) {
+        const delivery = await enviarWhatsApp(from, m0.response);
+        if (m0.consentNoticeSubmissionRequired) {
+          if (!pmsCapture?.consentNotice?.id || !delivery?.sent || !delivery.providerReference) {
+            console.error('[m0] consent_notice_submission_unconfirmed');
+            return res.sendStatus(503);
+          }
+          try {
+            await pmsPilotClient.recordConsentNoticeSubmitted({
+              notice_id: pmsCapture.consentNotice.id,
+              provider_reference: delivery.providerReference
+            });
+          } catch (error) {
+            console.error('[m0] consent_notice_persistence_failed', {
+              status: error?.response?.status || null,
+              code: error?.code || 'notice_persistence_failed'
+            });
+            return res.sendStatus(503);
+          }
+        }
+      }
+      return res.sendStatus(200);
+    }
     const brainReply = await consultarBrain({
       from,
       text: raw,
@@ -1101,6 +1174,8 @@ app.get('/health', (_req, res) => res.json({
     enabled: MVP_LA_FRONTERA_ENABLED,
     allowlist_count: MVP_LA_FRONTERA_ALLOWLIST_PHONES.length,
     controlled_ingress_enabled: PMS_LITE_CONTROLLED_INGRESS_ENABLED,
+    m0_enabled: PMS_LITE_M0_ENABLED,
+    m0_manual_commercial_actions: true,
     durable_capture_enabled: PMS_LITE_ENABLED,
     media_enabled: MVP_LA_FRONTERA_MEDIA_ENABLED,
     meta_signature_required: META_SIGNATURE_REQUIRED,
@@ -1281,15 +1356,18 @@ if (MVP_LA_FRONTERA_ENABLED) {
 const PORT = process.env.PORT || 3021;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor iniciado en el puerto ${PORT}`);
-  if (PMS_LITE_STARTUP_PREFLIGHT_ENABLED) {
+  if (PMS_LITE_M0_ENABLED || PMS_LITE_STARTUP_PREFLIGHT_ENABLED) {
     setImmediate(async () => {
       try {
-        const result = await runStartupPreflight({
-          http: axios,
-          pms: pmsPilotClient,
-          baseUrl: PMS_LITE_BASE_URL
-        });
-        console.info('[pms-preflight] result', result);
+        await ensureM0RuntimeAttestation();
+        if (PMS_LITE_STARTUP_PREFLIGHT_ENABLED) {
+          const result = await runStartupPreflight({
+            http: axios,
+            pms: pmsPilotClient,
+            baseUrl: PMS_LITE_BASE_URL
+          });
+          console.info('[pms-preflight] result', result);
+        }
       } catch (error) {
         console.error('[pms-preflight] failed', {
           status: error?.response?.status || null,
