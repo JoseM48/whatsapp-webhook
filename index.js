@@ -353,7 +353,11 @@ async function ensureM0RuntimeAttestation() {
     controlled_ingress_enabled: PMS_LITE_CONTROLLED_INGRESS_ENABLED,
     notice_version: CONSENT_NOTICE_VERSION,
     notice_text_hash: CONSENT_NOTICE_HASH
-  }).then((result) => {
+  }).then(async (result) => {
+    await pmsPilotClient.registerOwnerAuthority({
+      identity_reference: 'jose_manuel_gomez',
+      apartment_codes: ['LF-210', 'LF-404', 'LF-1208']
+    });
     m0AttestationFreshUntil = Date.now() + 5 * 60_000;
     return result;
   }).finally(() => { m0AttestationPromise = null; });
