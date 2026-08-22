@@ -179,6 +179,7 @@ const PMS_LITE_BASE_URL = (process.env.PMS_LITE_BASE_URL || (() => {
 const PMS_LITE_PUBLIC_BASE_URL = (process.env.PMS_LITE_PUBLIC_BASE_URL || PMS_LITE_BASE_URL).replace(/\/$/, '');
 const M0_OPERATOR_PROPOSAL_RELAY_VERSION = (process.env.M0_OPERATOR_PROPOSAL_RELAY_VERSION || '').trim();
 const M0_OPERATOR_AVAILABILITY_CERTIFICATION_VERSION = (process.env.M0_OPERATOR_AVAILABILITY_CERTIFICATION_VERSION || '').trim();
+const M0_OPERATOR_PRERESERVATION_RELAY_VERSION = (process.env.M0_OPERATOR_PRERESERVATION_RELAY_VERSION || '').trim();
 const phase2cPhoneTestCapture = createPhase2cPhoneTestCapture({
   enabled: PHASE2C_PHONE_TEST_ENABLED,
   runtimeSafe: !PMS_LITE_ENABLED && !MVP_LA_FRONTERA_ENABLED,
@@ -426,6 +427,32 @@ async function runM0OperatorAvailabilityCertificationRelay() {
     window: result?.window || null,
     scope: result?.scope || [],
     certification_count: Array.isArray(result?.results) ? result.results.length : null,
+    messages_sent: result?.messages_sent ?? null,
+    external_calls_performed: result?.external_calls_performed ?? null
+  });
+  return result;
+}
+
+async function runM0OperatorPreReservationRelay() {
+  // This one-shot gate creates only an internal pre-reservation.  The PMS
+  // keeps owner notification held and requires later Airbnb verification.
+  if (M0_OPERATOR_PRERESERVATION_RELAY_VERSION !== 'v1') return null;
+  if (!PMS_LITE_M0_ENABLED || !PMS_LITE_BASE_URL || !PMS_LITE_WEBHOOK_SECRET) {
+    throw new Error('m0_operator_pre_reservation_not_ready');
+  }
+  const requestId = (process.env.M0_OPERATOR_PRERESERVATION_REQUEST_ID || '').trim();
+  const apartmentCode = (process.env.M0_OPERATOR_PRERESERVATION_APARTMENT_CODE || '').trim();
+  if (!/^[a-zA-Z0-9_.:-]{8,120}$/.test(requestId) || !['LF-210', 'LF-404', 'LF-1208'].includes(apartmentCode)) {
+    throw new Error('m0_operator_pre_reservation_invalid_request');
+  }
+  const result = await pmsPilotClient.createLatestSupervisedPreReservation({
+    request_id: requestId, apartment_code: apartmentCode
+  });
+  console.log('[m0-operator-pre-reservation] completed', {
+    pre_reservation_id: result?.pre_reservation_id || null,
+    state: result?.state || null,
+    airbnb_verification_required: result?.airbnb_verification_required ?? null,
+    owner_notification_held: result?.owner_notification_held ?? null,
     messages_sent: result?.messages_sent ?? null,
     external_calls_performed: result?.external_calls_performed ?? null
   });
@@ -1437,6 +1464,7 @@ app.listen(PORT, '0.0.0.0', () => {
         await ensureM0RuntimeAttestation();
         await runM0OperatorAvailabilityCertificationRelay();
         await runM0OperatorProposalRelay();
+        await runM0OperatorPreReservationRelay();
         if (PMS_LITE_STARTUP_PREFLIGHT_ENABLED) {
           const result = await runStartupPreflight({
             http: axios,
