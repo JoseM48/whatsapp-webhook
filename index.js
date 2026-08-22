@@ -520,6 +520,7 @@ async function enviarPmsLiteInbound({ from, text, payload }) {
       console.log('[pms-lite] inbound_http_error', {
         status: error.response.status,
         code: error?.code,
+        remote_code: error?.response?.data?.error?.code || error?.response?.data?.error || null,
         duration_ms: Date.now() - startedAt
       });
       return { captured: false, ingressMode: ingress.mode, reason: 'http_error' };
