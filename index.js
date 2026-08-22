@@ -1319,7 +1319,7 @@ app.post('/debug/booking/reserve', async (req, res) => {
 // ===============================
 let pilotRecoveryRunning = false;
 async function recoverPilotQueues() {
-  if (pilotRecoveryRunning || !MVP_LA_FRONTERA_ENABLED || !PMS_LITE_ENABLED) return;
+  if (pilotRecoveryRunning || (!MVP_LA_FRONTERA_ENABLED && !PMS_LITE_M0_ENABLED) || !PMS_LITE_ENABLED) return;
   pilotRecoveryRunning = true;
   try {
     const [processing, outbound] = await Promise.all([
@@ -1353,7 +1353,7 @@ async function recoverPilotQueues() {
   }
 }
 
-if (MVP_LA_FRONTERA_ENABLED) {
+if (MVP_LA_FRONTERA_ENABLED || PMS_LITE_M0_ENABLED) {
   const recoveryTimer = setInterval(recoverPilotQueues, Number(process.env.MVP_RECOVERY_INTERVAL_MS || 60000));
   recoveryTimer.unref();
 }
