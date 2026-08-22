@@ -1375,7 +1375,8 @@ app.listen(PORT, '0.0.0.0', () => {
       } catch (error) {
         console.error('[pms-preflight] failed', {
           status: error?.response?.status || null,
-          code: error?.code || 'preflight_failed'
+          code: error?.code || 'preflight_failed',
+          remote_code: error?.response?.data?.error?.code || error?.response?.data?.error || null
         });
       }
     });
