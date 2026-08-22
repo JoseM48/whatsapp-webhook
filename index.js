@@ -177,6 +177,7 @@ const PMS_LITE_BASE_URL = (process.env.PMS_LITE_BASE_URL || (() => {
   try { return new URL(PMS_LITE_INBOUND_URL).origin; } catch { return ''; }
 })()).replace(/\/$/, '');
 const PMS_LITE_PUBLIC_BASE_URL = (process.env.PMS_LITE_PUBLIC_BASE_URL || PMS_LITE_BASE_URL).replace(/\/$/, '');
+const M0_OPERATOR_PROPOSAL_RELAY_VERSION = (process.env.M0_OPERATOR_PROPOSAL_RELAY_VERSION || '').trim();
 const phase2cPhoneTestCapture = createPhase2cPhoneTestCapture({
   enabled: PHASE2C_PHONE_TEST_ENABLED,
   runtimeSafe: !PMS_LITE_ENABLED && !MVP_LA_FRONTERA_ENABLED,
@@ -362,6 +363,38 @@ async function ensureM0RuntimeAttestation() {
     return result;
   }).finally(() => { m0AttestationPromise = null; });
   return m0AttestationPromise;
+}
+
+async function runM0OperatorProposalRelay() {
+  // Deliberately inert unless the operator supplies the short-lived v2 trigger.
+  // This prevents any legacy environment values from repeating a request at restart.
+  if (M0_OPERATOR_PROPOSAL_RELAY_VERSION !== 'v2') return null;
+  if (!PMS_LITE_M0_ENABLED || !PMS_LITE_BASE_URL || !PMS_LITE_WEBHOOK_SECRET) {
+    throw new Error('m0_operator_proposal_not_ready');
+  }
+  const requestId = (process.env.M0_OPERATOR_PROPOSAL_REQUEST_ID || '').trim();
+  const checkIn = (process.env.M0_OPERATOR_PROPOSAL_CHECK_IN || '').trim();
+  const checkOut = (process.env.M0_OPERATOR_PROPOSAL_CHECK_OUT || '').trim();
+  const guests = Number(process.env.M0_OPERATOR_PROPOSAL_GUESTS || 0);
+  const apartmentCode = (process.env.M0_OPERATOR_PROPOSAL_APARTMENT_CODE || '').trim();
+  if (!/^[a-zA-Z0-9_.:-]{8,120}$/.test(requestId)
+    || !/^\d{4}-\d{2}-\d{2}$/.test(checkIn)
+    || !/^\d{4}-\d{2}-\d{2}$/.test(checkOut)
+    || !Number.isInteger(guests) || guests < 1 || guests > 12
+    || !['LF-210', 'LF-404', 'LF-1208'].includes(apartmentCode)) {
+    throw new Error('m0_operator_proposal_invalid_request');
+  }
+  const result = await pmsPilotClient.requestLatestSupervisedProposals({
+    request_id: requestId, check_in: checkIn, check_out: checkOut, guests, apartment_code: apartmentCode
+  });
+  console.log('[m0-operator-proposal] completed', {
+    action: result?.action || null,
+    proposal_count: Array.isArray(result?.proposals) ? result.proposals.length : null,
+    apartment_codes: Array.isArray(result?.proposals) ? result.proposals.map((item) => item.apartment_code) : [],
+    calendar_sync: result?.calendar_sync || null,
+    messages_sent: result?.messages_sent ?? null
+  });
+  return result;
 }
 
 const supervisedOutboundAdapter = new SupervisedOutboundAdapter({
@@ -1367,6 +1400,7 @@ app.listen(PORT, '0.0.0.0', () => {
     setImmediate(async () => {
       try {
         await ensureM0RuntimeAttestation();
+        await runM0OperatorProposalRelay();
         if (PMS_LITE_STARTUP_PREFLIGHT_ENABLED) {
           const result = await runStartupPreflight({
             http: axios,
