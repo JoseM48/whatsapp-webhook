@@ -38,8 +38,19 @@ test('M0 confirma SALIR y acusa recibo de texto libre sin automatizar la gestion
     enabled: true, ingressMode: 'controlled_cohort', captured: true, newlyEnrolled: false, text: 'Mañana'
   });
   assert.equal(received.handled, true);
-  assert.match(received.response, /Recibimos los datos/);
-  assert.match(received.response, /verificando disponibilidad/);
+  assert.match(received.response, /Registramos tu solicitud/);
+  assert.match(received.response, /no confirma disponibilidad, precio ni reserva/);
+});
+
+test('M0 resume una solicitud controlada sin convertirla en confirmación comercial', () => {
+  const received = decideM0Response({
+    enabled: true, ingressMode: 'controlled_cohort', captured: true, newlyEnrolled: false,
+    text: 'Del 2 de octubre al 4. Somos dos personas y me gusta el 1208'
+  });
+  assert.match(received.response, /apartamento LF-1208/);
+  assert.match(received.response, /fechas 2 de octubre al 4 de octubre/);
+  assert.match(received.response, /2 personas/);
+  assert.match(received.response, /no confirma disponibilidad, precio ni reserva/);
 });
 
 test('M0 nunca deriva fallos de captura ni duplicados al Brain', () => {
