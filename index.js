@@ -178,6 +178,7 @@ const PMS_LITE_BASE_URL = (process.env.PMS_LITE_BASE_URL || (() => {
 })()).replace(/\/$/, '');
 const PMS_LITE_PUBLIC_BASE_URL = (process.env.PMS_LITE_PUBLIC_BASE_URL || PMS_LITE_BASE_URL).replace(/\/$/, '');
 const M0_OPERATOR_PROPOSAL_RELAY_VERSION = (process.env.M0_OPERATOR_PROPOSAL_RELAY_VERSION || '').trim();
+const M0_OPERATOR_AVAILABILITY_CERTIFICATION_VERSION = (process.env.M0_OPERATOR_AVAILABILITY_CERTIFICATION_VERSION || '').trim();
 const phase2cPhoneTestCapture = createPhase2cPhoneTestCapture({
   enabled: PHASE2C_PHONE_TEST_ENABLED,
   runtimeSafe: !PMS_LITE_ENABLED && !MVP_LA_FRONTERA_ENABLED,
@@ -393,6 +394,40 @@ async function runM0OperatorProposalRelay() {
     apartment_codes: Array.isArray(result?.proposals) ? result.proposals.map((item) => item.apartment_code) : [],
     calendar_sync: result?.calendar_sync || null,
     messages_sent: result?.messages_sent ?? null
+  });
+  return result;
+}
+
+async function runM0OperatorAvailabilityCertificationRelay() {
+  // A one-shot, versioned operator gate: it cannot run accidentally from legacy values.
+  if (M0_OPERATOR_AVAILABILITY_CERTIFICATION_VERSION !== 'v1') return null;
+  if (!PMS_LITE_M0_ENABLED || !PMS_LITE_BASE_URL || !PMS_LITE_WEBHOOK_SECRET) {
+    throw new Error('m0_operator_availability_certification_not_ready');
+  }
+  const requestId = (process.env.M0_OPERATOR_AVAILABILITY_CERTIFICATION_REQUEST_ID || '').trim();
+  const start = (process.env.M0_OPERATOR_AVAILABILITY_CERTIFICATION_START || '').trim();
+  const endExclusive = (process.env.M0_OPERATOR_AVAILABILITY_CERTIFICATION_END_EXCLUSIVE || '').trim();
+  const sourceReference = (process.env.M0_OPERATOR_AVAILABILITY_CERTIFICATION_SOURCE_REFERENCE || '').trim();
+  if (!/^[a-zA-Z0-9_.:-]{8,120}$/.test(requestId)
+    || !/^\d{4}-\d{2}-\d{2}$/.test(start)
+    || !/^\d{4}-\d{2}-\d{2}$/.test(endExclusive)
+    || sourceReference.length < 10 || sourceReference.length > 200) {
+    throw new Error('m0_operator_availability_certification_invalid_request');
+  }
+  const result = await pmsPilotClient.registerOperationalAvailabilityCertification({
+    request_id: requestId,
+    window: { start, end_exclusive: endExclusive },
+    source_reference: sourceReference,
+    certified_by: 'jose_manuel',
+    certified_by_role: 'administrador',
+    units: ['LF-210', 'LF-404', 'LF-1208'].map((apartment_code) => ({ apartment_code, zero_blocks_confirmed: true }))
+  });
+  console.log('[m0-operator-availability-certification] completed', {
+    window: result?.window || null,
+    scope: result?.scope || [],
+    certification_count: Array.isArray(result?.results) ? result.results.length : null,
+    messages_sent: result?.messages_sent ?? null,
+    external_calls_performed: result?.external_calls_performed ?? null
   });
   return result;
 }
@@ -1400,6 +1435,7 @@ app.listen(PORT, '0.0.0.0', () => {
     setImmediate(async () => {
       try {
         await ensureM0RuntimeAttestation();
+        await runM0OperatorAvailabilityCertificationRelay();
         await runM0OperatorProposalRelay();
         if (PMS_LITE_STARTUP_PREFLIGHT_ENABLED) {
           const result = await runStartupPreflight({
