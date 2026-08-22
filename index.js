@@ -1319,7 +1319,9 @@ app.post('/debug/booking/reserve', async (req, res) => {
 // ===============================
 let pilotRecoveryRunning = false;
 async function recoverPilotQueues() {
-  if (pilotRecoveryRunning || (!MVP_LA_FRONTERA_ENABLED && !PMS_LITE_M0_ENABLED) || !PMS_LITE_ENABLED) return;
+  // El recuperador heredado trabaja con rutas /api/pilot. M0 usa el plano
+  // supervisado y no debe reclamar ni reintentar mensajes por esas rutas.
+  if (pilotRecoveryRunning || !MVP_LA_FRONTERA_ENABLED || !PMS_LITE_ENABLED) return;
   pilotRecoveryRunning = true;
   try {
     const [processing, outbound] = await Promise.all([

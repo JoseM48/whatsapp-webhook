@@ -29,14 +29,17 @@ test('M0 responde a CONTINUAR y mantiene la gestion comercial manual', () => {
   assert.match(result.response, /José Manuel supervisará/);
 });
 
-test('M0 confirma SALIR y no responde a texto libre posterior', () => {
+test('M0 confirma SALIR y acusa recibo de texto libre sin automatizar la gestion comercial', () => {
   const exit = decideM0Response({
     enabled: true, ingressMode: 'controlled_cohort', captured: true, newlyEnrolled: false, text: 'Sálir'
   });
   assert.match(exit.response, /Detuvimos/);
-  assert.deepEqual(decideM0Response({
+  const received = decideM0Response({
     enabled: true, ingressMode: 'controlled_cohort', captured: true, newlyEnrolled: false, text: 'Mañana'
-  }), { handled: true, response: null });
+  });
+  assert.equal(received.handled, true);
+  assert.match(received.response, /Recibimos los datos/);
+  assert.match(received.response, /verificando disponibilidad/);
 });
 
 test('M0 nunca deriva fallos de captura ni duplicados al Brain', () => {
