@@ -28,6 +28,7 @@ const { createWaitAck } = require('./lib/pilot/wait-ack');
 const { resolvePmsIngress } = require('./lib/pilot/controlled-ingress');
 const { CONSENT_NOTICE_HASH, CONSENT_NOTICE_VERSION, decideM0Response } = require('./lib/pilot/m0-ingress');
 const { SupervisedOutboundAdapter } = require('./lib/pilot/supervised-outbound-adapter');
+const { runSupervisedReservationConfirmationRelay } = require('./lib/pilot/supervised-outbound-relay');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -180,6 +181,7 @@ const PMS_LITE_PUBLIC_BASE_URL = (process.env.PMS_LITE_PUBLIC_BASE_URL || PMS_LI
 const M0_OPERATOR_PROPOSAL_RELAY_VERSION = (process.env.M0_OPERATOR_PROPOSAL_RELAY_VERSION || '').trim();
 const M0_OPERATOR_AVAILABILITY_CERTIFICATION_VERSION = (process.env.M0_OPERATOR_AVAILABILITY_CERTIFICATION_VERSION || '').trim();
 const M0_OPERATOR_PRERESERVATION_RELAY_VERSION = (process.env.M0_OPERATOR_PRERESERVATION_RELAY_VERSION || '').trim();
+const M0_OPERATOR_SUPERVISED_OUTBOUND_RELAY_VERSION = (process.env.M0_OPERATOR_SUPERVISED_OUTBOUND_RELAY_VERSION || '').trim();
 const phase2cPhoneTestCapture = createPhase2cPhoneTestCapture({
   enabled: PHASE2C_PHONE_TEST_ENABLED,
   runtimeSafe: !PMS_LITE_ENABLED && !MVP_LA_FRONTERA_ENABLED,
@@ -466,6 +468,17 @@ const supervisedOutboundAdapter = new SupervisedOutboundAdapter({
   logger: console
 });
 app.locals.supervisedOutboundAdapter = supervisedOutboundAdapter;
+
+async function runM0OperatorSupervisedOutboundRelay() {
+  return runSupervisedReservationConfirmationRelay({
+    gateVersion: M0_OPERATOR_SUPERVISED_OUTBOUND_RELAY_VERSION,
+    m0Enabled: PMS_LITE_M0_ENABLED,
+    pms: pmsPilotClient,
+    adapter: supervisedOutboundAdapter,
+    allowlist: PMS_LITE_ALLOWLIST_PHONES,
+    logger: console
+  });
+}
 
 async function enviarWhatsApp(to, body) {
   const phone = normalizePhone(to);
@@ -1281,7 +1294,7 @@ app.get('/health', (_req, res) => res.json({
     meta_signature_required: META_SIGNATURE_REQUIRED,
     supervised_outbound_adapter: {
       installed: Boolean(app.locals.supervisedOutboundAdapter),
-      active: false,
+      active: M0_OPERATOR_SUPERVISED_OUTBOUND_RELAY_VERSION === 'v1',
       automatic_retry_on_unknown: false,
       document_header_fail_closed: true
     }
@@ -1465,6 +1478,7 @@ app.listen(PORT, '0.0.0.0', () => {
         await runM0OperatorAvailabilityCertificationRelay();
         await runM0OperatorProposalRelay();
         await runM0OperatorPreReservationRelay();
+        await runM0OperatorSupervisedOutboundRelay();
         if (PMS_LITE_STARTUP_PREFLIGHT_ENABLED) {
           const result = await runStartupPreflight({
             http: axios,
