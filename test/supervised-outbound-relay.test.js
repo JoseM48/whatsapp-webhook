@@ -36,6 +36,23 @@ test('compuerta apagada no consulta ni reclama', async () => {
   assert.deepEqual(calls, []);
 });
 
+test('modo diagnóstico sólo consulta elegibilidad y nunca reclama ni entrega', async () => {
+  const { pms, adapter, calls } = fixture();
+  pms.heldSupervisedOutboundSummary = async () => {
+    calls.push(['summary']);
+    return { eligibility: { candidate_count: 1, route_missing: 0, permission_missing: 1,
+      mode_missing: 0, fully_eligible: 0 } };
+  };
+  const result = await runSupervisedReservationConfirmationRelay({
+    gateVersion: 'diagnostic', m0Enabled: true, pms, adapter, allowlist: ['573006774425'],
+    logger: { info() {} }
+  });
+  assert.deepEqual(result, { executed: false, reason: 'diagnostic_only', eligibility: {
+    candidate_count: 1, route_missing: 0, permission_missing: 1, mode_missing: 0, fully_eligible: 0
+  } });
+  assert.deepEqual(calls.map((item) => item[0]), ['summary']);
+});
+
 test('exige exactamente una confirmación retenida', async () => {
   const { pms, adapter, calls } = fixture({ count: 2 });
   await assert.rejects(runSupervisedReservationConfirmationRelay({
