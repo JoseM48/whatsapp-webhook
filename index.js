@@ -33,6 +33,7 @@ const { observeM0 } = require('./lib/pilot/m0-observer');
 const { sendGovernedM0 } = require('./lib/pilot/m0-governed-outbound');
 const { startM0ObservationLoop } = require('./lib/pilot/m0-observation-loop');
 const { resolveM0ControlCommand } = require('./lib/pilot/m0-kill-switch-command');
+const { createM0ClosedPilotDispatcher } = require('./lib/pilot/m0-closed-pilot');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -171,6 +172,9 @@ const META_SIGNATURE_REQUIRED = String(process.env.META_SIGNATURE_REQUIRED || 'f
 if (PMS_LITE_M0_ENABLED && (!META_SIGNATURE_REQUIRED || !(process.env.META_APP_SECRET || '').trim())) {
   throw new Error('PMS_LITE_M0_ENABLED requires META_SIGNATURE_REQUIRED=true and META_APP_SECRET');
 }
+const M0_CLOSED_PILOT_ENABLED = String(process.env.M0_CLOSED_PILOT_ENABLED || 'false').toLowerCase() === 'true';
+const M0_CLOSED_PILOT_GUEST_PHONE = normalizePhone(process.env.M0_CLOSED_PILOT_GUEST_PHONE || '');
+const M0_CLOSED_PILOT_INTERNAL_PHONE = normalizePhone(process.env.M0_CLOSED_PILOT_INTERNAL_PHONE || '');
 const DEBUG_ENDPOINTS_ENABLED = String(process.env.DEBUG_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const BOOKING_ENDPOINTS_ENABLED = String(process.env.BOOKING_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const PHASE2C_PHONE_TEST_ENABLED = String(process.env.PHASE2C_PHONE_TEST_ENABLED || 'false').toLowerCase() === 'true';
@@ -351,6 +355,22 @@ const pilotOrchestrator = new PilotOrchestrator({
       process.env.PILOT_CONVERSATION_SALT || process.env.PILOT_SAFETY_SALT || PMS_LITE_WEBHOOK_SECRET
     ).update(String(phone)).digest('hex')}`
   },
+  logger: console
+});
+
+const m0ClosedPilot = createM0ClosedPilotDispatcher({
+  config: {
+    enabled: M0_CLOSED_PILOT_ENABLED,
+    guestPhone: M0_CLOSED_PILOT_GUEST_PHONE,
+    internalPhone: M0_CLOSED_PILOT_INTERNAL_PHONE,
+    allowlist: PMS_LITE_ALLOWLIST_PHONES,
+    metaSignatureRequired: META_SIGNATURE_REQUIRED,
+    pmsM0Enabled: PMS_LITE_M0_ENABLED,
+    controlledIngressEnabled: PMS_LITE_CONTROLLED_INGRESS_ENABLED,
+    pmsConfigured: Boolean(PMS_LITE_ENABLED && PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET)
+  },
+  pms: pmsPilotClient,
+  sendText: sendPilotWhatsAppText,
   logger: console
 });
 
@@ -1145,6 +1165,22 @@ app.post('/webhook', async (req, res) => {
     const raw = (text || '').trim();
     if (!raw) return res.sendStatus(200);
 
+    if (M0_CLOSED_PILOT_ENABLED) {
+      try {
+        const closed = await m0ClosedPilot.process({ phone: from, text: raw,
+          messageId: getPmsLiteMessageId(req.body), occurredAt: getPmsLiteTimestamp(req.body) });
+        if (closed.quarantined) console.warn('[m0-closed] phone_quarantined', { phone: maskPilotPhone(from) });
+        else console.info('[m0-closed] inbound_processed', { case_key: closed.result?.case_key || null,
+          state: closed.result?.state || null, deduplicated: closed.result?.deduplicated === true,
+          deliveries: closed.deliveries?.map((item) => item.status) || [] });
+        return res.sendStatus(200);
+      } catch (error) {
+        console.error('[m0-closed] processing_failed', { code: error?.code || 'm0_closed_processing_failed',
+          status: error?.response?.status || null });
+        return res.sendStatus(503);
+      }
+    }
+
     const m0Control = resolveM0ControlCommand({ enabled: PMS_LITE_M0_ENABLED, phone: from,
       managerPhone: process.env.ADMIN_WA_NUMBER, text: raw, messageId: getPmsLiteMessageId(req.body),
       occurredAt: getPmsLiteTimestamp(req.body) });
@@ -1359,6 +1395,7 @@ app.get('/health', (_req, res) => res.json({
     allowlist_count: MVP_LA_FRONTERA_ALLOWLIST_PHONES.length,
     controlled_ingress_enabled: PMS_LITE_CONTROLLED_INGRESS_ENABLED,
     m0_enabled: PMS_LITE_M0_ENABLED,
+    m0_closed_pilot: m0ClosedPilot.status(),
     m0_manual_commercial_actions: true,
     durable_capture_enabled: PMS_LITE_ENABLED,
     media_enabled: MVP_LA_FRONTERA_MEDIA_ENABLED,
