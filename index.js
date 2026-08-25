@@ -29,6 +29,10 @@ const { resolvePmsIngress } = require('./lib/pilot/controlled-ingress');
 const { CONSENT_NOTICE_HASH, CONSENT_NOTICE_VERSION, decideM0Response } = require('./lib/pilot/m0-ingress');
 const { SupervisedOutboundAdapter } = require('./lib/pilot/supervised-outbound-adapter');
 const { runSupervisedReservationConfirmationRelay } = require('./lib/pilot/supervised-outbound-relay');
+const { observeM0 } = require('./lib/pilot/m0-observer');
+const { sendGovernedM0 } = require('./lib/pilot/m0-governed-outbound');
+const { startM0ObservationLoop } = require('./lib/pilot/m0-observation-loop');
+const { resolveM0ControlCommand } = require('./lib/pilot/m0-kill-switch-command');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -164,6 +168,9 @@ const MVP_LA_FRONTERA_ALLOWLIST_PHONES = parseAllowlist(
   process.env.MVP_LA_FRONTERA_ALLOWLIST_PHONES || process.env.PMS_LITE_ALLOWLIST_PHONES || ''
 );
 const META_SIGNATURE_REQUIRED = String(process.env.META_SIGNATURE_REQUIRED || 'false').toLowerCase() === 'true';
+if (PMS_LITE_M0_ENABLED && (!META_SIGNATURE_REQUIRED || !(process.env.META_APP_SECRET || '').trim())) {
+  throw new Error('PMS_LITE_M0_ENABLED requires META_SIGNATURE_REQUIRED=true and META_APP_SECRET');
+}
 const DEBUG_ENDPOINTS_ENABLED = String(process.env.DEBUG_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const BOOKING_ENDPOINTS_ENABLED = String(process.env.BOOKING_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const PHASE2C_PHONE_TEST_ENABLED = String(process.env.PHASE2C_PHONE_TEST_ENABLED || 'false').toLowerCase() === 'true';
@@ -356,6 +363,7 @@ async function ensureM0RuntimeAttestation() {
     component: 'whatsapp_webhook',
     m0_enabled: true,
     controlled_ingress_enabled: PMS_LITE_CONTROLLED_INGRESS_ENABLED,
+    meta_signature_required: META_SIGNATURE_REQUIRED,
     notice_version: CONSENT_NOTICE_VERSION,
     notice_text_hash: CONSENT_NOTICE_HASH
   }).then(async (result) => {
@@ -479,6 +487,15 @@ async function runM0OperatorSupervisedOutboundRelay() {
     logger: console
   });
 }
+
+function observeM0Soon(reason) {
+  if (!PMS_LITE_M0_ENABLED) return;
+  setImmediate(() => { void observeM0({ enabled: true, pms: pmsPilotClient, reason, logger: console }); });
+}
+
+startM0ObservationLoop({ enabled: PMS_LITE_M0_ENABLED, observe: async (reason) => {
+  await observeM0({ enabled: true, pms: pmsPilotClient, reason, logger: console });
+} });
 
 async function enviarWhatsApp(to, body) {
   const phone = normalizePhone(to);
@@ -609,7 +626,8 @@ async function enviarPmsLiteInbound({ from, text, payload }) {
       newlyEnrolled: response?.data?.data?.newly_enrolled === true,
       leadId: response?.data?.data?.lead?.id || null,
       interactionId: response?.data?.data?.interaction?.id || null,
-      consentNotice: response?.data?.data?.consent_notice || null
+      consentNotice: response?.data?.data?.consent_notice || null,
+      consentActive: response?.data?.data?.consent_active === true
     };
   } catch (error) {
     const timedOut = error?.code === 'ECONNABORTED' || String(error?.message || '').toLowerCase().includes('timeout');
@@ -1098,6 +1116,30 @@ app.post('/webhook', async (req, res) => {
     const raw = (text || '').trim();
     if (!raw) return res.sendStatus(200);
 
+    const m0Control = resolveM0ControlCommand({ enabled: PMS_LITE_M0_ENABLED, phone: from,
+      managerPhone: process.env.ADMIN_WA_NUMBER, text: raw, messageId: getPmsLiteMessageId(req.body),
+      occurredAt: getPmsLiteTimestamp(req.body) });
+    if (m0Control) {
+      try {
+        const result = await pmsPilotClient.setM0RuntimeControl(m0Control);
+        console.warn('[m0-control] operator_stop_processed', {
+          state: result?.state || m0Control.state,
+          command_id: m0Control.command_id,
+          status: result?.status || null,
+          deduplicated: result?.deduplicated === true
+        });
+        observeM0Soon('m0_control_changed');
+        return res.sendStatus(200);
+      } catch (error) {
+        console.error('[m0-control] operator_stop_persistence_failed', {
+          command_id: m0Control.command_id,
+          status: error?.response?.status || null,
+          code: error?.code || 'm0_control_persistence_failed'
+        });
+        return res.sendStatus(503);
+      }
+    }
+
     const webhookRoute = selectWebhookRoute({
       phone: from,
       pmsEnabled: PMS_LITE_ENABLED,
@@ -1177,6 +1219,7 @@ app.post('/webhook', async (req, res) => {
       text: raw,
       payload: req.body
     });
+    if (pmsCapture?.captured) observeM0Soon('inbound_captured');
     const m0 = decideM0Response({
       enabled: PMS_LITE_M0_ENABLED,
       ingressMode: pmsCapture?.ingressMode,
@@ -1184,28 +1227,27 @@ app.post('/webhook', async (req, res) => {
       deduplicated: pmsCapture?.deduplicated,
       newlyEnrolled: pmsCapture?.newlyEnrolled,
       noticePending: pmsCapture?.consentNotice?.status === 'pending',
+      consentActive: pmsCapture?.consentActive === true,
       text: raw
     });
     if (m0.handled) {
       if (m0.response) {
-        const delivery = await enviarWhatsApp(from, m0.response);
-        if (m0.consentNoticeSubmissionRequired) {
-          if (!pmsCapture?.consentNotice?.id || !delivery?.sent || !delivery.providerReference) {
-            console.error('[m0] consent_notice_submission_unconfirmed');
-            return res.sendStatus(503);
-          }
-          try {
-            await pmsPilotClient.recordConsentNoticeSubmitted({
-              notice_id: pmsCapture.consentNotice.id,
-              provider_reference: delivery.providerReference
-            });
-          } catch (error) {
-            console.error('[m0] consent_notice_persistence_failed', {
-              status: error?.response?.status || null,
-              code: error?.code || 'notice_persistence_failed'
-            });
-            return res.sendStatus(503);
-          }
+        if (!pmsCapture?.interactionId || !m0.responseKind) {
+          console.error('[m0] governed_outbound_context_missing');
+          return res.sendStatus(503);
+        }
+        const delivery = await sendGovernedM0({ pms: pmsPilotClient,
+          interactionId: pmsCapture.interactionId, responseKind: m0.responseKind,
+          response: m0.response, recipient: from, sendText: sendPilotWhatsAppText,
+          observe: observeM0Soon, logger: console });
+        if (!delivery.sent) {
+          console.error('[m0] human_fallback_required', {
+            interaction_id: pmsCapture.interactionId,
+            outbound_status: delivery.status || 'unknown'
+          });
+        }
+        if (!delivery.sent && delivery.status !== 'failed' && delivery.status !== 'submission_unknown') {
+          return res.sendStatus(503);
         }
       }
       return res.sendStatus(200);
@@ -1479,6 +1521,7 @@ app.listen(PORT, '0.0.0.0', () => {
         await runM0OperatorProposalRelay();
         await runM0OperatorPreReservationRelay();
         await runM0OperatorSupervisedOutboundRelay();
+        observeM0Soon('startup_relays_completed');
         if (PMS_LITE_STARTUP_PREFLIGHT_ENABLED) {
           const result = await runStartupPreflight({
             http: axios,
