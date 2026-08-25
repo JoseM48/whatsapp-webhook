@@ -34,6 +34,8 @@ const { sendGovernedM0 } = require('./lib/pilot/m0-governed-outbound');
 const { startM0ObservationLoop } = require('./lib/pilot/m0-observation-loop');
 const { resolveM0ControlCommand } = require('./lib/pilot/m0-kill-switch-command');
 const { createM0ClosedPilotDispatcher } = require('./lib/pilot/m0-closed-pilot');
+const { createM0CommercialResponder } = require('./lib/pilot/m0-commercial-responder');
+const { extractMetaMessages, m0CommercialText } = require('./lib/pilot/meta-inbound');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -371,6 +373,14 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
   },
   pms: pmsPilotClient,
   sendText: sendPilotWhatsAppText,
+  logger: console
+});
+
+const m0CommercialResponder = createM0CommercialResponder({
+  capture: (payload) => pilotOrchestrator.capture(payload),
+  ai: pilotAi,
+  closedPilot: m0ClosedPilot,
+  pms: pmsPilotClient,
   logger: console
 });
 
@@ -1158,28 +1168,84 @@ app.post('/webhook', async (req, res) => {
       return res.status(metaAuth.status).json({ error: metaAuth.error });
     }
 
-    const { from, text } = getIncomingText(req.body) || {};
-    if (!from) return res.sendStatus(200);
-
-    // Normaliza input de texto
-    const raw = (text || '').trim();
-    if (!raw) return res.sendStatus(200);
-
+    const metaMessages = extractMetaMessages(req.body);
     if (M0_CLOSED_PILOT_ENABLED) {
+      if (!metaMessages.length) return res.sendStatus(200);
+      const pendingCommercial = [];
       try {
-        const closed = await m0ClosedPilot.process({ phone: from, text: raw,
-          messageId: getPmsLiteMessageId(req.body), occurredAt: getPmsLiteTimestamp(req.body) });
-        if (closed.quarantined) console.warn('[m0-closed] phone_quarantined', { phone: maskPilotPhone(from) });
-        else console.info('[m0-closed] inbound_processed', { case_key: closed.result?.case_key || null,
-          state: closed.result?.state || null, deduplicated: closed.result?.deduplicated === true,
-          deliveries: closed.deliveries?.map((item) => item.status) || [] });
-        return res.sendStatus(200);
+        for (const incoming of metaMessages) {
+          const raw = m0CommercialText(incoming);
+          if (m0ClosedPilot.accepts(incoming.from) && !incoming.text && m0ClosedPilot.isControl(incoming.from, raw)) {
+            console.warn('[m0-closed] internal_unsupported_quarantined', {
+              phone: maskPilotPhone(incoming.from), message_type: incoming.messageType
+            });
+            continue;
+          }
+          if (!m0ClosedPilot.accepts(incoming.from) || m0ClosedPilot.isControl(incoming.from, raw)) {
+            const closed = await m0ClosedPilot.process({ phone: incoming.from, text: raw,
+              messageId: incoming.messageId, occurredAt: incoming.timestamp });
+            if (closed.quarantined) console.warn('[m0-closed] phone_quarantined', { phone: maskPilotPhone(incoming.from) });
+            else console.info('[m0-closed] control_processed', { case_key: closed.result?.case_key || null,
+              state: closed.result?.state || null, deduplicated: closed.result?.deduplicated === true,
+              deliveries: closed.deliveries?.map((item) => item.status) || [] });
+            continue;
+          }
+          if (!incoming.messageId) {
+            console.error('[m0-commercial] capture_not_ready', { message_id_present: false,
+              phone: maskPilotPhone(incoming.from) });
+            return res.sendStatus(503);
+          }
+          const closed = await m0CommercialResponder.captureAndAcknowledge({
+            from: normalizePhone(incoming.from), text: raw, messageId: incoming.messageId,
+            timestamp: incoming.timestamp, name: incoming.name
+          });
+          console.info('[m0-commercial] inbound_captured', {
+            deduplicated: closed.capture_result?.deduplicated === true,
+            processing_claimed: closed.processing_claimed,
+            acknowledgement_queued: closed.acknowledgement_outboxes.length,
+            capture_ms: closed.timings.capture_ms,
+            acknowledge_ms: closed.timings.acknowledge_ms,
+            error_code: closed.error_code || null
+          });
+          pendingCommercial.push({ incoming, raw, closed });
+        }
+        res.sendStatus(200);
+        setImmediate(async () => {
+          const today = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit'
+          }).format(new Date());
+          for (const { incoming, raw, closed } of pendingCommercial) {
+            const acknowledgementDeliveries = await m0CommercialResponder
+              .deliverAcknowledgement(closed.acknowledgement_outboxes);
+            console.info('[m0-commercial] acknowledgement_completed', {
+              deliveries: acknowledgementDeliveries.map((item) => item.status)
+            });
+            const processed = await m0CommercialResponder.processCaptured({
+              from: normalizePhone(incoming.from), text: raw, messageId: incoming.messageId, today,
+              context: closed.context, processingClaimed: closed.processing_claimed
+            });
+            console.info('[m0-commercial] processing_completed', {
+              ok: processed.ok, skipped: processed.skipped || null, fallback: processed.fallback === true,
+              action: processed.completed?.result?.action || null,
+              response_ms: processed.timings?.response_ms || null,
+              code: processed.code || null
+            });
+          }
+        });
+        return;
       } catch (error) {
         console.error('[m0-closed] processing_failed', { code: error?.code || 'm0_closed_processing_failed',
           status: error?.response?.status || null });
         return res.sendStatus(503);
       }
     }
+
+    const { from, text } = metaMessages[0] || getIncomingText(req.body) || {};
+    if (!from) return res.sendStatus(200);
+
+    // Normaliza input de texto
+    const raw = (text || '').trim();
+    if (!raw) return res.sendStatus(200);
 
     const m0Control = resolveM0ControlCommand({ enabled: PMS_LITE_M0_ENABLED, phone: from,
       managerPhone: process.env.ADMIN_WA_NUMBER, text: raw, messageId: getPmsLiteMessageId(req.body),
@@ -1535,31 +1601,44 @@ app.post('/debug/booking/reserve', async (req, res) => {
 // ===============================
 let pilotRecoveryRunning = false;
 async function recoverPilotQueues() {
-  // El recuperador heredado trabaja con rutas /api/pilot. M0 usa el plano
-  // supervisado y no debe reclamar ni reintentar mensajes por esas rutas.
-  if (pilotRecoveryRunning || !MVP_LA_FRONTERA_ENABLED || !PMS_LITE_ENABLED) return;
+  if (pilotRecoveryRunning || !PMS_LITE_ENABLED ||
+    (!MVP_LA_FRONTERA_ENABLED && !M0_CLOSED_PILOT_ENABLED)) return;
   pilotRecoveryRunning = true;
   try {
-    const [processing, outbound] = await Promise.all([
-      pmsPilotClient.retryableProcessing(5),
-      pmsPilotClient.retryableOutbound(5)
-    ]);
     const today = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit'
     }).format(new Date());
-    for (const record of processing || []) {
-      await pilotOrchestrator.processCaptured({
-        from: record.telefono,
-        text: record.mensaje,
-        messageId: record.external_message_id,
-        today
-      });
+    if (M0_CLOSED_PILOT_ENABLED) {
+      const processing = await pmsPilotClient.retryableClosedPilotCommercial(5);
+      for (const record of processing || []) {
+        const begin = await m0ClosedPilot.beginCommercial({
+          phone: record.telefono,
+          messageId: record.external_message_id,
+          occurredAt: new Date(record.occurred_at).toISOString()
+        });
+        await m0CommercialResponder.processCaptured({
+          from: record.telefono, text: record.mensaje, messageId: record.external_message_id,
+          today, context: begin.result?.context || {},
+          processingClaimed: begin.result?.processing_claimed === true
+        });
+      }
     }
-    for (const record of outbound || []) {
-      await pilotOrchestrator.deliverClaimed({
-        outboxId: record.outbox_id,
-        recipient: record.recipient_phone
-      });
+    if (MVP_LA_FRONTERA_ENABLED) {
+      const [processing, outbound] = await Promise.all([
+        pmsPilotClient.retryableProcessing(5),
+        pmsPilotClient.retryableOutbound(5)
+      ]);
+      for (const record of processing || []) {
+        await pilotOrchestrator.processCaptured({
+          from: record.telefono, text: record.mensaje,
+          messageId: record.external_message_id, today
+        });
+      }
+      for (const record of outbound || []) {
+        await pilotOrchestrator.deliverClaimed({
+          outboxId: record.outbox_id, recipient: record.recipient_phone
+        });
+      }
     }
   } catch (error) {
     console.error('[pilot] recovery_poll_failed', {

@@ -204,6 +204,72 @@ test('fallback de IA conserva la fecha de referencia para hoy y mañana', async 
   assert.deepEqual(parsed.missing_fields, []);
 });
 
+test('extrae contrato comercial ampliado desde lenguaje natural', () => {
+  const parsed = deterministicInterpret(
+    'Busco LF 1208 del 2026-09-10 al 2026-09-17 para dos personas, presupuesto total 3.000.000 y necesito aire acondicionado'
+  );
+  assert.equal(parsed.requested_apartment_code, 'LF-1208');
+  assert.equal(parsed.guests, 2);
+  assert.equal(parsed.budget_cop, 3000000);
+  assert.equal(parsed.budget_period, 'total');
+  assert.deepEqual(parsed.preferences, ['air_conditioning']);
+  assert.deepEqual(parsed.requirements, ['air_conditioning']);
+  assert.deepEqual(parsed.missing_fields, []);
+});
+
+test('interpreta respuesta corta usando solamente la pregunta pendiente', () => {
+  const parsed = deterministicInterpret('dos', {
+    today: '2026-08-25', context: { pending_fields: ['guests'] }
+  });
+  assert.equal(parsed.guests, 2);
+  assert.deepEqual(parsed.provided_fields, ['guests']);
+  assert.equal(parsed.nights, null);
+});
+
+test('marca una corrección explícita para reemplazar el dato previo', () => {
+  const parsed = deterministicInterpret('Perdón, para tres personas', {
+    today: '2026-08-25', context: { pending_fields: [] }
+  });
+  assert.equal(parsed.guests, 3);
+  assert.deepEqual(parsed.corrections, ['guests']);
+});
+
+test('clasifica preguntas comerciales sin convertirlas en búsqueda completa', () => {
+  const parsed = deterministicInterpret('¿El LF-210 tiene balcón y parqueadero?');
+  assert.equal(parsed.intent, 'lodging_question');
+  assert.deepEqual(parsed.knowledge_topics, ['parking', 'balcony']);
+  assert.equal(parsed.requested_apartment_code, 'LF-210');
+});
+
+test('fallo de IA conserva inbound interpretable mediante fallback seguro', async () => {
+  const ai = new PilotAi({
+    http: { post: async () => { throw Object.assign(new Error('offline'), { code: 'ECONNABORTED' }); } },
+    apiKey: 'test-key', safetySalt: 'test-salt'
+  });
+  const parsed = await ai.interpret({
+    phone: '570000000000', today: '2026-08-25',
+    text: 'Necesito alojamiento por una semana para dos personas'
+  });
+  assert.equal(parsed._fallback, true);
+  assert.equal(parsed.nights, 7);
+  assert.equal(parsed.guests, 2);
+  assert.deepEqual(parsed.missing_fields, ['check_in']);
+  assert.equal(parsed._dependency.code, 'ECONNABORTED');
+});
+
+test('un medio no textual se escala localmente sin invocar IA ni inventar contenido', async () => {
+  let calls = 0;
+  const ai = new PilotAi({
+    http: { post: async () => { calls += 1; } }, apiKey: 'test-key', safetySalt: 'test-salt'
+  });
+  const parsed = await ai.interpret({ phone: '570000000000', today: '2026-08-25',
+    text: '[M0_UNSUPPORTED_INBOUND:audio]' });
+  assert.equal(calls, 0);
+  assert.equal(parsed.intent, 'unknown');
+  assert.equal(parsed._fallback, true);
+  assert.equal(parsed._error_code, 'unsupported_inbound_type');
+});
+
 test('presentación determinista separa alternativa de confirmación', () => {
   const result = deterministicPresentation({
     action: 'present', language: 'es',

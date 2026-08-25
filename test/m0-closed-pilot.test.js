@@ -22,6 +22,31 @@ test('quarantines every third party without calling PMS or Meta',async()=>{
   assert.equal(result.quarantined,true); assert.equal(pmsCalls,0); assert.equal(sends,0);
 });
 
+test('reserva comandos exactos para control y envía conversación comercial a lenguaje natural',()=>{
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms:{},async sendText(){}});
+  assert.equal(dispatcher.isControl(guest,'NUEVA PRUEBA'),true);
+  assert.equal(dispatcher.isControl(guest,'ESTADO CASO'),true);
+  assert.equal(dispatcher.isControl(guest,'¿Tienen disponibilidad para septiembre?'),false);
+  assert.equal(dispatcher.isControl(guest,'DISPONIBILIDAD 2026-09-10 2026-09-17 HUÉSPEDES 2 LF-210'),false);
+  assert.equal(dispatcher.isControl(internal,'cualquier operación interna'),true);
+  assert.equal(dispatcher.isControl('573111111111','NUEVA PRUEBA'),false);
+});
+
+test('el flujo comercial contiene fallos de entrega después de la captura durable',async()=>{
+  const completed=[];
+  const pms={
+    async beginClosedPilotCommercial(){return {processing_claimed:true,outboxes:[{id:30}]};},
+    async claimClosedPilotOutbound(){return {outbox_id:30,claimable:true,recipient_kind:'guest',message_text:'acuse'};},
+    async completeClosedPilotOutbound(body){completed.push(body);}
+  };
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(){throw Object.assign(new Error('offline'),{code:'ECONNRESET'});},
+    logger:{error(){}}});
+  const result=await dispatcher.beginCommercial({phone:guest,messageId:'wamid.commercial.safe',occurredAt:new Date().toISOString()});
+  assert.equal(result.result.processing_claimed,true);
+  assert.equal(result.deliveries[0].sent,false);
+  assert.equal(completed[0].status,'unknown');
+});
+
 test('delivers only claimed durable outboxes to the bound phone and completes them',async()=>{
   const calls=[],sent=[];
   const pms={
