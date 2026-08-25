@@ -189,6 +189,7 @@ const M0_OPERATOR_PROPOSAL_RELAY_VERSION = (process.env.M0_OPERATOR_PROPOSAL_REL
 const M0_OPERATOR_AVAILABILITY_CERTIFICATION_VERSION = (process.env.M0_OPERATOR_AVAILABILITY_CERTIFICATION_VERSION || '').trim();
 const M0_OPERATOR_PRERESERVATION_RELAY_VERSION = (process.env.M0_OPERATOR_PRERESERVATION_RELAY_VERSION || '').trim();
 const M0_OPERATOR_SUPERVISED_OUTBOUND_RELAY_VERSION = (process.env.M0_OPERATOR_SUPERVISED_OUTBOUND_RELAY_VERSION || '').trim();
+const M0_OPERATOR_RUNTIME_REACTIVATION_VERSION = (process.env.M0_OPERATOR_RUNTIME_REACTIVATION_VERSION || '').trim();
 const phase2cPhoneTestCapture = createPhase2cPhoneTestCapture({
   enabled: PHASE2C_PHONE_TEST_ENABLED,
   runtimeSafe: !PMS_LITE_ENABLED && !MVP_LA_FRONTERA_ENABLED,
@@ -486,6 +487,34 @@ async function runM0OperatorSupervisedOutboundRelay() {
     allowlist: PMS_LITE_ALLOWLIST_PHONES,
     logger: console
   });
+}
+
+async function runM0OperatorRuntimeReactivationRelay() {
+  // Explicit, one-shot, operator-gated recovery after a fail-closed deploy.
+  // It only changes the M0 runtime control plane; it cannot send a guest
+  // message and it leaves the reservation-confirmation relay independently off.
+  if (M0_OPERATOR_RUNTIME_REACTIVATION_VERSION !== 'v1') return null;
+  if (!PMS_LITE_M0_ENABLED || !PMS_LITE_BASE_URL || !PMS_LITE_WEBHOOK_SECRET) {
+    throw new Error('m0_operator_runtime_reactivation_not_ready');
+  }
+  const commandId = `m0-reactivate-${Date.now()}`;
+  const sourceEventHash = crypto.createHash('sha256')
+    .update(`F-ALO-001:${commandId}:operator_api`).digest('hex').toUpperCase();
+  const result = await pmsPilotClient.setM0RuntimeControl({
+    command_id: commandId,
+    source_event_hash: sourceEventHash,
+    source_type: 'operator_api',
+    state: 'active',
+    reason_code: 'M0_CONTROLLED_TEST_RESUME',
+    occurred_at: new Date().toISOString()
+  });
+  console.log('[m0-operator-runtime-reactivation] completed', {
+    state: result?.state || null,
+    status: result?.status || null,
+    messages_sent: 0,
+    external_calls_performed: 0
+  });
+  return result;
 }
 
 function observeM0Soon(reason) {
@@ -1520,6 +1549,7 @@ app.listen(PORT, '0.0.0.0', () => {
         await runM0OperatorAvailabilityCertificationRelay();
         await runM0OperatorProposalRelay();
         await runM0OperatorPreReservationRelay();
+        await runM0OperatorRuntimeReactivationRelay();
         await runM0OperatorSupervisedOutboundRelay();
         observeM0Soon('startup_relays_completed');
         if (PMS_LITE_STARTUP_PREFLIGHT_ENABLED) {
