@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { extractMetaMessages, m0CommercialText } = require('../lib/pilot/meta-inbound');
+const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('../lib/pilot/meta-inbound');
 
 test('extrae todos los mensajes de un lote Meta sin perder ids ni remitentes', () => {
   const payload = { entry: [{ changes: [{ value: {
@@ -24,4 +24,18 @@ test('extrae todos los mensajes de un lote Meta sin perder ids ni remitentes', (
 test('ignora estados Meta sin messages porque no son inbound de un lead', () => {
   const payload = { entry: [{ changes: [{ value: { statuses: [{ id: 'wamid.sent', status: 'sent' }] } }] }] };
   assert.deepEqual(extractMetaMessages(payload), []);
+});
+
+test('extrae recibos Meta sin PII adicional y conserva el código seguro de fallo', () => {
+  const payload = { entry: [{ changes: [{ value: { statuses: [
+    { id: 'wamid.delivery.1', recipient_id: '573006774425', status: 'failed', timestamp: '1787688002',
+      errors: [{ code: 131047, title: 'not persisted' }] },
+    { id: 'wamid.delivery.2', recipient_id: '573146892662', status: 'delivered', timestamp: '1787688003' }
+  ] } }] }] };
+  assert.deepEqual(extractMetaStatuses(payload), [
+    { providerReference: 'wamid.delivery.1', recipientId: '573006774425', status: 'failed',
+      timestamp: new Date(1787688002 * 1000).toISOString(), errorCode: '131047' },
+    { providerReference: 'wamid.delivery.2', recipientId: '573146892662', status: 'delivered',
+      timestamp: new Date(1787688003 * 1000).toISOString(), errorCode: null }
+  ]);
 });

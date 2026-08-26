@@ -35,7 +35,8 @@ const { startM0ObservationLoop } = require('./lib/pilot/m0-observation-loop');
 const { resolveM0ControlCommand } = require('./lib/pilot/m0-kill-switch-command');
 const { createM0ClosedPilotDispatcher } = require('./lib/pilot/m0-closed-pilot');
 const { createM0CommercialResponder } = require('./lib/pilot/m0-commercial-responder');
-const { extractMetaMessages, m0CommercialText } = require('./lib/pilot/meta-inbound');
+const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
+const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -177,6 +178,9 @@ if (PMS_LITE_M0_ENABLED && (!META_SIGNATURE_REQUIRED || !(process.env.META_APP_S
 const M0_CLOSED_PILOT_ENABLED = String(process.env.M0_CLOSED_PILOT_ENABLED || 'false').toLowerCase() === 'true';
 const M0_CLOSED_PILOT_GUEST_PHONE = normalizePhone(process.env.M0_CLOSED_PILOT_GUEST_PHONE || '');
 const M0_CLOSED_PILOT_INTERNAL_PHONE = normalizePhone(process.env.M0_CLOSED_PILOT_INTERNAL_PHONE || '');
+const M0_CLOSED_PILOT_RECEIPTS_ENABLED = String(process.env.M0_CLOSED_PILOT_RECEIPTS_ENABLED || 'false').toLowerCase() === 'true';
+const M0_CLOSED_PILOT_INTERNAL_TEMPLATE_NAME = String(process.env.M0_CLOSED_PILOT_INTERNAL_TEMPLATE_NAME || '').trim();
+const M0_CLOSED_PILOT_INTERNAL_TEMPLATE_LANGUAGE = String(process.env.M0_CLOSED_PILOT_INTERNAL_TEMPLATE_LANGUAGE || 'es_CO').trim();
 const DEBUG_ENDPOINTS_ENABLED = String(process.env.DEBUG_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const BOOKING_ENDPOINTS_ENABLED = String(process.env.BOOKING_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const PHASE2C_PHONE_TEST_ENABLED = String(process.env.PHASE2C_PHONE_TEST_ENABLED || 'false').toLowerCase() === 'true';
@@ -312,6 +316,23 @@ async function sendPilotWhatsAppImage(to, link) {
   return response.data?.messages?.[0]?.id || null;
 }
 
+async function sendM0ClosedInternalTemplate(to, { name, language, parameters }) {
+  const phone = normalizePhone(to);
+  if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  if (!name || !language || !Array.isArray(parameters) || parameters.length !== 5) {
+    throw Object.assign(new Error('invalid_internal_template'), { code: 'invalid_internal_template' });
+  }
+  const response = await axios.post(WHATSAPP_API_URL, {
+    messaging_product: 'whatsapp', to: phone, type: 'template',
+    template: { name, language: { code: language }, components: [{ type: 'body',
+      parameters: parameters.map((text) => ({ type: 'text', text })) }] }
+  }, {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    timeout: 15000
+  });
+  return response.data?.messages?.[0]?.id || null;
+}
+
 async function sendPilotWhatsAppTemplate(to, templateName, parameters, documentProviderReference = null) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
@@ -369,10 +390,23 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
     metaSignatureRequired: META_SIGNATURE_REQUIRED,
     pmsM0Enabled: PMS_LITE_M0_ENABLED,
     controlledIngressEnabled: PMS_LITE_CONTROLLED_INGRESS_ENABLED,
-    pmsConfigured: Boolean(PMS_LITE_ENABLED && PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET)
+    pmsConfigured: Boolean(PMS_LITE_ENABLED && PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET),
+    receiptsEnabled: M0_CLOSED_PILOT_RECEIPTS_ENABLED,
+    internalTemplateName: M0_CLOSED_PILOT_INTERNAL_TEMPLATE_NAME,
+    internalTemplateLanguage: M0_CLOSED_PILOT_INTERNAL_TEMPLATE_LANGUAGE
   },
   pms: pmsPilotClient,
   sendText: sendPilotWhatsAppText,
+  sendTemplate: sendM0ClosedInternalTemplate,
+  logger: console
+});
+
+const m0DeliveryReceipts = createM0DeliveryReceiptHandler({
+  config: { enabled: M0_CLOSED_PILOT_RECEIPTS_ENABLED,
+    guestPhone: M0_CLOSED_PILOT_GUEST_PHONE, internalPhone: M0_CLOSED_PILOT_INTERNAL_PHONE,
+    allowlist: PMS_LITE_ALLOWLIST_PHONES, metaSignatureRequired: META_SIGNATURE_REQUIRED,
+    pmsConfigured: Boolean(PMS_LITE_ENABLED && PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET) },
+  pms: pmsPilotClient,
   logger: console
 });
 
@@ -1168,6 +1202,21 @@ app.post('/webhook', async (req, res) => {
       return res.status(metaAuth.status).json({ error: metaAuth.error });
     }
 
+    const metaStatuses = extractMetaStatuses(req.body);
+    if (metaStatuses.length) {
+      try {
+        const receipts = await m0DeliveryReceipts.capture(metaStatuses);
+        if (receipts.processed || receipts.quarantined) console.info('[m0-delivery] receipts_persisted', {
+          processed: receipts.processed, quarantined: receipts.quarantined,
+          statuses: receipts.results.map((item) => item.provider_status),
+          outcomes: receipts.results.map((item) => item.reason_code)
+        });
+      } catch (error) {
+        console.error('[m0-delivery] receipt_persistence_failed', { code: error?.code || 'm0_delivery_receipt_failed' });
+        return res.sendStatus(503);
+      }
+    }
+
     const metaMessages = extractMetaMessages(req.body);
     if (M0_CLOSED_PILOT_ENABLED) {
       if (!metaMessages.length) return res.sendStatus(200);
@@ -1462,6 +1511,7 @@ app.get('/health', (_req, res) => res.json({
     controlled_ingress_enabled: PMS_LITE_CONTROLLED_INGRESS_ENABLED,
     m0_enabled: PMS_LITE_M0_ENABLED,
     m0_closed_pilot: m0ClosedPilot.status(),
+    m0_delivery_receipts: m0DeliveryReceipts.status(),
     m0_manual_commercial_actions: true,
     durable_capture_enabled: PMS_LITE_ENABLED,
     media_enabled: MVP_LA_FRONTERA_MEDIA_ENABLED,

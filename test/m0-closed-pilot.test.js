@@ -6,11 +6,14 @@ const { createM0ClosedPilotDispatcher, validateClosedPilotConfig } = require('..
 
 const guest='573146892662',internal='573006774425';
 const config={enabled:true,guestPhone:guest,internalPhone:internal,allowlist:[guest,internal],metaSignatureRequired:true,
-  pmsM0Enabled:true,controlledIngressEnabled:true,pmsConfigured:true};
+  pmsM0Enabled:true,controlledIngressEnabled:true,pmsConfigured:true,receiptsEnabled:true,
+  internalTemplateName:'m0_internal_escalation_v1',internalTemplateLanguage:'es_CO'};
 
 test('requires the exact two phones and every immutable safety gate',()=>{
   assert.throws(()=>validateClosedPilotConfig({...config,allowlist:[guest,internal,'573111111111']}),/m0_closed_webhook_configuration_invalid/);
   assert.throws(()=>validateClosedPilotConfig({...config,metaSignatureRequired:false}),/m0_closed_webhook_configuration_invalid/);
+  assert.throws(()=>validateClosedPilotConfig({...config,receiptsEnabled:false}),/m0_closed_webhook_configuration_invalid/);
+  assert.throws(()=>validateClosedPilotConfig({...config,internalTemplateName:''}),/m0_closed_webhook_configuration_invalid/);
   assert.equal(validateClosedPilotConfig({enabled:false}).ready,false);
 });
 
@@ -48,18 +51,36 @@ test('el flujo comercial contiene fallos de entrega después de la captura durab
 });
 
 test('delivers only claimed durable outboxes to the bound phone and completes them',async()=>{
-  const calls=[],sent=[];
+  const calls=[],sent=[],templates=[];
   const pms={
     async closedPilotInbound(){return {case_key:'M0-1',state:'owner_pending',outboxes:[{id:10},{id:11}]};},
     async claimClosedPilotOutbound(id){return {outbox_id:id,claimable:true,status:'submitting',
-      recipient_kind:id===10?'guest':'internal',message_text:id===10?'guest body':'PILOTO M0\nPARA: PROPIETARIO'};},
+      recipient_kind:id===10?'guest':'internal',message_text:id===10?'guest body':
+        'PILOTO M0\nPARA: PROPIETARIO\nCASO: M0-1\nAPARTAMENTO: LF-210\nACCIÓN SOLICITADA: VALIDAR\n\nRevisar solicitud.'};},
     async completeClosedPilotOutbound(body){calls.push(body);}
   };
-  const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(phone,text){sent.push({phone,text});return `wamid.${sent.length}`;}});
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.guest';},
+    async sendTemplate(phone,template){templates.push({phone,template});return 'wamid.internal';}});
   const result=await dispatcher.process({phone:guest,text:'PRE-RESERVAR LF-210',messageId:'wamid.input',occurredAt:new Date().toISOString()});
-  assert.deepEqual(sent.map((x)=>x.phone),[guest,internal]);
+  assert.deepEqual(sent.map((x)=>x.phone),[guest]);
+  assert.deepEqual(templates.map((x)=>x.phone),[internal]);
+  assert.deepEqual(templates[0].template,{name:'m0_internal_escalation_v1',language:'es_CO',
+    parameters:['PROPIETARIO','M0-1','LF-210','VALIDAR','Revisar solicitud.']});
   assert.deepEqual(calls.map((x)=>x.status),['submitted','submitted']);
   assert.equal(result.deliveries.every((x)=>x.sent),true);
+});
+
+test('an internal escalation can never fall back to free-form text',async()=>{
+  let textSends=0;
+  const pms={async closedPilotInbound(){return {outboxes:[{id:31}]};},
+    async claimClosedPilotOutbound(){return {outbox_id:31,claimable:true,recipient_kind:'internal',
+      message_text:'PILOTO M0\nPARA: ADMINISTRACIÓN\nCASO: M0-2\nAPARTAMENTO: LF-404\nACCIÓN SOLICITADA: REVISAR\n\nDetalle.'};},
+    async completeClosedPilotOutbound(){}};
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(){textSends+=1;},
+    async sendTemplate(){return 'wamid.template';}});
+  await dispatcher.process({phone:guest,text:'x',messageId:'wamid.template-only',occurredAt:new Date().toISOString()});
+  assert.equal(textSends,0);
 });
 
 test('marks uncertain sends unknown and never retries them automatically',async()=>{
