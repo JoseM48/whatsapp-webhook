@@ -49,6 +49,19 @@ test('marca fechas ambiguas para aclaracion', () => {
   assert.equal(parsed.needs_clarification, true);
 });
 
+test('un mes sin dias exactos obliga a aclarar la estadia', () => {
+  const parsed = deterministicInterpret('Hola, estoy buscando un alojamiento para dos personas en septiembre', {
+    today: '2026-08-27'
+  });
+  assert.equal(parsed.check_in, null);
+  assert.equal(parsed.check_out, null);
+  assert.equal(parsed.check_in_status, 'ambiguous');
+  assert.equal(parsed.check_out_status, 'absent');
+  assert.equal(parsed.guests, 2);
+  assert.equal(parsed.needs_clarification, true);
+  assert.deepEqual(parsed.missing_fields, ['check_in', 'check_out_or_nights']);
+});
+
 test('normaliza fechas con barras solo cuando el orden es inequivoco', () => {
   const parsed = deterministicInterpret('Busco del 15/08/2026 al 18/08/2026 para 2 personas');
   assert.equal(parsed.check_in, '2026-08-15');
@@ -185,6 +198,32 @@ test('reconcilia IA y no pierde fechas naturales explicitas', async () => {
   assert.equal(parsed.guests, 2);
   assert.equal(parsed.requested_apartment_code, 'LF-210');
   assert.deepEqual(parsed.missing_fields, []);
+});
+
+test('reconciliacion rechaza fechas que la IA inventa para un mes parcial', async () => {
+  const modelResult = {
+    intent: 'lodging_search', language: 'es', check_in: '2026-09-01', check_out: '2026-09-30',
+    check_in_status: 'valid', check_out_status: 'valid',
+    check_in_source: 'model_interpreted', check_out_source: 'model_interpreted',
+    nights: 29, guests: 2, requested_apartment_code: null,
+    requested_apartment_code_status: 'absent', preferences: [], requirements: [],
+    budget_cop: null, budget_period: 'absent', knowledge_topics: [],
+    provided_fields: ['check_in', 'check_out', 'nights', 'guests'], corrections: [],
+    requests_human: false, uncertainty: 0.1, needs_clarification: false, missing_fields: []
+  };
+  const http = { post: async () => ({ data: { output_text: JSON.stringify(modelResult) } }) };
+  const ai = new PilotAi({ http, apiKey: 'test-key', safetySalt: 'test-salt' });
+  const parsed = await ai.interpret({
+    phone: '570000000000', today: '2026-08-27',
+    text: 'Hola, estoy buscando un alojamiento para dos personas en septiembre'
+  });
+  assert.equal(parsed.check_in, null);
+  assert.equal(parsed.check_out, null);
+  assert.equal(parsed.check_in_status, 'ambiguous');
+  assert.equal(parsed.check_out_status, 'absent');
+  assert.equal(parsed.guests, 2);
+  assert.equal(parsed.needs_clarification, true);
+  assert.deepEqual(parsed.missing_fields, ['check_in', 'check_out_or_nights']);
 });
 
 test('fallback de IA conserva la fecha de referencia para hoy y mañana', async () => {
