@@ -34,3 +34,13 @@ test('el emisor interno M0 no puede ser sobrescrito por el helper legado de plan
   assert.match(source, /sendTemplate:\s*sendM0ClosedInternalTemplate/);
   assert.equal((source.match(/function sendPilotWhatsAppTemplate\s*\(/g) || []).length, 1);
 });
+
+test('la captura comercial M0 espera PMS y recupera sólo su operación idempotente', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '..', 'index.js'), 'utf8');
+  const closedBranch = source.indexOf('if (M0_CLOSED_PILOT_ENABLED)');
+  const wait = source.indexOf('await pmsWarmup.waitUntilReady()', closedBranch);
+  const capture = source.indexOf('m0CommercialResponder.captureAndAcknowledge', closedBranch);
+  assert.ok(closedBranch > 0 && wait > closedBranch && capture > wait);
+  assert.match(source, /capture:\s*\(payload\)\s*=>\s*pmsWarmup\.run\(\(\)\s*=>\s*pilotOrchestrator\.capture\(payload\)\)/);
+  assert.match(source, /M0_CLOSED_PILOT_ENABLED\) await pmsWarmup\.waitUntilReady\(\{ force: true \}\)/);
+});

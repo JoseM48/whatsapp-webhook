@@ -257,9 +257,14 @@ const pmsPilotClient = new PmsPilotClient({
 });
 
 const pmsWarmup = createPmsWarmup({
-  enabled: String(process.env.PMS_LITE_WARMUP_ENABLED || 'false').toLowerCase() === 'true',
+  enabled: M0_CLOSED_PILOT_ENABLED ||
+    String(process.env.PMS_LITE_WARMUP_ENABLED || 'false').toLowerCase() === 'true',
   cooldownMs: Number(process.env.PMS_LITE_WARMUP_COOLDOWN_MS || 60_000),
-  warm: () => pmsPilotClient.warmup(Number(process.env.PMS_LITE_WARMUP_TIMEOUT_MS || 75_000)),
+  readyTtlMs: Number(process.env.PMS_LITE_WARMUP_READY_TTL_MS || 600_000),
+  maxWaitMs: Number(process.env.PMS_LITE_WARMUP_MAX_WAIT_MS || 85_000),
+  retryDelayMs: Number(process.env.PMS_LITE_WARMUP_RETRY_DELAY_MS || 5_000),
+  requestTimeoutMs: Number(process.env.PMS_LITE_WARMUP_REQUEST_TIMEOUT_MS || 15_000),
+  warm: (timeoutMs) => pmsPilotClient.warmup(timeoutMs),
 });
 
 const pilotTypingIndicator = createTypingIndicator({
@@ -411,7 +416,7 @@ const m0DeliveryReceipts = createM0DeliveryReceiptHandler({
 });
 
 const m0CommercialResponder = createM0CommercialResponder({
-  capture: (payload) => pilotOrchestrator.capture(payload),
+  capture: (payload) => pmsWarmup.run(() => pilotOrchestrator.capture(payload)),
   ai: pilotAi,
   closedPilot: m0ClosedPilot,
   pms: pmsPilotClient,
@@ -1222,6 +1227,7 @@ app.post('/webhook', async (req, res) => {
       if (!metaMessages.length) return res.sendStatus(200);
       const pendingCommercial = [];
       try {
+        await pmsWarmup.waitUntilReady();
         for (const incoming of metaMessages) {
           const raw = m0CommercialText(incoming);
           if (m0ClosedPilot.accepts(incoming.from) && !incoming.text && m0ClosedPilot.isControl(incoming.from, raw)) {
@@ -1711,6 +1717,7 @@ app.listen(PORT, '0.0.0.0', () => {
   if (PMS_LITE_M0_ENABLED || PMS_LITE_STARTUP_PREFLIGHT_ENABLED) {
     setImmediate(async () => {
       try {
+        if (M0_CLOSED_PILOT_ENABLED) await pmsWarmup.waitUntilReady({ force: true });
         await ensureM0RuntimeAttestation();
         await runM0OperatorAvailabilityCertificationRelay();
         await runM0OperatorProposalRelay();

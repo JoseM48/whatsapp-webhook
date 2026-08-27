@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createM0CommercialResponder } = require('../lib/pilot/m0-commercial-responder');
+const { createPmsWarmup } = require('../lib/pilot/pms-warmup');
 
 const input = {
   from: '573146892662', text: 'Busco alojamiento para dos personas',
@@ -109,4 +110,38 @@ test('un fallo inesperado de decisión queda marcado para recuperación', async 
   assert.equal(result.ok, false);
   assert.equal(result.code, 'ECONNRESET');
   assert.deepEqual(failures, [{ external_message_id: input.messageId, error_code: 'ECONNRESET', retryable: true }]);
+});
+
+test('la recuperación 429 conserva el wamid y sólo crea un acuse lógico', async () => {
+  let captureCalls = 0;
+  let beginCalls = 0;
+  const capturedIds = [];
+  const warmup = createPmsWarmup({
+    enabled: true,
+    warm: async () => ({ status: 200 }),
+    log: { info() {}, warn() {} }
+  });
+  const responder = createM0CommercialResponder({
+    capture: (payload) => warmup.run(async () => {
+      captureCalls += 1;
+      capturedIds.push(payload.messageId);
+      if (captureCalls === 1) throw { response: { status: 429 } };
+      return { captured: true, deduplicated: false };
+    }),
+    ai: { async interpret() { throw new Error('not_expected'); } },
+    closedPilot: {
+      async beginCommercial() {
+        beginCalls += 1;
+        return { result: { processing_claimed: true, outboxes: [{ id: 91 }] }, deliveries: [] };
+      }
+    },
+    pms: { async processingFailure() {} }
+  });
+
+  const result = await responder.captureAndAcknowledge(input);
+  assert.equal(result.captured, true);
+  assert.equal(captureCalls, 2);
+  assert.deepEqual(capturedIds, [input.messageId, input.messageId]);
+  assert.equal(beginCalls, 1);
+  assert.deepEqual(result.acknowledgement_outboxes, [{ id: 91 }]);
 });
