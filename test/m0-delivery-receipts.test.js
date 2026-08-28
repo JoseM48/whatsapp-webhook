@@ -5,20 +5,23 @@ const assert = require('node:assert/strict');
 const { createM0DeliveryReceiptHandler } = require('../lib/pilot/m0-delivery-receipts');
 
 const guest='573146892662',internal='573006774425';
-const config={enabled:true,guestPhone:guest,internalPhone:internal,allowlist:[guest,internal],
+const config={enabled:true,guestPhone:guest,internalPhone:internal,
   metaSignatureRequired:true,pmsConfigured:true};
 
-test('persiste sólo recibos de los dos teléfonos y espera al PMS antes de completar',async()=>{
+test('reenvía cualquier teléfono con forma válida a PMS (autoridad real de correlación) y solo pone en cuarentena formas inválidas',async()=>{
   const calls=[];
   const handler=createM0DeliveryReceiptHandler({config,pms:{async recordClosedPilotDeliveryStatus(body){
     calls.push(body); return {matched:true,provider_status:body.status,delivery_status:body.status,reason_code:'APPLIED'};
   }},logger:{warn(){}}});
   const result=await handler.capture([
     {providerReference:'wamid.1',recipientId:internal,status:'delivered',timestamp:'2026-08-26T00:45:00.000Z',errorCode:null},
-    {providerReference:'wamid.third',recipientId:'573111111111',status:'failed',timestamp:'2026-08-26T00:45:01.000Z',errorCode:'131030'}
+    // A real guest phone that is not the fixed configured one — must still be forwarded.
+    {providerReference:'wamid.guest',recipientId:'573009998877',status:'sent',timestamp:'2026-08-26T00:45:00.500Z',errorCode:null},
+    // Malformed/too-short recipient id — shape check quarantines this one.
+    {providerReference:'wamid.bad',recipientId:'123',status:'failed',timestamp:'2026-08-26T00:45:01.000Z',errorCode:'131030'}
   ]);
-  assert.equal(calls.length,1);
-  assert.equal(result.processed,1);
+  assert.equal(calls.length,2);
+  assert.equal(result.processed,2);
   assert.equal(result.quarantined,1);
   assert.deepEqual(Object.keys(calls[0]).sort(),['error_code','occurred_at','provider_reference','recipient_id','status']);
 });

@@ -5,24 +5,26 @@ const assert = require('node:assert/strict');
 const { createM0ClosedPilotDispatcher, validateClosedPilotConfig } = require('../lib/pilot/m0-closed-pilot');
 
 const guest='573146892662',internal='573006774425';
-const config={enabled:true,guestPhone:guest,internalPhone:internal,allowlist:[guest,internal],metaSignatureRequired:true,
+const config={enabled:true,guestPhone:guest,internalPhone:internal,metaSignatureRequired:true,
   pmsM0Enabled:true,controlledIngressEnabled:true,pmsConfigured:true,receiptsEnabled:true,
   internalTemplateName:'m0_internal_escalation_v1',internalTemplateLanguage:'es_CO'};
 
-test('requires the exact two phones and every immutable safety gate',()=>{
-  assert.throws(()=>validateClosedPilotConfig({...config,allowlist:[guest,internal,'573111111111']}),/m0_closed_webhook_configuration_invalid/);
+test('requires the internal phone and every immutable safety gate; the guest side is intentionally open',()=>{
+  assert.throws(()=>validateClosedPilotConfig({...config,internalPhone:''}),/m0_closed_webhook_configuration_invalid/);
   assert.throws(()=>validateClosedPilotConfig({...config,metaSignatureRequired:false}),/m0_closed_webhook_configuration_invalid/);
   assert.throws(()=>validateClosedPilotConfig({...config,receiptsEnabled:false}),/m0_closed_webhook_configuration_invalid/);
   assert.throws(()=>validateClosedPilotConfig({...config,internalTemplateName:''}),/m0_closed_webhook_configuration_invalid/);
   assert.equal(validateClosedPilotConfig({enabled:false}).ready,false);
 });
 
-test('quarantines every third party without calling PMS or Meta',async()=>{
-  let pmsCalls=0,sends=0;
-  const dispatcher=createM0ClosedPilotDispatcher({config,pms:{async closedPilotInbound(){pmsCalls+=1;}},
-    async sendText(){sends+=1;}});
+test('accepts any real phone as a guest and forwards it to PMS instead of quarantining locally',async()=>{
+  let pmsCalls=0;
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms:{async closedPilotInbound(){pmsCalls+=1; return {outboxes:[]};}},
+    async sendText(){}});
+  assert.equal(dispatcher.accepts('573111111111'),true);
   const result=await dispatcher.process({phone:'573111111111',text:'hola',messageId:'wamid.third',occurredAt:new Date().toISOString()});
-  assert.equal(result.quarantined,true); assert.equal(pmsCalls,0); assert.equal(sends,0);
+  assert.equal(result.quarantined,false);
+  assert.equal(pmsCalls,1);
 });
 
 test('reserva comandos exactos para control y envía conversación comercial a lenguaje natural',()=>{
@@ -32,14 +34,18 @@ test('reserva comandos exactos para control y envía conversación comercial a l
   assert.equal(dispatcher.isControl(guest,'¿Tienen disponibilidad para septiembre?'),false);
   assert.equal(dispatcher.isControl(guest,'DISPONIBILIDAD 2026-09-10 2026-09-17 HUÉSPEDES 2 LF-210'),false);
   assert.equal(dispatcher.isControl(internal,'cualquier operación interna'),true);
-  assert.equal(dispatcher.isControl('573111111111','NUEVA PRUEBA'),false);
+  // A stranger typing the exact literal control phrase still resolves as
+  // "control" — PMS is the one that rejects them (no enrolled lead), not the
+  // webhook's routing layer. A stranger's ordinary conversation is not control.
+  assert.equal(dispatcher.isControl('573111111111','NUEVA PRUEBA'),true);
+  assert.equal(dispatcher.isControl('573111111111','hola, busco un apartamento'),false);
 });
 
 test('el flujo comercial contiene fallos de entrega después de la captura durable',async()=>{
   const completed=[];
   const pms={
     async beginClosedPilotCommercial(){return {processing_claimed:true,outboxes:[{id:30}]};},
-    async claimClosedPilotOutbound(){return {outbox_id:30,claimable:true,recipient_kind:'guest',message_text:'acuse'};},
+    async claimClosedPilotOutbound(){return {outbox_id:30,claimable:true,recipient_kind:'guest',recipient_phone:guest,message_text:'acuse'};},
     async completeClosedPilotOutbound(body){completed.push(body);}
   };
   const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(){throw Object.assign(new Error('offline'),{code:'ECONNRESET'});},
@@ -50,25 +56,40 @@ test('el flujo comercial contiene fallos de entrega después de la captura durab
   assert.equal(completed[0].status,'unknown');
 });
 
-test('delivers only claimed durable outboxes to the bound phone and completes them',async()=>{
+test('delivers guest replies to the real phone behind that case, not a fixed configured one',async()=>{
+  const otherGuest='573009998877';
   const calls=[],sent=[],templates=[];
   const pms={
     async closedPilotInbound(){return {case_key:'M0-1',state:'owner_pending',outboxes:[{id:10},{id:11}]};},
     async claimClosedPilotOutbound(id){return {outbox_id:id,claimable:true,status:'submitting',
-      recipient_kind:id===10?'guest':'internal',message_text:id===10?'guest body':
+      recipient_kind:id===10?'guest':'internal',recipient_phone:id===10?otherGuest:null,
+      message_text:id===10?'guest body':
         'PILOTO M0\nPARA: PROPIETARIO\nCASO: M0-1\nAPARTAMENTO: LF-210\nACCIÓN SOLICITADA: VALIDAR\n\nRevisar solicitud.'};},
     async completeClosedPilotOutbound(body){calls.push(body);}
   };
   const dispatcher=createM0ClosedPilotDispatcher({config,pms,
     async sendText(phone,text){sent.push({phone,text});return 'wamid.guest';},
     async sendTemplate(phone,template){templates.push({phone,template});return 'wamid.internal';}});
-  const result=await dispatcher.process({phone:guest,text:'PRE-RESERVAR LF-210',messageId:'wamid.input',occurredAt:new Date().toISOString()});
-  assert.deepEqual(sent.map((x)=>x.phone),[guest]);
+  // otherGuest, not the configured guestPhone, is initiating this — proves the
+  // reply routes to whoever the case actually belongs to.
+  const result=await dispatcher.process({phone:otherGuest,text:'PRE-RESERVAR LF-210',messageId:'wamid.input',occurredAt:new Date().toISOString()});
+  assert.deepEqual(sent.map((x)=>x.phone),[otherGuest]);
   assert.deepEqual(templates.map((x)=>x.phone),[internal]);
   assert.deepEqual(templates[0].template,{name:'m0_internal_escalation_v1',language:'es_CO',
     parameters:['PROPIETARIO','M0-1','LF-210','VALIDAR','Revisar solicitud.']});
   assert.deepEqual(calls.map((x)=>x.status),['submitted','submitted']);
   assert.equal(result.deliveries.every((x)=>x.sent),true);
+});
+
+test('a guest outbox item with no resolvable phone is rejected instead of silently misdelivered',async()=>{
+  const pms={async closedPilotInbound(){return {outboxes:[{id:12}]};},
+    async claimClosedPilotOutbound(){return {outbox_id:12,claimable:true,recipient_kind:'guest',recipient_phone:null,message_text:'x'};},
+    async completeClosedPilotOutbound(){}};
+  let textSends=0;
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(){textSends+=1;},logger:{error(){}}});
+  await assert.rejects(()=>dispatcher.process({phone:guest,text:'x',messageId:'wamid.no-phone',occurredAt:new Date().toISOString()}),
+    /m0_closed_recipient_missing_or_invalid/);
+  assert.equal(textSends,0);
 });
 
 test('an internal escalation can never fall back to free-form text',async()=>{
@@ -86,7 +107,7 @@ test('an internal escalation can never fall back to free-form text',async()=>{
 test('marks uncertain sends unknown and never retries them automatically',async()=>{
   const completed=[];
   const pms={async closedPilotInbound(){return {outboxes:[{id:20}]};},
-    async claimClosedPilotOutbound(){return {outbox_id:20,claimable:true,recipient_kind:'guest',message_text:'x'};},
+    async claimClosedPilotOutbound(){return {outbox_id:20,claimable:true,recipient_kind:'guest',recipient_phone:guest,message_text:'x'};},
     async completeClosedPilotOutbound(body){completed.push(body);}};
   const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(){throw Object.assign(new Error('timeout'),{code:'ETIMEDOUT'});}});
   await assert.rejects(()=>dispatcher.process({phone:guest,text:'x',messageId:'wamid.timeout',occurredAt:new Date().toISOString()}),/timeout/);
@@ -96,7 +117,7 @@ test('marks uncertain sends unknown and never retries them automatically',async(
 test('a Meta response without provider id remains unknown',async()=>{
   const completed=[];
   const pms={async closedPilotInbound(){return {outboxes:[{id:21}]};},
-    async claimClosedPilotOutbound(){return {outbox_id:21,claimable:true,recipient_kind:'guest',message_text:'x'};},
+    async claimClosedPilotOutbound(){return {outbox_id:21,claimable:true,recipient_kind:'guest',recipient_phone:guest,message_text:'x'};},
     async completeClosedPilotOutbound(body){completed.push(body);}};
   const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(){return null;}});
   await assert.rejects(()=>dispatcher.process({phone:guest,text:'x',messageId:'wamid.no-ref',occurredAt:new Date().toISOString()}),/provider_reference_missing/);
