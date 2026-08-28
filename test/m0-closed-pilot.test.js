@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createM0ClosedPilotDispatcher, validateClosedPilotConfig } = require('../lib/pilot/m0-closed-pilot');
+const { createM0ClosedPilotDispatcher, internalTemplateParameters, validateClosedPilotConfig } = require('../lib/pilot/m0-closed-pilot');
 
 const guest='573146892662',internal='573006774425';
 const config={enabled:true,guestPhone:guest,internalPhone:internal,metaSignatureRequired:true,
@@ -122,4 +122,17 @@ test('a Meta response without provider id remains unknown',async()=>{
   const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(){return null;}});
   await assert.rejects(()=>dispatcher.process({phone:guest,text:'x',messageId:'wamid.no-ref',occurredAt:new Date().toISOString()}),/provider_reference_missing/);
   assert.equal(completed[0].status,'unknown');
+});
+
+test('flattens a multi-line internal body into a single line so Meta never rejects the template',()=>{
+  const body='PILOTO M0\nPARA: ADMINISTRACIÓN\nCASO: M0-3\nAPARTAMENTO: PENDIENTE\nACCIÓN SOLICITADA: VALIDAR BRECHA DE CONOCIMIENTO\n\n'+
+    'PREGUNTA DEL HUÉSPED: ¿Desde cuándo tienes disponibilidad?\nTEMAS DETECTADOS: other.\nINSTRUCCIÓN: Validar y responder únicamente con información aprobada.';
+  const parameters=internalTemplateParameters(body);
+  assert.equal(parameters.length,5);
+  for(const value of parameters) {
+    assert.doesNotMatch(value,/[\r\n\t]/);
+    assert.doesNotMatch(value,/ {2,}/);
+  }
+  assert.equal(parameters[4],'PREGUNTA DEL HUÉSPED: ¿Desde cuándo tienes disponibilidad? TEMAS DETECTADOS: other. '+
+    'INSTRUCCIÓN: Validar y responder únicamente con información aprobada.');
 });
