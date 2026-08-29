@@ -18,6 +18,8 @@ test('extrae todos los mensajes de un lote Meta sin perder ids ni remitentes', (
   assert.equal(messages[0].text, 'Hola');
   assert.equal(messages[0].name, 'Lead');
   assert.equal(messages[1].text, null);
+  assert.deepEqual(messages[1].audio, { id: 'media.1', mimeType: null });
+  assert.equal(messages[0].audio, null);
   assert.equal(m0CommercialText(messages[1]), '[M0_UNSUPPORTED_INBOUND:audio]');
 });
 

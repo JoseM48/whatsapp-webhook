@@ -37,6 +37,8 @@ const { createM0ClosedPilotDispatcher } = require('./lib/pilot/m0-closed-pilot')
 const { createM0CommercialResponder } = require('./lib/pilot/m0-commercial-responder');
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
+const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
+const { toFile } = require('openai');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -90,6 +92,14 @@ const GOOGLE_CREDS = loadGoogleCreds();
 // OpenAI (fallback IA)
 // ===============================
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// F-AUDIO-001: transcribe notas de voz entrantes antes de que entren al
+// mismo camino que un mensaje de texto (ver m0CommercialText). Apagado por
+// defecto - cada transcripcion es una llamada real y paga a OpenAI.
+const M0_AUDIO_TRANSCRIPTION_ENABLED = String(process.env.M0_AUDIO_TRANSCRIPTION_ENABLED || 'false').toLowerCase() === 'true';
+const inboundAudioTranscriber = new InboundAudioTranscriber({
+  http: axios, openai, toFile, accessToken: process.env.ACCESS_TOKEN
+});
 
 // ===============================
 // Motor de reservas (adapter Puppeteer) – carga tolerante
@@ -1229,6 +1239,14 @@ app.post('/webhook', async (req, res) => {
       try {
         await pmsWarmup.waitUntilReady();
         for (const incoming of metaMessages) {
+          if (M0_AUDIO_TRANSCRIPTION_ENABLED && incoming.messageType === 'audio' && incoming.audio?.id && !incoming.text) {
+            try {
+              incoming.text = await inboundAudioTranscriber.transcribe(incoming.audio.id);
+              console.info('[m0-audio] transcribed', { phone: maskPilotPhone(incoming.from), chars: incoming.text.length });
+            } catch (error) {
+              console.error('[m0-audio] transcription_failed', { phone: maskPilotPhone(incoming.from), code: error?.message || 'unknown' });
+            }
+          }
           const raw = m0CommercialText(incoming);
           if (m0ClosedPilot.accepts(incoming.from) && !incoming.text && m0ClosedPilot.isControl(incoming.from, raw)) {
             console.warn('[m0-closed] internal_unsupported_quarantined', {
