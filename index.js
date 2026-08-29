@@ -17,6 +17,7 @@ const { PilotOrchestrator } = require('./lib/pilot/orchestrator');
 const { runStartupPreflight } = require('./lib/pilot/startup-preflight');
 const {
   parseAllowlist,
+  isAllowlisted,
   validateMetaSignature,
   maskPhone: maskPilotPhone
 } = require('./lib/pilot/security');
@@ -97,6 +98,10 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // mismo camino que un mensaje de texto (ver m0CommercialText). Apagado por
 // defecto - cada transcripcion es una llamada real y paga a OpenAI.
 const M0_AUDIO_TRANSCRIPTION_ENABLED = String(process.env.M0_AUDIO_TRANSCRIPTION_ENABLED || 'false').toLowerCase() === 'true';
+// Lista de prueba: mientras esta lista no este vacia, solo estos telefonos
+// activan transcripcion, sin importar M0_AUDIO_TRANSCRIPTION_ENABLED - asi
+// se puede probar con un numero real antes de abrirlo a todos los huespedes.
+const M0_AUDIO_TRANSCRIPTION_ALLOWLIST_PHONES = parseAllowlist(process.env.M0_AUDIO_TRANSCRIPTION_ALLOWLIST_PHONES || '');
 const inboundAudioTranscriber = new InboundAudioTranscriber({
   http: axios, openai, toFile, accessToken: process.env.ACCESS_TOKEN
 });
@@ -1239,7 +1244,8 @@ app.post('/webhook', async (req, res) => {
       try {
         await pmsWarmup.waitUntilReady();
         for (const incoming of metaMessages) {
-          if (M0_AUDIO_TRANSCRIPTION_ENABLED && incoming.messageType === 'audio' && incoming.audio?.id && !incoming.text) {
+          if (M0_AUDIO_TRANSCRIPTION_ENABLED && incoming.messageType === 'audio' && incoming.audio?.id && !incoming.text
+            && isAllowlisted(incoming.from, M0_AUDIO_TRANSCRIPTION_ALLOWLIST_PHONES)) {
             try {
               incoming.text = await inboundAudioTranscriber.transcribe(incoming.audio.id);
               console.info('[m0-audio] transcribed', { phone: maskPilotPhone(incoming.from), chars: incoming.text.length });
