@@ -205,6 +205,10 @@ const M0_CLOSED_PILOT_INTERNAL_TEMPLATE_LANGUAGE = String(process.env.M0_CLOSED_
 const M0_CLOSED_PILOT_FLOW_ENABLED = String(process.env.M0_CLOSED_PILOT_FLOW_ENABLED || 'false').toLowerCase() === 'true';
 const M0_CLOSED_PILOT_FLOW_ID = String(process.env.M0_CLOSED_PILOT_FLOW_ID || '').trim();
 const M0_CLOSED_PILOT_FLOW_FIRST_SCREEN = String(process.env.M0_CLOSED_PILOT_FLOW_FIRST_SCREEN || 'CHECKIN_SCREEN').trim();
+// 'draft' while testing an unpublished Flow with the authorized test phones
+// only; empty/unset once the Flow is published, so it resolves for any guest.
+const M0_CLOSED_PILOT_FLOW_MODE = String(process.env.M0_CLOSED_PILOT_FLOW_MODE || '').trim().toLowerCase();
+const M0_CLOSED_PILOT_FLOW_TEST_ALLOWLIST_PHONES = parseAllowlist(process.env.M0_CLOSED_PILOT_FLOW_TEST_ALLOWLIST_PHONES || '');
 const DEBUG_ENDPOINTS_ENABLED = String(process.env.DEBUG_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const BOOKING_ENDPOINTS_ENABLED = String(process.env.BOOKING_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const PHASE2C_PHONE_TEST_ENABLED = String(process.env.PHASE2C_PHONE_TEST_ENABLED || 'false').toLowerCase() === 'true';
@@ -362,7 +366,7 @@ async function sendM0ClosedInternalTemplate(to, { name, language, parameters }) 
   return response.data?.messages?.[0]?.id || null;
 }
 
-async function sendPilotWhatsAppFlow(to, { flowId, flowToken, firstScreen, ctaText, bodyText }) {
+async function sendPilotWhatsAppFlow(to, { flowId, flowToken, firstScreen, ctaText, bodyText, mode }) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
   if (!flowId) throw Object.assign(new Error('invalid_flow_id'), { code: 'invalid_flow_id' });
@@ -375,6 +379,10 @@ async function sendPilotWhatsAppFlow(to, { flowId, flowToken, firstScreen, ctaTe
         name: 'flow',
         parameters: {
           flow_message_version: '3', flow_token: flowToken, flow_id: flowId,
+          // 'draft' lets the two authorized test phones exercise an unpublished
+          // Flow before it goes live; omit (undefined) once published so real
+          // guests always resolve the published version.
+          ...(mode ? { mode } : {}),
           flow_cta: ctaText, flow_action: 'navigate',
           flow_action_payload: { screen: firstScreen, data: {} }
         }
@@ -449,7 +457,8 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
     internalTemplateName: M0_CLOSED_PILOT_INTERNAL_TEMPLATE_NAME,
     internalTemplateLanguage: M0_CLOSED_PILOT_INTERNAL_TEMPLATE_LANGUAGE,
     flow: { enabled: M0_CLOSED_PILOT_FLOW_ENABLED, flowId: M0_CLOSED_PILOT_FLOW_ID,
-      firstScreen: M0_CLOSED_PILOT_FLOW_FIRST_SCREEN }
+      firstScreen: M0_CLOSED_PILOT_FLOW_FIRST_SCREEN, mode: M0_CLOSED_PILOT_FLOW_MODE || null,
+      testAllowlist: M0_CLOSED_PILOT_FLOW_TEST_ALLOWLIST_PHONES }
   },
   pms: pmsPilotClient,
   sendText: sendPilotWhatsAppText,

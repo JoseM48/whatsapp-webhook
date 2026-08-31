@@ -98,8 +98,31 @@ test('a guest row marked message_kind:flow sends the calendar Flow, not plain te
   assert.equal(flows.length,1);
   assert.equal(flows[0].phone,guest);
   assert.deepEqual(flows[0].payload,{flowId:'999888777',flowToken:'40',firstScreen:'CHECKIN_SCREEN',
-    ctaText:'Continuar',bodyText:'¿Cuál es tu fecha de llegada?'});
+    ctaText:'Continuar',bodyText:'¿Cuál es tu fecha de llegada?',mode:undefined});
   assert.equal(result.deliveries[0].sent,true);
+});
+
+test('en modo draft, sólo los teléfonos de prueba autorizados reciben el Flow; los demás caen a texto',async()=>{
+  const draftConfig={...config,flow:{enabled:true,flowId:'999888777',firstScreen:'CHECKIN_SCREEN',
+    mode:'draft',testAllowlist:[guest]}};
+  const otherGuest='573009998877';
+  const sent=[],flows=[];
+  const idByPhone={[guest]:40,[otherGuest]:41};
+  const pms={
+    async closedPilotInbound({phone}){return {outboxes:[{id:idByPhone[phone]}]};},
+    async claimClosedPilotOutbound(id){const phone=id===40?guest:otherGuest;
+      return {outbox_id:id,claimable:true,recipient_kind:'guest',recipient_phone:phone,
+        message_text:'¿Cuál es tu fecha de llegada?',message_kind:'flow'};},
+    async completeClosedPilotOutbound(){}
+  };
+  const dispatcher=createM0ClosedPilotDispatcher({config:draftConfig,pms,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.text';},
+    async sendFlow(phone,payload){flows.push({phone,payload});return 'wamid.flow';}});
+  await dispatcher.process({phone:guest,text:'x',messageId:'wamid.draft-authorized',occurredAt:new Date().toISOString()});
+  await dispatcher.process({phone:otherGuest,text:'x',messageId:'wamid.draft-unauthorized',occurredAt:new Date().toISOString()});
+  assert.deepEqual(flows.map((x)=>x.phone),[guest]);
+  assert.equal(flows[0].payload.mode,'draft');
+  assert.deepEqual(sent.map((x)=>x.phone),[otherGuest]);
 });
 
 test('a guest row marked message_kind:flow falls back to plain text when no Flow is configured yet',async()=>{
