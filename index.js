@@ -391,7 +391,11 @@ async function sendPilotWhatsAppFlow(to, { flowId, flowToken, firstScreen, ctaTe
         parameters: {
           flow_message_version: '3', flow_token: flowToken, flow_id: flowId,
           flow_cta: ctaText, flow_action: 'navigate',
-          flow_action_payload: { screen: firstScreen, data: {} }
+          // flow_action_payload.data is optional, but Meta rejects it as an
+          // invalid parameter when present as an empty object -- omit it
+          // entirely rather than sending {} when there is nothing to
+          // pre-populate on the first screen.
+          flow_action_payload: { screen: firstScreen }
         }
       }
     }
