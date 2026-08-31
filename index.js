@@ -381,8 +381,11 @@ async function sendPilotWhatsAppFlow(to, { flowId, flowToken, firstScreen, ctaTe
           flow_message_version: '3', flow_token: flowToken, flow_id: flowId,
           // 'draft' lets the two authorized test phones exercise an unpublished
           // Flow before it goes live; omit (undefined) once published so real
-          // guests always resolve the published version.
-          ...(mode ? { mode } : {}),
+          // guests always resolve the published version. The key is
+          // "flow_mode" (every sibling key in this object carries the flow_
+          // prefix) -- a first attempt using bare "mode" was rejected by Meta
+          // with (#131009) Parameter value is not valid.
+          ...(mode ? { flow_mode: mode } : {}),
           flow_cta: ctaText, flow_action: 'navigate',
           flow_action_payload: { screen: firstScreen, data: {} }
         }
