@@ -127,6 +127,9 @@ app.use(express.json({
   limit: '1mb',
   verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); }
 }));
+// Public, unauthenticated static hosting for apartment photos the M0 pilot
+// attaches to WhatsApp messages (Meta's image API needs a plain public link).
+app.use('/media/photos', express.static(path.join(__dirname, 'public', 'photos'), { maxAge: '7d' }));
 
 // ===============================
 // Helpers comunes
@@ -353,6 +356,20 @@ async function sendPilotWhatsAppImage(to, link) {
   return response.data?.messages?.[0]?.id || null;
 }
 
+// Independent of the legacy MVP_LA_FRONTERA_MEDIA_ENABLED flag above -- this
+// is the M0 closed pilot's own apartment-photo delivery, unrelated feature.
+async function sendM0ApartmentPhoto(to, link) {
+  const phone = normalizePhone(to);
+  if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  const response = await axios.post(WHATSAPP_API_URL, {
+    messaging_product: 'whatsapp', to: phone, image: { link }
+  }, {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    timeout: 20000
+  });
+  return response.data?.messages?.[0]?.id || null;
+}
+
 async function sendM0ClosedInternalTemplate(to, { name, language, parameters }) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
@@ -476,6 +493,7 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
   sendText: sendPilotWhatsAppText,
   sendTemplate: sendM0ClosedInternalTemplate,
   sendFlow: sendPilotWhatsAppFlow,
+  sendPhoto: sendM0ApartmentPhoto,
   logger: console
 });
 

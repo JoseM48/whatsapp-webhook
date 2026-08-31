@@ -304,6 +304,19 @@ test('clasifica preguntas comerciales sin convertirlas en búsqueda completa', (
   assert.equal(parsed.requested_apartment_code, 'LF-210');
 });
 
+test('reconoce una petición de fotos como un tema de conocimiento propio, no una búsqueda', () => {
+  const parsed = deterministicInterpret('¿Tienes fotos del LF-210?');
+  assert.equal(parsed.intent, 'lodging_question');
+  assert.deepEqual(parsed.knowledge_topics, ['photos']);
+  assert.equal(parsed.requested_apartment_code, 'LF-210');
+
+  const english = deterministicInterpret('Do you have pictures of the apartment?');
+  assert.deepEqual(english.knowledge_topics, ['photos']);
+
+  const plural = deterministicInterpret('Mándame más imágenes por favor');
+  assert.deepEqual(plural.knowledge_topics, ['photos']);
+});
+
 test('fallo de IA conserva inbound interpretable mediante fallback seguro', async () => {
   const ai = new PilotAi({
     http: { post: async () => { throw Object.assign(new Error('offline'), { code: 'ECONNABORTED' }); } },

@@ -102,6 +102,85 @@ test('a guest row marked message_kind:flow sends the calendar Flow, not plain te
   assert.equal(result.deliveries[0].sent,true);
 });
 
+test('a proposal message (message_kind:text mentioning "LF-210: COP") sends the portada photo for each proposed apartment',async()=>{
+  const sent=[],photos=[];
+  const pms={
+    async closedPilotInbound(){return {outboxes:[{id:50}]};},
+    async claimClosedPilotOutbound(){return {outbox_id:50,claimable:true,recipient_kind:'guest',recipient_phone:guest,
+      message_kind:'text',
+      message_text:'Tengo estas opciones del 2026-09-15 al 2026-10-15 para 1 persona:\nLF-210: COP 3.300.000 total, anticipo COP 600.000\nLF-404: COP 3.300.000 total, anticipo COP 600.000\n\nResponde con el código.'};},
+    async completeClosedPilotOutbound(){}
+  };
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.text';},
+    async sendPhoto(phone,url){photos.push({phone,url});return 'wamid.photo';}});
+  const result=await dispatcher.process({phone:guest,text:'x',messageId:'wamid.proposal-photos',occurredAt:new Date().toISOString()});
+  assert.equal(sent.length,1);
+  assert.deepEqual(photos.map((p)=>p.phone),[guest,guest]);
+  assert.deepEqual(photos.map((p)=>p.url),[
+    'https://whatsapp-webhook-erom.onrender.com/media/photos/LF-210/01-portada.jpg',
+    'https://whatsapp-webhook-erom.onrender.com/media/photos/LF-404/01-portada.jpg'
+  ]);
+  assert.equal(result.deliveries[0].sent,true);
+});
+
+test('a message_kind:photos row sends the full gallery for the apartment it names, not just the portada',async()=>{
+  const photos=[];
+  const pms={
+    async closedPilotInbound(){return {outboxes:[{id:51}]};},
+    async claimClosedPilotOutbound(){return {outbox_id:51,claimable:true,recipient_kind:'guest',recipient_phone:guest,
+      message_kind:'photos',message_text:'Aquí tienes más fotos de LF-210:'};},
+    async completeClosedPilotOutbound(){}
+  };
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,
+    async sendText(){return 'wamid.text';},
+    async sendPhoto(phone,url){photos.push({phone,url});return 'wamid.photo';}});
+  const result=await dispatcher.process({phone:guest,text:'x',messageId:'wamid.gallery',occurredAt:new Date().toISOString()});
+  assert.equal(photos.length,6);
+  assert.equal(photos.every((p)=>p.phone===guest),true);
+  assert.equal(photos[0].url,'https://whatsapp-webhook-erom.onrender.com/media/photos/LF-210/01-portada.jpg');
+  assert.equal(photos[5].url,'https://whatsapp-webhook-erom.onrender.com/media/photos/LF-210/06-tv.jpg');
+  assert.equal(result.deliveries[0].sent,true);
+});
+
+test('a failed photo send never fails the outbox delivery -- the text message already went out',async()=>{
+  const completed=[];
+  const pms={
+    async closedPilotInbound(){return {outboxes:[{id:52}]};},
+    async claimClosedPilotOutbound(){return {outbox_id:52,claimable:true,recipient_kind:'guest',recipient_phone:guest,
+      message_kind:'text',message_text:'LF-210: COP 3.300.000 total, anticipo COP 600.000'};},
+    async completeClosedPilotOutbound(body){completed.push(body);}
+  };
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,
+    async sendText(){return 'wamid.text';},
+    async sendPhoto(){throw Object.assign(new Error('upstream'),{response:{status:500}});},
+    logger:{error(){}}});
+  const result=await dispatcher.process({phone:guest,text:'x',messageId:'wamid.photo-fail',occurredAt:new Date().toISOString()});
+  assert.equal(result.deliveries[0].sent,true);
+  assert.deepEqual(completed.map((c)=>c.status),['submitted']);
+});
+
+test('internal and Flow messages never trigger a photo send even when sendPhoto is configured',async()=>{
+  const photos=[];
+  const flowConfig={...config,flow:{enabled:true,flowId:'999888777',firstScreen:'CHECKIN_SCREEN'}};
+  const pms={
+    async closedPilotInbound(){return {outboxes:[{id:53},{id:54}]};},
+    async claimClosedPilotOutbound(id){return id===53
+      ?{outbox_id:53,claimable:true,recipient_kind:'internal',recipient_phone:null,
+        message_text:'PILOTO M0\nPARA: PROPIETARIO\nCASO: M0-1\nAPARTAMENTO: LF-210\nACCIÓN SOLICITADA: VALIDAR\n\nLF-210: COP 1.'}
+      :{outbox_id:54,claimable:true,recipient_kind:'guest',recipient_phone:guest,message_kind:'flow',
+        message_text:'LF-210: COP 3.300.000 total, anticipo COP 600.000'};},
+    async completeClosedPilotOutbound(){}
+  };
+  const dispatcher=createM0ClosedPilotDispatcher({config:flowConfig,pms,
+    async sendText(){return 'wamid.text';},
+    async sendTemplate(){return 'wamid.internal';},
+    async sendFlow(){return 'wamid.flow';},
+    async sendPhoto(phone,url){photos.push({phone,url});return 'wamid.photo';}});
+  await dispatcher.process({phone:guest,text:'x',messageId:'wamid.no-photo-leak',occurredAt:new Date().toISOString()});
+  assert.equal(photos.length,0);
+});
+
 test('con restrictToTestPhones, sólo los teléfonos de prueba autorizados reciben el Flow; los demás caen a texto',async()=>{
   const restrictedConfig={...config,flow:{enabled:true,flowId:'999888777',firstScreen:'CHECKIN_SCREEN',
     restrictToTestPhones:true,testAllowlist:[guest]}};
