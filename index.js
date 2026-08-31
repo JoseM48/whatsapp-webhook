@@ -205,9 +205,13 @@ const M0_CLOSED_PILOT_INTERNAL_TEMPLATE_LANGUAGE = String(process.env.M0_CLOSED_
 const M0_CLOSED_PILOT_FLOW_ENABLED = String(process.env.M0_CLOSED_PILOT_FLOW_ENABLED || 'false').toLowerCase() === 'true';
 const M0_CLOSED_PILOT_FLOW_ID = String(process.env.M0_CLOSED_PILOT_FLOW_ID || '').trim();
 const M0_CLOSED_PILOT_FLOW_FIRST_SCREEN = String(process.env.M0_CLOSED_PILOT_FLOW_FIRST_SCREEN || 'CHECKIN_SCREEN').trim();
-// 'draft' while testing an unpublished Flow with the authorized test phones
-// only; empty/unset once the Flow is published, so it resolves for any guest.
-const M0_CLOSED_PILOT_FLOW_MODE = String(process.env.M0_CLOSED_PILOT_FLOW_MODE || '').trim().toLowerCase();
+// Meta only ever resolves a published Flow when it is actually sent to a
+// guest -- there is no API-level "draft" mode. While rolling this out,
+// restrict who can receive it to the authorized test phones regardless of
+// publish state; turn this off once the Flow has proven itself.
+const M0_CLOSED_PILOT_FLOW_RESTRICT_TO_TEST_PHONES = String(
+  process.env.M0_CLOSED_PILOT_FLOW_RESTRICT_TO_TEST_PHONES || 'true'
+).toLowerCase() === 'true';
 const M0_CLOSED_PILOT_FLOW_TEST_ALLOWLIST_PHONES = parseAllowlist(process.env.M0_CLOSED_PILOT_FLOW_TEST_ALLOWLIST_PHONES || '');
 const DEBUG_ENDPOINTS_ENABLED = String(process.env.DEBUG_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const BOOKING_ENDPOINTS_ENABLED = String(process.env.BOOKING_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
@@ -366,10 +370,17 @@ async function sendM0ClosedInternalTemplate(to, { name, language, parameters }) 
   return response.data?.messages?.[0]?.id || null;
 }
 
-async function sendPilotWhatsAppFlow(to, { flowId, flowToken, firstScreen, ctaText, bodyText, mode }) {
+async function sendPilotWhatsAppFlow(to, { flowId, flowToken, firstScreen, ctaText, bodyText }) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
   if (!flowId) throw Object.assign(new Error('invalid_flow_id'), { code: 'invalid_flow_id' });
+  // Meta's send-message API only resolves published Flows -- there is no
+  // "send a draft" parameter here (confirmed live: both "mode" and
+  // "flow_mode" were rejected with 400 "Unexpected key ... parameters").
+  // Testing an unpublished Flow is only possible from WhatsApp Manager's own
+  // preview. Whoever is allowed to receive this Flow while it is new is
+  // controlled entirely by the caller's restrictToTestPhones/testAllowlist
+  // gate, not by anything sent to Meta.
   const response = await axios.post(WHATSAPP_API_URL, {
     messaging_product: 'whatsapp', to: phone, type: 'interactive',
     interactive: {
@@ -379,13 +390,6 @@ async function sendPilotWhatsAppFlow(to, { flowId, flowToken, firstScreen, ctaTe
         name: 'flow',
         parameters: {
           flow_message_version: '3', flow_token: flowToken, flow_id: flowId,
-          // 'draft' lets the two authorized test phones exercise an unpublished
-          // Flow before it goes live; omit (undefined) once published so real
-          // guests always resolve the published version. The key is
-          // "flow_mode" (every sibling key in this object carries the flow_
-          // prefix) -- a first attempt using bare "mode" was rejected by Meta
-          // with (#131009) Parameter value is not valid.
-          ...(mode ? { flow_mode: mode } : {}),
           flow_cta: ctaText, flow_action: 'navigate',
           flow_action_payload: { screen: firstScreen, data: {} }
         }
@@ -460,7 +464,8 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
     internalTemplateName: M0_CLOSED_PILOT_INTERNAL_TEMPLATE_NAME,
     internalTemplateLanguage: M0_CLOSED_PILOT_INTERNAL_TEMPLATE_LANGUAGE,
     flow: { enabled: M0_CLOSED_PILOT_FLOW_ENABLED, flowId: M0_CLOSED_PILOT_FLOW_ID,
-      firstScreen: M0_CLOSED_PILOT_FLOW_FIRST_SCREEN, mode: M0_CLOSED_PILOT_FLOW_MODE || null,
+      firstScreen: M0_CLOSED_PILOT_FLOW_FIRST_SCREEN,
+      restrictToTestPhones: M0_CLOSED_PILOT_FLOW_RESTRICT_TO_TEST_PHONES,
       testAllowlist: M0_CLOSED_PILOT_FLOW_TEST_ALLOWLIST_PHONES }
   },
   pms: pmsPilotClient,

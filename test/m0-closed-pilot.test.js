@@ -98,13 +98,13 @@ test('a guest row marked message_kind:flow sends the calendar Flow, not plain te
   assert.equal(flows.length,1);
   assert.equal(flows[0].phone,guest);
   assert.deepEqual(flows[0].payload,{flowId:'999888777',flowToken:'40',firstScreen:'CHECKIN_SCREEN',
-    ctaText:'Continuar',bodyText:'¿Cuál es tu fecha de llegada?',mode:undefined});
+    ctaText:'Continuar',bodyText:'¿Cuál es tu fecha de llegada?'});
   assert.equal(result.deliveries[0].sent,true);
 });
 
-test('en modo draft, sólo los teléfonos de prueba autorizados reciben el Flow; los demás caen a texto',async()=>{
-  const draftConfig={...config,flow:{enabled:true,flowId:'999888777',firstScreen:'CHECKIN_SCREEN',
-    mode:'draft',testAllowlist:[guest]}};
+test('con restrictToTestPhones, sólo los teléfonos de prueba autorizados reciben el Flow; los demás caen a texto',async()=>{
+  const restrictedConfig={...config,flow:{enabled:true,flowId:'999888777',firstScreen:'CHECKIN_SCREEN',
+    restrictToTestPhones:true,testAllowlist:[guest]}};
   const otherGuest='573009998877';
   const sent=[],flows=[];
   const idByPhone={[guest]:40,[otherGuest]:41};
@@ -115,13 +115,12 @@ test('en modo draft, sólo los teléfonos de prueba autorizados reciben el Flow;
         message_text:'¿Cuál es tu fecha de llegada?',message_kind:'flow'};},
     async completeClosedPilotOutbound(){}
   };
-  const dispatcher=createM0ClosedPilotDispatcher({config:draftConfig,pms,
+  const dispatcher=createM0ClosedPilotDispatcher({config:restrictedConfig,pms,
     async sendText(phone,text){sent.push({phone,text});return 'wamid.text';},
     async sendFlow(phone,payload){flows.push({phone,payload});return 'wamid.flow';}});
-  await dispatcher.process({phone:guest,text:'x',messageId:'wamid.draft-authorized',occurredAt:new Date().toISOString()});
-  await dispatcher.process({phone:otherGuest,text:'x',messageId:'wamid.draft-unauthorized',occurredAt:new Date().toISOString()});
+  await dispatcher.process({phone:guest,text:'x',messageId:'wamid.restricted-authorized',occurredAt:new Date().toISOString()});
+  await dispatcher.process({phone:otherGuest,text:'x',messageId:'wamid.restricted-unauthorized',occurredAt:new Date().toISOString()});
   assert.deepEqual(flows.map((x)=>x.phone),[guest]);
-  assert.equal(flows[0].payload.mode,'draft');
   assert.deepEqual(sent.map((x)=>x.phone),[otherGuest]);
 });
 
