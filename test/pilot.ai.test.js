@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { PilotAi, deterministicInterpret, deterministicPresentation, minimizeUserText } = require('../lib/pilot/ai');
+const { PilotAi, deterministicInterpret, deterministicPresentation, minimizeUserText, parseDayOrdinal } = require('../lib/pilot/ai');
 
 test('fallback interpreta consulta completa en español', () => {
   const parsed = deterministicInterpret('Busco del 2026-08-01 al 2026-08-05 para 2 personas, prefiero balcón');
@@ -81,6 +81,30 @@ test('interpreta fechas naturales explicitas en español', () => {
   const compact = deterministicInterpret('Busco del 15 al 18 de agosto de 2026 para 2 personas');
   assert.equal(compact.check_in, '2026-08-15');
   assert.equal(compact.check_out, '2026-08-18');
+});
+
+test('reconoce "primero" y ordinales abreviados como día del mes', () => {
+  assert.equal(parseDayOrdinal('primero'), 1);
+  assert.equal(parseDayOrdinal('primer'), 1);
+  assert.equal(parseDayOrdinal('primera'), 1);
+  assert.equal(parseDayOrdinal('1ro'), 1);
+  assert.equal(parseDayOrdinal('1er'), 1);
+  assert.equal(parseDayOrdinal('2do'), 2);
+  assert.equal(parseDayOrdinal('3ro'), 3);
+  assert.equal(parseDayOrdinal('15'), 15);
+  assert.equal(parseDayOrdinal('nunca'), null);
+});
+
+test('interpreta fechas dichas con ordinales, igual que la transcripción real de un audio', () => {
+  const parsed = deterministicInterpret(
+    'Hola, quiero el 210 del primero de octubre del año 2026 al 1ro de noviembre del año 2026 para dos personas'
+  );
+  assert.equal(parsed.check_in, '2026-10-01');
+  assert.equal(parsed.check_out, '2026-11-01');
+  assert.equal(parsed.check_in_status, 'valid');
+  assert.equal(parsed.check_out_status, 'valid');
+  assert.equal(parsed.guests, 2);
+  assert.deepEqual(parsed.missing_fields, []);
 });
 
 test('no inventa el año de una fecha natural incompleta', () => {
