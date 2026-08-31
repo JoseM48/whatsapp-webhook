@@ -20,7 +20,39 @@ test('extrae todos los mensajes de un lote Meta sin perder ids ni remitentes', (
   assert.equal(messages[1].text, null);
   assert.deepEqual(messages[1].audio, { id: 'media.1', mimeType: null });
   assert.equal(messages[0].audio, null);
+  assert.equal(messages[0].flow, null);
+  assert.equal(messages[1].flow, null);
   assert.equal(m0CommercialText(messages[1]), '[M0_UNSUPPORTED_INBOUND:audio]');
+});
+
+test('extrae la respuesta de un Flow completado (nfm_reply) sin perder el response_json', () => {
+  const payload = { entry: [{ changes: [{ value: {
+    contacts: [{ wa_id: '573146892662', profile: { name: 'Lead' } }],
+    messages: [
+      { id: 'wamid.flow', from: '573146892662', timestamp: '1787688000', type: 'interactive',
+        interactive: { type: 'nfm_reply', nfm_reply: {
+          name: 'flow', response_json: '{"checkin_date":"2026-10-01","duration":"3m"}'
+        } } }
+    ]
+  } }] }] };
+  const messages = extractMetaMessages(payload);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].text, null);
+  assert.deepEqual(messages[0].flow, { name: 'flow', responseJson: '{"checkin_date":"2026-10-01","duration":"3m"}' });
+  assert.equal(m0CommercialText(messages[0]), '[M0_UNSUPPORTED_INBOUND:interactive]');
+});
+
+test('un botón/lista clásico (no Flow) sigue extrayendo el título como texto y flow queda null', () => {
+  const payload = { entry: [{ changes: [{ value: {
+    contacts: [{ wa_id: '573146892662', profile: { name: 'Lead' } }],
+    messages: [
+      { id: 'wamid.btn', from: '573146892662', timestamp: '1787688000', type: 'interactive',
+        interactive: { type: 'button_reply', button_reply: { title: 'Sí' } } }
+    ]
+  } }] }] };
+  const messages = extractMetaMessages(payload);
+  assert.equal(messages[0].text, 'Sí');
+  assert.equal(messages[0].flow, null);
 });
 
 test('ignora estados Meta sin messages porque no son inbound de un lead', () => {

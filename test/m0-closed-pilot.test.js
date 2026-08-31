@@ -81,6 +81,44 @@ test('delivers guest replies to the real phone behind that case, not a fixed con
   assert.equal(result.deliveries.every((x)=>x.sent),true);
 });
 
+test('a guest row marked message_kind:flow sends the calendar Flow, not plain text, when a Flow is configured',async()=>{
+  const flowConfig={...config,flow:{enabled:true,flowId:'999888777',firstScreen:'CHECKIN_SCREEN'}};
+  const sent=[],flows=[];
+  const pms={
+    async closedPilotInbound(){return {outboxes:[{id:40}]};},
+    async claimClosedPilotOutbound(){return {outbox_id:40,claimable:true,recipient_kind:'guest',recipient_phone:guest,
+      message_text:'¿Cuál es tu fecha de llegada?',message_kind:'flow'};},
+    async completeClosedPilotOutbound(){}
+  };
+  const dispatcher=createM0ClosedPilotDispatcher({config:flowConfig,pms,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.text';},
+    async sendFlow(phone,payload){flows.push({phone,payload});return 'wamid.flow';}});
+  const result=await dispatcher.process({phone:guest,text:'x',messageId:'wamid.flow-in',occurredAt:new Date().toISOString()});
+  assert.equal(sent.length,0);
+  assert.equal(flows.length,1);
+  assert.equal(flows[0].phone,guest);
+  assert.deepEqual(flows[0].payload,{flowId:'999888777',flowToken:'40',firstScreen:'CHECKIN_SCREEN',
+    ctaText:'Continuar',bodyText:'¿Cuál es tu fecha de llegada?'});
+  assert.equal(result.deliveries[0].sent,true);
+});
+
+test('a guest row marked message_kind:flow falls back to plain text when no Flow is configured yet',async()=>{
+  const sent=[];
+  const pms={
+    async closedPilotInbound(){return {outboxes:[{id:41}]};},
+    async claimClosedPilotOutbound(){return {outbox_id:41,claimable:true,recipient_kind:'guest',recipient_phone:guest,
+      message_text:'¿Cuál es tu fecha de llegada?',message_kind:'flow'};},
+    async completeClosedPilotOutbound(){}
+  };
+  // No `flow` key in config at all — same as every dispatcher instantiated
+  // before this feature existed.
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.text';}});
+  const result=await dispatcher.process({phone:guest,text:'x',messageId:'wamid.flow-fallback',occurredAt:new Date().toISOString()});
+  assert.deepEqual(sent,[{phone:guest,text:'¿Cuál es tu fecha de llegada?'}]);
+  assert.equal(result.deliveries[0].sent,true);
+});
+
 test('a guest outbox item with no resolvable phone is rejected instead of silently misdelivered',async()=>{
   const pms={async closedPilotInbound(){return {outboxes:[{id:12}]};},
     async claimClosedPilotOutbound(){return {outbox_id:12,claimable:true,recipient_kind:'guest',recipient_phone:null,message_text:'x'};},

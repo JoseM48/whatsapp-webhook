@@ -39,6 +39,7 @@ const { createM0CommercialResponder } = require('./lib/pilot/m0-commercial-respo
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
+const { parseFlowResponse, flowResponseToText } = require('./lib/pilot/flow-response');
 const { toFile } = require('openai');
 
 // Logs de variables críticas (sin exponer valores)
@@ -196,6 +197,14 @@ const M0_CLOSED_PILOT_INTERNAL_PHONE = normalizePhone(process.env.M0_CLOSED_PILO
 const M0_CLOSED_PILOT_RECEIPTS_ENABLED = String(process.env.M0_CLOSED_PILOT_RECEIPTS_ENABLED || 'false').toLowerCase() === 'true';
 const M0_CLOSED_PILOT_INTERNAL_TEMPLATE_NAME = String(process.env.M0_CLOSED_PILOT_INTERNAL_TEMPLATE_NAME || '').trim();
 const M0_CLOSED_PILOT_INTERNAL_TEMPLATE_LANGUAGE = String(process.env.M0_CLOSED_PILOT_INTERNAL_TEMPLATE_LANGUAGE || 'es_CO').trim();
+// Calendar + duration WhatsApp Flow (check-in date + 1/3/6/12 month tier),
+// sent instead of a plain-text question when M0 needs those specific fields.
+// Empty by default: until Meta assigns a real Flow id after publishing,
+// M0_CLOSED_PILOT_FLOW_ENABLED must stay false and the pipeline falls back
+// to the pre-existing plain-text question.
+const M0_CLOSED_PILOT_FLOW_ENABLED = String(process.env.M0_CLOSED_PILOT_FLOW_ENABLED || 'false').toLowerCase() === 'true';
+const M0_CLOSED_PILOT_FLOW_ID = String(process.env.M0_CLOSED_PILOT_FLOW_ID || '').trim();
+const M0_CLOSED_PILOT_FLOW_FIRST_SCREEN = String(process.env.M0_CLOSED_PILOT_FLOW_FIRST_SCREEN || 'CHECKIN_SCREEN').trim();
 const DEBUG_ENDPOINTS_ENABLED = String(process.env.DEBUG_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const BOOKING_ENDPOINTS_ENABLED = String(process.env.BOOKING_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const PHASE2C_PHONE_TEST_ENABLED = String(process.env.PHASE2C_PHONE_TEST_ENABLED || 'false').toLowerCase() === 'true';
@@ -353,6 +362,31 @@ async function sendM0ClosedInternalTemplate(to, { name, language, parameters }) 
   return response.data?.messages?.[0]?.id || null;
 }
 
+async function sendPilotWhatsAppFlow(to, { flowId, flowToken, firstScreen, ctaText, bodyText }) {
+  const phone = normalizePhone(to);
+  if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  if (!flowId) throw Object.assign(new Error('invalid_flow_id'), { code: 'invalid_flow_id' });
+  const response = await axios.post(WHATSAPP_API_URL, {
+    messaging_product: 'whatsapp', to: phone, type: 'interactive',
+    interactive: {
+      type: 'flow',
+      body: { text: bodyText },
+      action: {
+        name: 'flow',
+        parameters: {
+          flow_message_version: '3', flow_token: flowToken, flow_id: flowId,
+          flow_cta: ctaText, flow_action: 'navigate',
+          flow_action_payload: { screen: firstScreen, data: {} }
+        }
+      }
+    }
+  }, {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    timeout: 15000
+  });
+  return response.data?.messages?.[0]?.id || null;
+}
+
 async function sendPilotWhatsAppTemplate(to, templateName, parameters, documentProviderReference = null) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
@@ -413,11 +447,14 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
     pmsConfigured: Boolean(PMS_LITE_ENABLED && PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET),
     receiptsEnabled: M0_CLOSED_PILOT_RECEIPTS_ENABLED,
     internalTemplateName: M0_CLOSED_PILOT_INTERNAL_TEMPLATE_NAME,
-    internalTemplateLanguage: M0_CLOSED_PILOT_INTERNAL_TEMPLATE_LANGUAGE
+    internalTemplateLanguage: M0_CLOSED_PILOT_INTERNAL_TEMPLATE_LANGUAGE,
+    flow: { enabled: M0_CLOSED_PILOT_FLOW_ENABLED, flowId: M0_CLOSED_PILOT_FLOW_ID,
+      firstScreen: M0_CLOSED_PILOT_FLOW_FIRST_SCREEN }
   },
   pms: pmsPilotClient,
   sendText: sendPilotWhatsAppText,
   sendTemplate: sendM0ClosedInternalTemplate,
+  sendFlow: sendPilotWhatsAppFlow,
   logger: console
 });
 
@@ -1251,6 +1288,14 @@ app.post('/webhook', async (req, res) => {
               console.info('[m0-audio] transcribed', { phone: maskPilotPhone(incoming.from), chars: incoming.text.length });
             } catch (error) {
               console.error('[m0-audio] transcription_failed', { phone: maskPilotPhone(incoming.from), code: error?.message || 'unknown' });
+            }
+          }
+          if (incoming.flow?.responseJson && !incoming.text) {
+            try {
+              incoming.text = flowResponseToText(parseFlowResponse(incoming.flow.responseJson));
+              console.info('[m0-flow] completed', { phone: maskPilotPhone(incoming.from) });
+            } catch (error) {
+              console.error('[m0-flow] response_invalid', { phone: maskPilotPhone(incoming.from), code: error?.message || 'unknown' });
             }
           }
           const raw = m0CommercialText(incoming);

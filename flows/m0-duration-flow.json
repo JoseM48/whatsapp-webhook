@@ -1,0 +1,67 @@
+{
+  "version": "7.3",
+  "screens": [
+    {
+      "id": "CHECKIN_SCREEN",
+      "title": "Fecha de llegada",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "DatePicker",
+            "name": "checkin_date",
+            "label": "Fecha de check-in",
+            "helper-text": "Selecciona tu fecha de llegada",
+            "required": true
+          },
+          {
+            "type": "Footer",
+            "label": "Continuar",
+            "on-click-action": {
+              "name": "navigate",
+              "next": { "type": "screen", "name": "DURATION_SCREEN" },
+              "payload": { "checkin_date": "${form.checkin_date}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "DURATION_SCREEN",
+      "title": "Duración de estadía",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "checkin_date": { "type": "string", "__example__": "2026-10-01" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "RadioButtonsGroup",
+            "name": "duration",
+            "label": "Duración de estadía",
+            "required": true,
+            "data-source": [
+              { "id": "1m", "title": "1 mes" },
+              { "id": "3m", "title": "3 meses" },
+              { "id": "6m", "title": "6 meses" },
+              { "id": "12m", "title": "12 meses" }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Enviar",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "checkin_date": "${data.checkin_date}",
+                "duration": "${form.duration}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
