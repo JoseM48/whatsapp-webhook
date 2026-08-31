@@ -15,50 +15,116 @@
             "required": true
           },
           {
+            "type": "RadioButtonsGroup",
+            "name": "knows_checkout",
+            "label": "¿Ya sabes tu fecha de salida?",
+            "required": true,
+            "data-source": [
+              { "id": "yes", "title": "Sí, tengo fecha de salida" },
+              { "id": "no", "title": "No, prefiero elegir un plan" }
+            ]
+          },
+          {
             "type": "Footer",
             "label": "Continuar",
             "on-click-action": {
               "name": "navigate",
-              "next": { "type": "screen", "name": "DURATION_SCREEN" },
-              "payload": { "checkin_date": "${form.checkin_date}" }
+              "next": { "type": "screen", "name": "DETAILS_SCREEN" },
+              "payload": {
+                "checkin_date": "${form.checkin_date}",
+                "knows_checkout": "${form.knows_checkout}"
+              }
             }
           }
         ]
       }
     },
     {
-      "id": "DURATION_SCREEN",
-      "title": "Duración de estadía",
+      "id": "DETAILS_SCREEN",
+      "title": "Detalles de tu estadia",
       "terminal": true,
       "success": true,
       "data": {
-        "checkin_date": { "type": "string", "__example__": "2026-10-01" }
+        "checkin_date": { "type": "string", "__example__": "2026-10-01" },
+        "knows_checkout": { "type": "string", "__example__": "yes" }
       },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
           {
-            "type": "RadioButtonsGroup",
-            "name": "duration",
-            "label": "Duración de estadía",
-            "required": true,
-            "data-source": [
-              { "id": "1m", "title": "1 mes" },
-              { "id": "3m", "title": "3 meses" },
-              { "id": "6m", "title": "6 meses" },
-              { "id": "12m", "title": "12 meses" }
-            ]
-          },
-          {
-            "type": "Footer",
-            "label": "Enviar",
-            "on-click-action": {
-              "name": "complete",
-              "payload": {
-                "checkin_date": "${data.checkin_date}",
-                "duration": "${form.duration}"
+            "type": "If",
+            "condition": "${data.knows_checkout} == 'yes'",
+            "then": [
+              {
+                "type": "DatePicker",
+                "name": "checkout_date",
+                "label": "Fecha de salida",
+                "helper-text": "Selecciona tu fecha de salida",
+                "required": true
+              },
+              {
+                "type": "Dropdown",
+                "name": "guests_a",
+                "label": "Numero de personas",
+                "required": true,
+                "data-source": [
+                  { "id": "1", "title": "1 persona" },
+                  { "id": "2", "title": "2 personas" },
+                  { "id": "3", "title": "3 personas" },
+                  { "id": "4", "title": "4 personas" }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Enviar",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "checkin_date": "${data.checkin_date}",
+                    "checkout_date": "${form.checkout_date}",
+                    "guests": "${form.guests_a}"
+                  }
+                }
               }
-            }
+            ],
+            "else": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "duration",
+                "label": "Elige tu plan",
+                "required": true,
+                "data-source": [
+                  { "id": "1m", "title": "1 mes" },
+                  { "id": "3m", "title": "3 meses" },
+                  { "id": "6m", "title": "6 meses" },
+                  { "id": "12m", "title": "12 meses" }
+                ]
+              },
+              {
+                "type": "Dropdown",
+                "name": "guests_b",
+                "label": "Numero de personas",
+                "required": true,
+                "data-source": [
+                  { "id": "1", "title": "1 persona" },
+                  { "id": "2", "title": "2 personas" },
+                  { "id": "3", "title": "3 personas" },
+                  { "id": "4", "title": "4 personas" }
+                ]
+              },
+              {
+                "type": "Footer",
+                "label": "Enviar",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "checkin_date": "${data.checkin_date}",
+                    "duration": "${form.duration}",
+                    "guests": "${form.guests_b}"
+                  }
+                }
+              }
+            ]
           }
         ]
       }
