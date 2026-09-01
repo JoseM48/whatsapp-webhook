@@ -317,6 +317,32 @@ test('reconoce una petición de fotos como un tema de conocimiento propio, no un
   assert.deepEqual(plural.knowledge_topics, ['photos']);
 });
 
+test('una fecha sola, con check-in ya valido y check-out pendiente, se lee como check-out en vez de sobrescribir el check-in', () => {
+  // Bug real reportado 2026-08-31: José Manuel dio "3 de septiembre" y luego,
+  // en un mensaje aparte, "5 de octubre" -- el check-out se leía como un
+  // nuevo check-in y borraba el 3 de septiembre, dejando el sistema pidiendo
+  // la fecha de salida en un ciclo sin fin.
+  const context = { check_in: '2026-09-03', check_in_status: 'valid', pending_fields: ['check_out_or_nights', 'guests'] };
+  const parsed = deterministicInterpret('5 de octubre de 2026', { today: '2026-09-01', context });
+  assert.equal(parsed.check_in, null);
+  assert.equal(parsed.check_in_status, 'absent');
+  assert.equal(parsed.check_out, '2026-10-05');
+  assert.equal(parsed.check_out_status, 'valid');
+  assert.deepEqual(parsed.provided_fields, ['check_out']);
+});
+
+test('una fecha sola anterior al check-in ya guardado se marca invalida, no se acepta como check-out', () => {
+  const context = { check_in: '2026-09-03', check_in_status: 'valid', pending_fields: ['check_out_or_nights', 'guests'] };
+  const parsed = deterministicInterpret('1 de septiembre de 2026', { today: '2026-09-01', context });
+  assert.equal(parsed.check_out_status, 'invalid');
+});
+
+test('una fecha sola sin contexto de check-in pendiente conserva el comportamiento anterior (se lee como check-in)', () => {
+  const parsed = deterministicInterpret('5 de octubre de 2026', { today: '2026-09-01', context: {} });
+  assert.equal(parsed.check_in, '2026-10-05');
+  assert.deepEqual(parsed.provided_fields, ['check_in']);
+});
+
 test('fallo de IA conserva inbound interpretable mediante fallback seguro', async () => {
   const ai = new PilotAi({
     http: { post: async () => { throw Object.assign(new Error('offline'), { code: 'ECONNABORTED' }); } },
