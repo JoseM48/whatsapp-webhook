@@ -348,7 +348,7 @@ async function sendPilotWhatsAppImage(to, link) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
   const response = await axios.post(WHATSAPP_API_URL, {
-    messaging_product: 'whatsapp', to: phone, image: { link }
+    messaging_product: 'whatsapp', to: phone, type: 'image', image: { link }
   }, {
     headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
     timeout: 20000
@@ -361,8 +361,11 @@ async function sendPilotWhatsAppImage(to, link) {
 async function sendM0ApartmentPhoto(to, link) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  // Without an explicit type, Meta defaults to expecting a text message and
+  // rejects the request with "(#100) Invalid parameter: the parameter 'text'
+  // cannot be null" -- confirmed against a real 400 response, not guessed.
   const response = await axios.post(WHATSAPP_API_URL, {
-    messaging_product: 'whatsapp', to: phone, image: { link }
+    messaging_product: 'whatsapp', to: phone, type: 'image', image: { link }
   }, {
     headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
     timeout: 20000
