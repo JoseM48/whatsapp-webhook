@@ -53,6 +53,13 @@ test('captura durable ocurre antes del procesamiento', async () => {
   assert.equal(calls[0][1].channel_account_key, 'account-test');
   assert.equal(calls[0][1].conversation_key, 'whatsapp:conversation-test');
   assert.equal(calls[0][1].sender_role, 'prospect');
+  // Incremento 062: este es el unico valor de origen que activa la
+  // inscripcion en supervised_pilot_lead_cohort del lado de PMS -- con
+  // el valor anterior ('whatsapp_oficial_pilot_controlado') la admision
+  // de un numero nuevo nunca se ejecutaba (confirmado con datos reales
+  // de produccion antes de esta corrección).
+  assert.equal(calls[0][1].origen, 'whatsapp_oficial_controlled_ingress');
+  assert.notEqual(calls[0][1].origen, 'whatsapp_oficial_pilot_controlado');
 });
 
 test('recorrido integrado verifica, reclama y registra envío', async () => {

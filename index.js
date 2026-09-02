@@ -1348,12 +1348,22 @@ app.post('/webhook', async (req, res) => {
             continue;
           }
           if (!m0ClosedPilot.accepts(incoming.from) || m0ClosedPilot.isControl(incoming.from, raw)) {
-            const closed = await m0ClosedPilot.process({ phone: incoming.from, text: raw,
-              messageId: incoming.messageId, occurredAt: incoming.timestamp });
-            if (closed.quarantined) console.warn('[m0-closed] phone_quarantined', { phone: maskPilotPhone(incoming.from) });
-            else console.info('[m0-closed] control_processed', { case_key: closed.result?.case_key || null,
-              state: closed.result?.state || null, deduplicated: closed.result?.deduplicated === true,
-              deliveries: closed.deliveries?.map((item) => item.status) || [] });
+            try {
+              const closed = await m0ClosedPilot.process({ phone: incoming.from, text: raw,
+                messageId: incoming.messageId, occurredAt: incoming.timestamp });
+              if (closed.quarantined) console.warn('[m0-closed] phone_quarantined', { phone: maskPilotPhone(incoming.from) });
+              else console.info('[m0-closed] control_processed', { case_key: closed.result?.case_key || null,
+                state: closed.result?.state || null, deduplicated: closed.result?.deduplicated === true,
+                deliveries: closed.deliveries?.map((item) => item.status) || [] });
+            } catch (error) {
+              // Incremento 062: nunca en silencio -- registra, alerta y
+              // responde de forma segura antes de continuar; solo si ni
+              // siquiera eso se pudo completar, se relanza (5xx real).
+              const outcome = await m0CommercialResponder.handleAdmissionError({
+                from: incoming.from, messageId: incoming.messageId, timestamp: incoming.timestamp, error
+              });
+              if (!outcome.handled) throw error;
+            }
             continue;
           }
           if (!incoming.messageId) {
