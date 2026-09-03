@@ -263,6 +263,140 @@ test('a Meta response without provider id remains unknown',async()=>{
   assert.equal(completed[0].status,'unknown');
 });
 
+// Incremento D3.3 (2026-09-03): pruebas de la bandera/integración con
+// PilotAi.redact() + el validador de D3.2, mockeando ambos -- sin llamadas
+// reales a IA ni a pms-lite. completeCommercial() es el único camino que
+// hace disponible authorized_response_packet a deliver() (ver
+// m0-closed-pilot.service.js del lado pms-lite, D3.1); process()/
+// beginCommercial() nunca lo tuvieron ni lo tienen ahora.
+
+const naturalPacket={facts:[{topic:'parking',text:'Todos los apartamentos comercializados tienen parqueadero.'}],
+  numbers:[],dates:[],apartments:[],action:'RESPONDER INFORMACIÓN APROBADA',components:['knowledge'],
+  pending:[],required_disclosures:[],forbidden_claims:[],questions_to_ask:[],knowledge_sources:[],
+  ui:{message_kind:'text',photo_target_codes:[]},
+  deterministic_text:'Todos los apartamentos comercializados tienen parqueadero.',presentation_source:'deterministic'};
+
+test('D3.3: bandera OFF (default) -- completeCommercial envía deterministic_text sin llamar a redact(), aunque haya packet y redactionAi',async()=>{
+  const sent=[];
+  let redactCalls=0;
+  const pms={
+    async processClosedPilotCommercial(){return {outboxes:[{id:60}],authorized_response_packet:naturalPacket};},
+    async claimClosedPilotOutbound(){return {outbox_id:60,claimable:true,recipient_kind:'guest',recipient_phone:guest,
+      message_kind:'text',message_text:naturalPacket.deterministic_text};},
+    async completeClosedPilotOutbound(){}
+  };
+  const redactionAi={async redact(){redactCalls+=1; return {text:'no debería usarse',model:'gpt-5.6-luna',latency_ms:1};}};
+  // config sin naturalPresentationEnabled -- mismo config base que el resto del archivo.
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.text';},redactionAi});
+  await dispatcher.completeCommercial({externalMessageId:'wamid.d33-off',interpretation:{},ai:{}});
+  assert.equal(redactCalls,0);
+  assert.deepEqual(sent,[{phone:guest,text:naturalPacket.deterministic_text}]);
+});
+
+test('D3.3: bandera ON + candidato válido -- se envía el texto redactado por IA, validado, en vez del determinístico',async()=>{
+  const sent=[];
+  const pms={
+    async processClosedPilotCommercial(){return {outboxes:[{id:61}],authorized_response_packet:naturalPacket};},
+    async claimClosedPilotOutbound(){return {outbox_id:61,claimable:true,recipient_kind:'guest',recipient_phone:guest,
+      message_kind:'text',message_text:naturalPacket.deterministic_text};},
+    async completeClosedPilotOutbound(){},
+    async validateAuthorizedResponse(){return {valid:true,failure_reasons:[],meta:{}};}
+  };
+  const redactionAi={async redact(){return {text:'¡Claro! Todos cuentan con parqueadero.',model:'gpt-5.6-luna',latency_ms:400};}};
+  const onConfig={...config,naturalPresentationEnabled:true};
+  const dispatcher=createM0ClosedPilotDispatcher({config:onConfig,pms,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.text';},redactionAi});
+  const result=await dispatcher.completeCommercial({externalMessageId:'wamid.d33-on-valid',interpretation:{},ai:{}});
+  assert.deepEqual(sent,[{phone:guest,text:'¡Claro! Todos cuentan con parqueadero.'}]);
+  assert.equal(result.deliveries[0].sent,true);
+});
+
+test('D3.3: bandera ON + candidato inválido -- se descarta por completo y se envía deterministic_text',async()=>{
+  const sent=[];
+  const pms={
+    async processClosedPilotCommercial(){return {outboxes:[{id:62}],authorized_response_packet:naturalPacket};},
+    async claimClosedPilotOutbound(){return {outbox_id:62,claimable:true,recipient_kind:'guest',recipient_phone:guest,
+      message_kind:'text',message_text:naturalPacket.deterministic_text};},
+    async completeClosedPilotOutbound(){},
+    async validateAuthorizedResponse(){return {valid:false,failure_reasons:['forbidden_claim:excepcion_aprobada'],meta:{}};}
+  };
+  const redactionAi={async redact(){return {text:'Listo, te hago el descuento.',model:'gpt-5.6-luna',latency_ms:350};}};
+  const onConfig={...config,naturalPresentationEnabled:true};
+  const dispatcher=createM0ClosedPilotDispatcher({config:onConfig,pms,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.text';},redactionAi});
+  await dispatcher.completeCommercial({externalMessageId:'wamid.d33-on-invalid',interpretation:{},ai:{}});
+  assert.deepEqual(sent,[{phone:guest,text:naturalPacket.deterministic_text}]);
+});
+
+test('D3.3: bandera ON pero sin packet para este turno -- se comporta como determinístico, sin llamar a redact()',async()=>{
+  const sent=[];
+  let redactCalls=0;
+  const pms={
+    async processClosedPilotCommercial(){return {outboxes:[{id:63}],authorized_response_packet:null};},
+    async claimClosedPilotOutbound(){return {outbox_id:63,claimable:true,recipient_kind:'guest',recipient_phone:guest,
+      message_kind:'text',message_text:'Recibí tu mensaje.'};},
+    async completeClosedPilotOutbound(){}
+  };
+  const redactionAi={async redact(){redactCalls+=1; return {text:'x',model:'m',latency_ms:1};}};
+  const onConfig={...config,naturalPresentationEnabled:true};
+  const dispatcher=createM0ClosedPilotDispatcher({config:onConfig,pms,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.text';},redactionAi});
+  await dispatcher.completeCommercial({externalMessageId:'wamid.d33-no-packet',interpretation:{},ai:{}});
+  assert.equal(redactCalls,0);
+  assert.deepEqual(sent,[{phone:guest,text:'Recibí tu mensaje.'}]);
+});
+
+test('D3.3: bandera ON pero sin redactionAi configurado -- se comporta como determinístico',async()=>{
+  const sent=[];
+  const pms={
+    async processClosedPilotCommercial(){return {outboxes:[{id:64}],authorized_response_packet:naturalPacket};},
+    async claimClosedPilotOutbound(){return {outbox_id:64,claimable:true,recipient_kind:'guest',recipient_phone:guest,
+      message_kind:'text',message_text:naturalPacket.deterministic_text};},
+    async completeClosedPilotOutbound(){}
+  };
+  const onConfig={...config,naturalPresentationEnabled:true};
+  // Sin `redactionAi` en absoluto -- mismo dispatcher que ya usa el resto del archivo.
+  const dispatcher=createM0ClosedPilotDispatcher({config:onConfig,pms,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.text';}});
+  await dispatcher.completeCommercial({externalMessageId:'wamid.d33-no-ai',interpretation:{},ai:{}});
+  assert.deepEqual(sent,[{phone:guest,text:naturalPacket.deterministic_text}]);
+});
+
+test('D3.3: un mensaje interno nunca pasa por redacción, incluso con la bandera ON y un packet disponible',async()=>{
+  const templates=[];
+  let redactCalls=0;
+  const pms={
+    async processClosedPilotCommercial(){return {outboxes:[{id:65}],authorized_response_packet:naturalPacket};},
+    async claimClosedPilotOutbound(){return {outbox_id:65,claimable:true,recipient_kind:'internal',recipient_phone:null,
+      message_text:'PILOTO M0\nPARA: ADMINISTRACIÓN\nCASO: M0-9\nAPARTAMENTO: PENDIENTE\nACCIÓN SOLICITADA: VALIDAR\n\nDetalle.'};},
+    async completeClosedPilotOutbound(){}
+  };
+  const redactionAi={async redact(){redactCalls+=1; return {text:'x',model:'m',latency_ms:1};}};
+  const onConfig={...config,naturalPresentationEnabled:true};
+  const dispatcher=createM0ClosedPilotDispatcher({config:onConfig,pms,
+    async sendTemplate(phone,template){templates.push(template);return 'wamid.internal';},redactionAi});
+  await dispatcher.completeCommercial({externalMessageId:'wamid.d33-internal',interpretation:{},ai:{}});
+  assert.equal(redactCalls,0);
+  assert.equal(templates.length,1);
+});
+
+test('D3.3: una fila message_kind:photos nunca pasa por redacción',async()=>{
+  let redactCalls=0;
+  const pms={
+    async processClosedPilotCommercial(){return {outboxes:[{id:66}],authorized_response_packet:naturalPacket};},
+    async claimClosedPilotOutbound(){return {outbox_id:66,claimable:true,recipient_kind:'guest',recipient_phone:guest,
+      message_kind:'photos',message_text:'Aquí tienes más fotos de LF-210:'};},
+    async completeClosedPilotOutbound(){}
+  };
+  const redactionAi={async redact(){redactCalls+=1; return {text:'x',model:'m',latency_ms:1};}};
+  const onConfig={...config,naturalPresentationEnabled:true};
+  const dispatcher=createM0ClosedPilotDispatcher({config:onConfig,pms,
+    async sendText(){return 'wamid.text';},async sendPhoto(){return 'wamid.photo';},redactionAi});
+  await dispatcher.completeCommercial({externalMessageId:'wamid.d33-photos',interpretation:{},ai:{}});
+  assert.equal(redactCalls,0);
+});
+
 test('flattens a multi-line internal body into a single line so Meta never rejects the template',()=>{
   const body='PILOTO M0\nPARA: ADMINISTRACIÓN\nCASO: M0-3\nAPARTAMENTO: PENDIENTE\nACCIÓN SOLICITADA: VALIDAR BRECHA DE CONOCIMIENTO\n\n'+
     'PREGUNTA DEL HUÉSPED: ¿Desde cuándo tienes disponibilidad?\nTEMAS DETECTADOS: other.\nINSTRUCCIÓN: Validar y responder únicamente con información aprobada.';

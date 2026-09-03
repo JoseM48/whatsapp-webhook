@@ -2,7 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { PilotAi, deterministicInterpret, deterministicPresentation, minimizeUserText, parseDayOrdinal } = require('../lib/pilot/ai');
+const { PilotAi, deterministicInterpret, deterministicPresentation, minimizeUserText, parseDayOrdinal,
+  buildSafeAuthorizedPacket } = require('../lib/pilot/ai');
 
 test('fallback interpreta consulta completa en español', () => {
   const parsed = deterministicInterpret('Busco del 2026-08-01 al 2026-08-05 para 2 personas, prefiero balcón');
@@ -421,4 +422,74 @@ test('descarta una paráfrasis generativa y conserva el contrato exacto', async 
   });
   assert.equal(result.text, 'Texto exacto gobernado.');
   assert.equal(result._error_code, 'ai_presentation_contract_fallback');
+});
+
+// Incremento D3.3 (2026-09-03): PilotAi.redact() -- misma disciplina de
+// mockear http.post que ya usa este archivo para interpret()/present(),
+// sin ninguna llamada real a OpenAI.
+
+test('D3.3: buildSafeAuthorizedPacket() excluye knowledge_sources, hashes/versiones de facts, deterministic_text y presentation_source', () => {
+  const packet = {
+    facts: [{ topic: 'parking', text: 'Todos los apartamentos comercializados tienen parqueadero.',
+      source: { content_version_id: 2, content_hash: 'abc123' } }],
+    numbers: [{ id: 'deposit', label: 'depósito', formatted: 'COP 600.000' }],
+    dates: [], apartments: ['LF-210'], action: 'RESPONDER INFORMACIÓN APROBADA', components: ['knowledge'],
+    pending: [], required_disclosures: [], forbidden_claims: [], questions_to_ask: [],
+    knowledge_sources: [{ content_version_id: 2, content_hash: 'abc123' }],
+    ui: { message_kind: 'text', photo_target_codes: [] },
+    deterministic_text: 'Todos los apartamentos comercializados tienen parqueadero.',
+    presentation_source: 'deterministic'
+  };
+  const safe = buildSafeAuthorizedPacket(packet);
+  assert.equal('knowledge_sources' in safe, false);
+  assert.equal('deterministic_text' in safe, false);
+  assert.equal('presentation_source' in safe, false);
+  assert.equal('source' in safe.facts[0], false);
+  assert.deepEqual(safe.facts[0], { topic: 'parking', text: 'Todos los apartamentos comercializados tienen parqueadero.' });
+  assert.deepEqual(safe.numbers, packet.numbers);
+  assert.deepEqual(safe.apartments, packet.apartments);
+});
+
+test('D3.3: redact() devuelve el texto del modelo en éxito, sin enviarle knowledge_sources ni hashes', async () => {
+  let sentInput = null;
+  const http = {
+    post: async (url, body) => {
+      sentInput = JSON.stringify(body.input);
+      return { data: { output_text: JSON.stringify({ text: '¡Claro! Todos cuentan con parqueadero.' }) } };
+    }
+  };
+  const ai = new PilotAi({ http, apiKey: 'test-key', safetySalt: 'test-salt' });
+  const packet = {
+    facts: [{ topic: 'parking', text: 'Todos los apartamentos comercializados tienen parqueadero.',
+      source: { content_version_id: 2, content_hash: 'nunca-debe-viajar-al-modelo' } }],
+    numbers: [], dates: [], apartments: [], action: 'RESPONDER INFORMACIÓN APROBADA', components: ['knowledge'],
+    pending: [], required_disclosures: [], forbidden_claims: [], questions_to_ask: [],
+    knowledge_sources: [{ content_version_id: 2, content_hash: 'tampoco-esto' }],
+    ui: { message_kind: 'text', photo_target_codes: [] },
+    deterministic_text: 'Todos los apartamentos comercializados tienen parqueadero.',
+    presentation_source: 'deterministic'
+  };
+  const result = await ai.redact({ packet, phone: '570000000000' });
+  assert.equal(result.text, '¡Claro! Todos cuentan con parqueadero.');
+  assert.equal(result.model, ai.model);
+  assert.equal(typeof result.latency_ms, 'number');
+  assert.equal(result._fallback, undefined);
+  assert.doesNotMatch(sentInput, /nunca-debe-viajar-al-modelo/);
+  assert.doesNotMatch(sentInput, /tampoco-esto/);
+  assert.doesNotMatch(sentInput, /knowledge_sources/);
+  assert.doesNotMatch(sentInput, /deterministic_text/);
+});
+
+test('D3.3: redact() nunca lanza -- un fallo de la API se captura y se marca _fallback:true', async () => {
+  const http = { post: async () => { throw Object.assign(new Error('timeout'), { code: 'ETIMEDOUT' }); } };
+  const ai = new PilotAi({ http, apiKey: 'test-key', safetySalt: 'test-salt' });
+  const packet = { facts: [], numbers: [], dates: [], apartments: [], action: 'RESPONDER INFORMACIÓN APROBADA',
+    components: [], pending: [], required_disclosures: [], forbidden_claims: [], questions_to_ask: [],
+    knowledge_sources: [], ui: { message_kind: 'text', photo_target_codes: [] },
+    deterministic_text: 'texto de referencia.', presentation_source: 'deterministic' };
+  const result = await ai.redact({ packet, phone: '570000000000' });
+  assert.equal(result.text, null);
+  assert.equal(result._fallback, true);
+  assert.equal(result._error_code, 'ai_redaction_failed');
+  assert.equal(typeof result.latency_ms, 'number');
 });

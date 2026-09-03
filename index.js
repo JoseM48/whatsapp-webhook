@@ -216,6 +216,15 @@ const M0_CLOSED_PILOT_FLOW_RESTRICT_TO_TEST_PHONES = String(
   process.env.M0_CLOSED_PILOT_FLOW_RESTRICT_TO_TEST_PHONES || 'true'
 ).toLowerCase() === 'true';
 const M0_CLOSED_PILOT_FLOW_TEST_ALLOWLIST_PHONES = parseAllowlist(process.env.M0_CLOSED_PILOT_FLOW_TEST_ALLOWLIST_PHONES || '');
+// Incremento D3.3 (2026-09-03): bandera de "naturalidad conversacional
+// protegida" -- default seguro OFF, y OFF si la variable no existe (mismo
+// patron que las demas banderas de esta sección). Con esto en 'false'
+// (el estado al cerrar D3.3, sin excepción para huéspedes reales),
+// deliver() nunca llama a PilotAi.redact() ni al validador de D3.2 -- el
+// texto enviado es exactamente el mismo que sin esta bandera.
+const M0_NATURAL_PRESENTATION_ENABLED = String(
+  process.env.M0_NATURAL_PRESENTATION_ENABLED || 'false'
+).toLowerCase() === 'true';
 const DEBUG_ENDPOINTS_ENABLED = String(process.env.DEBUG_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const BOOKING_ENDPOINTS_ENABLED = String(process.env.BOOKING_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const PHASE2C_PHONE_TEST_ENABLED = String(process.env.PHASE2C_PHONE_TEST_ENABLED || 'false').toLowerCase() === 'true';
@@ -490,13 +499,19 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
     flow: { enabled: M0_CLOSED_PILOT_FLOW_ENABLED, flowId: M0_CLOSED_PILOT_FLOW_ID,
       firstScreen: M0_CLOSED_PILOT_FLOW_FIRST_SCREEN,
       restrictToTestPhones: M0_CLOSED_PILOT_FLOW_RESTRICT_TO_TEST_PHONES,
-      testAllowlist: M0_CLOSED_PILOT_FLOW_TEST_ALLOWLIST_PHONES }
+      testAllowlist: M0_CLOSED_PILOT_FLOW_TEST_ALLOWLIST_PHONES },
+    // Incremento D3.3: default seguro OFF -- ver definición arriba.
+    naturalPresentationEnabled: M0_NATURAL_PRESENTATION_ENABLED
   },
   pms: pmsPilotClient,
   sendText: sendPilotWhatsAppText,
   sendTemplate: sendM0ClosedInternalTemplate,
   sendFlow: sendPilotWhatsAppFlow,
   sendPhoto: sendM0ApartmentPhoto,
+  // Incremento D3.3: misma instancia de PilotAi ya usada por interpret()/
+  // present() -- redact() solo se invoca si naturalPresentationEnabled es
+  // true (ver deliver() en m0-closed-pilot.js).
+  redactionAi: pilotAi,
   logger: console
 });
 
