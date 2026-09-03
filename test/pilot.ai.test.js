@@ -304,6 +304,20 @@ test('clasifica preguntas comerciales sin convertirlas en búsqueda completa', (
   assert.equal(parsed.requested_apartment_code, 'LF-210');
 });
 
+test('Incremento D2: reconoce horario de check-in/check-out y depósito como conceptos propios de conocimiento', () => {
+  const schedule = deterministicInterpret('¿A qué hora es el check-in y el check-out?');
+  assert.deepEqual(schedule.knowledge_topics, ['check_in_out_schedule']);
+
+  const deposit = deterministicInterpret('¿Cuál es el depósito?');
+  assert.deepEqual(deposit.knowledge_topics, ['deposit']);
+});
+
+test('Incremento D2: una solicitud de factura activa exception_request sin convertirse en tema de conocimiento', () => {
+  const parsed = deterministicInterpret('Necesito que me generen una factura de mi estadía');
+  assert.equal(parsed.exception_request, true);
+  assert.deepEqual(parsed.knowledge_topics, []);
+});
+
 test('reconoce una petición de fotos como un tema de conocimiento propio, no una búsqueda', () => {
   const parsed = deterministicInterpret('¿Tienes fotos del LF-210?');
   assert.equal(parsed.intent, 'lodging_question');
