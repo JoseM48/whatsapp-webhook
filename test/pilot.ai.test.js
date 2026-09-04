@@ -108,6 +108,24 @@ test('interpreta fechas dichas con ordinales, igual que la transcripción real d
   assert.deepEqual(parsed.missing_fields, []);
 });
 
+test('resuelve "de este año"/"del año actual" contra el año real, sin inventar cuando no se nombra ningún año', () => {
+  const thisYear = deterministicInterpret('Quiero del primero al 5 de octubre de este año para 2 personas',
+    { today: '2026-09-04' });
+  assert.equal(thisYear.check_in, '2026-10-01');
+  assert.equal(thisYear.check_in_status, 'valid');
+
+  const currentYearPhrase = deterministicInterpret('Quiero el 10 de diciembre del año actual para 2 personas',
+    { today: '2026-09-04' });
+  assert.equal(currentYearPhrase.check_in, '2026-12-10');
+  assert.equal(currentYearPhrase.check_in_status, 'valid');
+
+  // Sin `today` disponible, "este año" no tiene con qué resolverse -- se
+  // mantiene ambiguo, igual que antes de este cambio, nunca lanza.
+  const withoutToday = deterministicInterpret('Quiero el 10 de diciembre de este año para 2 personas');
+  assert.equal(withoutToday.check_in, null);
+  assert.equal(withoutToday.check_in_status, 'ambiguous');
+});
+
 test('no inventa el año de una fecha natural incompleta', () => {
   const parsed = deterministicInterpret('Busco del 15 de agosto al 18 de agosto para 2 personas');
   assert.equal(parsed.check_in, null);
