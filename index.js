@@ -225,6 +225,14 @@ const M0_CLOSED_PILOT_FLOW_TEST_ALLOWLIST_PHONES = parseAllowlist(process.env.M0
 const M0_NATURAL_PRESENTATION_ENABLED = String(
   process.env.M0_NATURAL_PRESENTATION_ENABLED || 'false'
 ).toLowerCase() === 'true';
+// Canary (2026-09-04): mismo patron que el Flow (RESTRICT_TO_TEST_PHONES/
+// TEST_ALLOWLIST_PHONES arriba) -- sin esto, encender la bandera maestra
+// activaba redaccion IA para cualquier huesped real de inmediato. Default
+// seguro: restringido, hasta que se decida ampliarlo.
+const M0_NATURAL_PRESENTATION_RESTRICT_TO_TEST_PHONES = String(
+  process.env.M0_NATURAL_PRESENTATION_RESTRICT_TO_TEST_PHONES || 'true'
+).toLowerCase() === 'true';
+const M0_NATURAL_PRESENTATION_TEST_ALLOWLIST_PHONES = parseAllowlist(process.env.M0_NATURAL_PRESENTATION_TEST_ALLOWLIST_PHONES || '');
 const DEBUG_ENDPOINTS_ENABLED = String(process.env.DEBUG_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const BOOKING_ENDPOINTS_ENABLED = String(process.env.BOOKING_ENDPOINTS_ENABLED || 'false').toLowerCase() === 'true';
 const PHASE2C_PHONE_TEST_ENABLED = String(process.env.PHASE2C_PHONE_TEST_ENABLED || 'false').toLowerCase() === 'true';
@@ -501,7 +509,9 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
       restrictToTestPhones: M0_CLOSED_PILOT_FLOW_RESTRICT_TO_TEST_PHONES,
       testAllowlist: M0_CLOSED_PILOT_FLOW_TEST_ALLOWLIST_PHONES },
     // Incremento D3.3: default seguro OFF -- ver definición arriba.
-    naturalPresentationEnabled: M0_NATURAL_PRESENTATION_ENABLED
+    naturalPresentationEnabled: M0_NATURAL_PRESENTATION_ENABLED,
+    naturalPresentationRestrictToTestPhones: M0_NATURAL_PRESENTATION_RESTRICT_TO_TEST_PHONES,
+    naturalPresentationTestAllowlist: M0_NATURAL_PRESENTATION_TEST_ALLOWLIST_PHONES
   },
   pms: pmsPilotClient,
   sendText: sendPilotWhatsAppText,

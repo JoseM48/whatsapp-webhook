@@ -397,6 +397,71 @@ test('D3.3: una fila message_kind:photos nunca pasa por redacción',async()=>{
   assert.equal(redactCalls,0);
 });
 
+test('Canary: bandera ON + gate por defecto (restringido) + huésped fuera de la allowlist -- se comporta como determinístico',async()=>{
+  const sent=[];
+  let redactCalls=0;
+  const pms={
+    async processClosedPilotCommercial(){return {outboxes:[{id:67}],authorized_response_packet:naturalPacket};},
+    async claimClosedPilotOutbound(){return {outbox_id:67,claimable:true,recipient_kind:'guest',recipient_phone:guest,
+      message_kind:'text',message_text:naturalPacket.deterministic_text};},
+    async completeClosedPilotOutbound(){},
+    async validateAuthorizedResponse(){return {valid:true,failure_reasons:[],meta:{}};}
+  };
+  const redactionAi={async redact(){redactCalls+=1; return {text:'no debería usarse',model:'m',latency_ms:1};}};
+  // naturalPresentationRestrictToTestPhones omitido -- el default de index.js
+  // es 'true' (restringido); aquí se pasa explícito para que la prueba no
+  // dependa de ese default y quede clara la intención.
+  const onConfig={...config,naturalPresentationEnabled:true,naturalPresentationRestrictToTestPhones:true,
+    naturalPresentationTestAllowlist:['573146892662']};
+  const dispatcher=createM0ClosedPilotDispatcher({config:onConfig,pms,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.text';},redactionAi});
+  // `guest` en este archivo es 573146892662 -- se usa un huésped DISTINTO
+  // para probar el caso "fuera de la allowlist".
+  const pmsOther={...pms,async claimClosedPilotOutbound(){return {outbox_id:67,claimable:true,recipient_kind:'guest',
+    recipient_phone:'573009998877',message_kind:'text',message_text:naturalPacket.deterministic_text};}};
+  const dispatcherOther=createM0ClosedPilotDispatcher({config:onConfig,pms:pmsOther,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.text';},redactionAi});
+  await dispatcherOther.completeCommercial({externalMessageId:'wamid.canary-outside',interpretation:{},ai:{}});
+  assert.equal(redactCalls,0);
+  assert.deepEqual(sent,[{phone:'573009998877',text:naturalPacket.deterministic_text}]);
+});
+
+test('Canary: bandera ON + gate por defecto (restringido) + huésped SÍ en la allowlist -- usa el texto redactado por IA',async()=>{
+  const sent=[];
+  const pms={
+    async processClosedPilotCommercial(){return {outboxes:[{id:68}],authorized_response_packet:naturalPacket};},
+    async claimClosedPilotOutbound(){return {outbox_id:68,claimable:true,recipient_kind:'guest',recipient_phone:guest,
+      message_kind:'text',message_text:naturalPacket.deterministic_text};},
+    async completeClosedPilotOutbound(){},
+    async validateAuthorizedResponse(){return {valid:true,failure_reasons:[],meta:{}};}
+  };
+  const redactionAi={async redact(){return {text:'¡Claro! Todos cuentan con parqueadero.',model:'m',latency_ms:1};}};
+  const onConfig={...config,naturalPresentationEnabled:true,naturalPresentationRestrictToTestPhones:true,
+    naturalPresentationTestAllowlist:[guest]};
+  const dispatcher=createM0ClosedPilotDispatcher({config:onConfig,pms,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.text';},redactionAi});
+  await dispatcher.completeCommercial({externalMessageId:'wamid.canary-inside',interpretation:{},ai:{}});
+  assert.deepEqual(sent,[{phone:guest,text:'¡Claro! Todos cuentan con parqueadero.'}]);
+});
+
+test('Canary: restrictToTestPhones=false abre la redacción a cualquier huésped, sin allowlist',async()=>{
+  const sent=[];
+  const otherGuest='573009998877';
+  const pms={
+    async processClosedPilotCommercial(){return {outboxes:[{id:69}],authorized_response_packet:naturalPacket};},
+    async claimClosedPilotOutbound(){return {outbox_id:69,claimable:true,recipient_kind:'guest',recipient_phone:otherGuest,
+      message_kind:'text',message_text:naturalPacket.deterministic_text};},
+    async completeClosedPilotOutbound(){},
+    async validateAuthorizedResponse(){return {valid:true,failure_reasons:[],meta:{}};}
+  };
+  const redactionAi={async redact(){return {text:'texto de IA',model:'m',latency_ms:1};}};
+  const onConfig={...config,naturalPresentationEnabled:true,naturalPresentationRestrictToTestPhones:false};
+  const dispatcher=createM0ClosedPilotDispatcher({config:onConfig,pms,
+    async sendText(phone,text){sent.push({phone,text});return 'wamid.text';},redactionAi});
+  await dispatcher.completeCommercial({externalMessageId:'wamid.canary-open',interpretation:{},ai:{}});
+  assert.deepEqual(sent,[{phone:otherGuest,text:'texto de IA'}]);
+});
+
 test('flattens a multi-line internal body into a single line so Meta never rejects the template',()=>{
   const body='PILOTO M0\nPARA: ADMINISTRACIÓN\nCASO: M0-3\nAPARTAMENTO: PENDIENTE\nACCIÓN SOLICITADA: VALIDAR BRECHA DE CONOCIMIENTO\n\n'+
     'PREGUNTA DEL HUÉSPED: ¿Desde cuándo tienes disponibilidad?\nTEMAS DETECTADOS: other.\nINSTRUCCIÓN: Validar y responder únicamente con información aprobada.';
