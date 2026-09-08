@@ -1348,6 +1348,13 @@ app.post('/webhook', async (req, res) => {
       try {
         await pmsWarmup.waitUntilReady();
         for (const incoming of metaMessages) {
+          if (incoming.messageType === 'audio') {
+            console.info('[m0-audio] diag', {
+              phone: maskPilotPhone(incoming.from), enabled: M0_AUDIO_TRANSCRIPTION_ENABLED,
+              hasAudioId: Boolean(incoming.audio?.id), hasText: Boolean(incoming.text),
+              allowlisted: isAllowlisted(incoming.from, M0_AUDIO_TRANSCRIPTION_ALLOWLIST_PHONES)
+            });
+          }
           if (M0_AUDIO_TRANSCRIPTION_ENABLED && incoming.messageType === 'audio' && incoming.audio?.id && !incoming.text
             && isAllowlisted(incoming.from, M0_AUDIO_TRANSCRIPTION_ALLOWLIST_PHONES)) {
             try {
