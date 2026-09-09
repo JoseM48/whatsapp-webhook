@@ -27,6 +27,7 @@ const { createPmsWarmup } = require('./lib/pilot/pms-warmup');
 const { createTypingIndicator } = require('./lib/pilot/typing-indicator');
 const { createWaitAck } = require('./lib/pilot/wait-ack');
 const { resolvePmsIngress } = require('./lib/pilot/controlled-ingress');
+const { notifyBusinessEvent } = require('./lib/pilot/ntfy-notify');
 const { CONSENT_NOTICE_HASH, CONSENT_NOTICE_VERSION, decideM0Response } = require('./lib/pilot/m0-ingress');
 const { SupervisedOutboundAdapter } = require('./lib/pilot/supervised-outbound-adapter');
 const { runSupervisedReservationConfirmationRelay } = require('./lib/pilot/supervised-outbound-relay');
@@ -1408,6 +1409,17 @@ app.post('/webhook', async (req, res) => {
             acknowledge_ms: closed.timings.acknowledge_ms,
             error_code: closed.error_code || null
           });
+          // Objetivo persistente "Torre de Control" (2026-09-09): aviso push
+          // solo cuando created_lead=true (contacto realmente nuevo, no un
+          // segundo mensaje de un lead ya existente) -- created_lead viene
+          // directo de whatsapp-inbound.service.js, nunca inferido aqui.
+          if (closed.capture_result?.created_lead) {
+            notifyBusinessEvent('lead', {
+              title: 'Nuevo lead',
+              message: `Nuevo contacto real por WhatsApp (tel. ${maskPilotPhone(incoming.from)}).`,
+              tags: 'bust_in_silhouette'
+            }).catch(() => {});
+          }
           pendingCommercial.push({ incoming, raw, closed });
         }
         res.sendStatus(200);
@@ -1431,6 +1443,17 @@ app.post('/webhook', async (req, res) => {
               response_ms: processed.timings?.response_ms || null,
               code: processed.code || null
             });
+            // Objetivo persistente "Torre de Control" (2026-09-09): aviso
+            // push cuando un caso real pasa a state='confirmed' -- el mismo
+            // momento en que m0-closed-pilot.service.js crea la fila real
+            // en `reservas` (comando CONFIRMAR), nunca inferido aqui.
+            if (processed.completed?.result?.state === 'confirmed') {
+              notifyBusinessEvent('reserva', {
+                title: 'Reserva confirmada',
+                message: `Caso ${processed.completed.result.case_key || 'sin numero'} confirmado.`,
+                tags: 'tada'
+              }).catch(() => {});
+            }
           }
         });
         return;
