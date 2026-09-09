@@ -55,21 +55,6 @@ test('un botón/lista clásico (no Flow) sigue extrayendo el título como texto 
   assert.equal(messages[0].flow, null);
 });
 
-test('conserva message.referral cuando Meta lo manda (investigacion atribucion de anuncios), null si no viene', () => {
-  const withReferral = { entry: [{ changes: [{ value: {
-    messages: [
-      { id: 'wamid.ad', from: '573146892662', timestamp: '1787688000', type: 'text', text: { body: 'Hola' },
-        referral: { source_type: 'ad', source_id: '120000000000000', headline: 'Apartamentos El Poblado' } }
-    ]
-  } }] }] };
-  const withoutReferral = { entry: [{ changes: [{ value: {
-    messages: [{ id: 'wamid.organic', from: '573146892662', timestamp: '1787688000', type: 'text', text: { body: 'Hola' } }]
-  } }] }] };
-  assert.deepEqual(extractMetaMessages(withReferral)[0].referral,
-    { source_type: 'ad', source_id: '120000000000000', headline: 'Apartamentos El Poblado' });
-  assert.equal(extractMetaMessages(withoutReferral)[0].referral, null);
-});
-
 test('ignora estados Meta sin messages porque no son inbound de un lead', () => {
   const payload = { entry: [{ changes: [{ value: { statuses: [{ id: 'wamid.sent', status: 'sent' }] } }] }] };
   assert.deepEqual(extractMetaMessages(payload), []);

@@ -1357,19 +1357,6 @@ app.post('/webhook', async (req, res) => {
               console.error('[m0-audio] transcription_failed', { phone: maskPilotPhone(incoming.from), code: error?.message || 'unknown' });
             }
           }
-          // DIAGNOSTICO TEMPORAL 2026-09-09 (Jose Manuel): confirmar si Meta
-          // manda message.referral en un click-to-WhatsApp real de la
-          // campana actual de Facebook, antes de decidir como usarlo para
-          // atribuir origen. Solo metadatos del anuncio, nunca datos del
-          // cliente. Quitar este bloque en cuanto se confirme/descarte.
-          if (incoming.referral) {
-            console.info('[m0-ad-attribution-diag] referral_present', {
-              phone: maskPilotPhone(incoming.from),
-              source_type: incoming.referral.source_type || null,
-              source_id: incoming.referral.source_id || null,
-              headline: incoming.referral.headline || null
-            });
-          }
           if (incoming.flow?.responseJson && !incoming.text) {
             try {
               incoming.text = flowResponseToText(parseFlowResponse(incoming.flow.responseJson));
