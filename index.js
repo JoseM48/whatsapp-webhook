@@ -49,6 +49,7 @@ console.log('ENV CHECK →', {
   VERIFY_TOKEN: process.env.VERIFY_TOKEN ? '✔️' : '❌',
   PHONE_NUMBER_ID: process.env.PHONE_NUMBER_ID ? '✔️' : '❌',
   OPENAI_API_KEY: process.env.OPENAI_API_KEY ? '✔️' : '❌',
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? '✔️' : '❌',
   SPREADSHEET_ID: process.env.SPREADSHEET_ID ? '✔️' : '❌',
   ADMIN_WA_NUMBER: process.env.ADMIN_WA_NUMBER ? '✔️' : '❌',
   POLITICA_URL: process.env.POLITICA_URL ? '✔️' : '❌',
@@ -240,7 +241,7 @@ const PHASE2C_PHONE_TEST_ENABLED = String(process.env.PHASE2C_PHONE_TEST_ENABLED
 const PMS_LITE_STARTUP_PREFLIGHT_ENABLED = String(
   process.env.PMS_LITE_STARTUP_PREFLIGHT_ENABLED || 'false'
 ).toLowerCase() === 'true';
-const PILOT_OPENAI_MODEL = (process.env.PILOT_OPENAI_MODEL || 'gpt-5.6-luna').trim();
+const PILOT_ANTHROPIC_MODEL = (process.env.PILOT_ANTHROPIC_MODEL || 'claude-sonnet-5').trim();
 const PILOT_ORGANIZATION_KEY = (process.env.PILOT_ORGANIZATION_KEY || 'versadaa').trim();
 const PILOT_VERTICAL_KEY = (process.env.PILOT_VERTICAL_KEY || 'alojamientos_la_frontera').trim();
 const PILOT_CHANNEL_ACCOUNT_KEY = (process.env.PILOT_CHANNEL_ACCOUNT_KEY || process.env.PHONE_NUMBER_ID || '').trim();
@@ -292,7 +293,7 @@ console.log('[pilot-la-frontera] config', {
   allowlist_count: MVP_LA_FRONTERA_ALLOWLIST_PHONES.length,
   media_enabled: MVP_LA_FRONTERA_MEDIA_ENABLED,
   meta_signature_required: META_SIGNATURE_REQUIRED,
-  model: PILOT_OPENAI_MODEL,
+  model: PILOT_ANTHROPIC_MODEL,
   debug_endpoints_enabled: DEBUG_ENDPOINTS_ENABLED,
   booking_endpoints_enabled: BOOKING_ENDPOINTS_ENABLED
 });
@@ -343,9 +344,8 @@ const pilotWaitAck = createWaitAck({
 });
 
 const pilotAi = new PilotAi({
-  http: axios,
-  apiKey: process.env.OPENAI_API_KEY,
-  model: PILOT_OPENAI_MODEL,
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  model: PILOT_ANTHROPIC_MODEL,
   safetySalt: process.env.PILOT_SAFETY_SALT || PMS_LITE_WEBHOOK_SECRET
 });
 

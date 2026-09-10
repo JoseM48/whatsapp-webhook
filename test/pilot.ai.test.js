@@ -207,8 +207,8 @@ test('reconcilia IA y no pierde fechas ISO explicitas', async () => {
     uncertainty: 0.8, needs_clarification: true,
     missing_fields: ['check_in', 'check_out_or_nights', 'guests']
   };
-  const http = { post: async () => ({ data: { output_text: JSON.stringify(modelResult) } }) };
-  const ai = new PilotAi({ http, apiKey: 'test-key', safetySalt: 'test-salt' });
+  const client = { messages: { create: async () => ({ content: [{ type: 'text', text: JSON.stringify(modelResult) }] }) } };
+  const ai = new PilotAi({ client, safetySalt: 'test-salt' });
   const parsed = await ai.interpret({
     phone: '570000000000', today: '2026-07-25',
     text: 'Quiero LF-210 del 2026-08-01 al 2026-08-05 para 2 personas'
@@ -230,8 +230,8 @@ test('reconcilia IA y no pierde fechas naturales explicitas', async () => {
     uncertainty: 0.8, needs_clarification: true,
     missing_fields: ['check_in', 'check_out_or_nights', 'guests']
   };
-  const http = { post: async () => ({ data: { output_text: JSON.stringify(modelResult) } }) };
-  const ai = new PilotAi({ http, apiKey: 'test-key', safetySalt: 'test-salt' });
+  const client = { messages: { create: async () => ({ content: [{ type: 'text', text: JSON.stringify(modelResult) }] }) } };
+  const ai = new PilotAi({ client, safetySalt: 'test-salt' });
   const parsed = await ai.interpret({
     phone: '570000000000', today: '2026-07-27',
     text: 'Quiero LF210 del 15 al 18 de agosto de 2026 para 2 personas'
@@ -254,8 +254,8 @@ test('reconciliacion rechaza fechas que la IA inventa para un mes parcial', asyn
     provided_fields: ['check_in', 'check_out', 'nights', 'guests'], corrections: [],
     requests_human: false, uncertainty: 0.1, needs_clarification: false, missing_fields: []
   };
-  const http = { post: async () => ({ data: { output_text: JSON.stringify(modelResult) } }) };
-  const ai = new PilotAi({ http, apiKey: 'test-key', safetySalt: 'test-salt' });
+  const client = { messages: { create: async () => ({ content: [{ type: 'text', text: JSON.stringify(modelResult) }] }) } };
+  const ai = new PilotAi({ client, safetySalt: 'test-salt' });
   const parsed = await ai.interpret({
     phone: '570000000000', today: '2026-08-27',
     text: 'Hola, estoy buscando un alojamiento para dos personas en septiembre'
@@ -271,8 +271,7 @@ test('reconciliacion rechaza fechas que la IA inventa para un mes parcial', asyn
 
 test('fallback de IA conserva la fecha de referencia para hoy y mañana', async () => {
   const ai = new PilotAi({
-    http: { post: async () => { throw new Error('simulated_offline'); } },
-    apiKey: 'test-key',
+    client: { messages: { create: async () => { throw new Error('simulated_offline'); } } },
     safetySalt: 'test-salt'
   });
   const parsed = await ai.interpret({
@@ -378,8 +377,8 @@ test('una fecha sola sin contexto de check-in pendiente conserva el comportamien
 
 test('fallo de IA conserva inbound interpretable mediante fallback seguro', async () => {
   const ai = new PilotAi({
-    http: { post: async () => { throw Object.assign(new Error('offline'), { code: 'ECONNABORTED' }); } },
-    apiKey: 'test-key', safetySalt: 'test-salt'
+    client: { messages: { create: async () => { throw Object.assign(new Error('offline'), { code: 'ECONNABORTED' }); } } },
+    safetySalt: 'test-salt'
   });
   const parsed = await ai.interpret({
     phone: '570000000000', today: '2026-08-25',
@@ -395,7 +394,7 @@ test('fallo de IA conserva inbound interpretable mediante fallback seguro', asyn
 test('un medio no textual se escala localmente sin invocar IA ni inventar contenido', async () => {
   let calls = 0;
   const ai = new PilotAi({
-    http: { post: async () => { calls += 1; } }, apiKey: 'test-key', safetySalt: 'test-salt'
+    client: { messages: { create: async () => { calls += 1; } } }, safetySalt: 'test-salt'
   });
   const parsed = await ai.interpret({ phone: '570000000000', today: '2026-08-25',
     text: '[M0_UNSUPPORTED_INBOUND:audio]' });
@@ -419,16 +418,16 @@ test('presentación determinista separa alternativa de confirmación', () => {
 });
 
 test('descarta una paráfrasis generativa y conserva el contrato exacto', async () => {
-  const http = {
-    post: async () => ({
-      data: {
-        output_text: JSON.stringify({
+  const client = {
+    messages: {
+      create: async () => ({
+        content: [{ type: 'text', text: JSON.stringify({
           text: 'Paráfrasis no autorizada.', selected_item_ids: ['1'], selected_media_ids: ['10']
-        })
-      }
-    })
+        }) }]
+      })
+    }
   };
-  const ai = new PilotAi({ http, apiKey: 'test-key', safetySalt: 'test-salt' });
+  const ai = new PilotAi({ client, safetySalt: 'test-salt' });
   const result = await ai.present({
     phone: '570000000000',
     decision: {
@@ -443,8 +442,8 @@ test('descarta una paráfrasis generativa y conserva el contrato exacto', async 
 });
 
 // Incremento D3.3 (2026-09-03): PilotAi.redact() -- misma disciplina de
-// mockear http.post que ya usa este archivo para interpret()/present(),
-// sin ninguna llamada real a OpenAI.
+// mockear client.messages.create que ya usa este archivo para
+// interpret()/present(), sin ninguna llamada real a Anthropic.
 
 test('D3.3: buildSafeAuthorizedPacket() excluye knowledge_sources, hashes/versiones de facts, deterministic_text y presentation_source', () => {
   const packet = {
@@ -470,13 +469,15 @@ test('D3.3: buildSafeAuthorizedPacket() excluye knowledge_sources, hashes/versio
 
 test('D3.3: redact() devuelve el texto del modelo en éxito, sin enviarle knowledge_sources ni hashes', async () => {
   let sentInput = null;
-  const http = {
-    post: async (url, body) => {
-      sentInput = JSON.stringify(body.input);
-      return { data: { output_text: JSON.stringify({ text: '¡Claro! Todos cuentan con parqueadero.' }) } };
+  const client = {
+    messages: {
+      create: async (params) => {
+        sentInput = JSON.stringify(params.messages[0].content);
+        return { content: [{ type: 'text', text: JSON.stringify({ text: '¡Claro! Todos cuentan con parqueadero.' }) }] };
+      }
     }
   };
-  const ai = new PilotAi({ http, apiKey: 'test-key', safetySalt: 'test-salt' });
+  const ai = new PilotAi({ client, safetySalt: 'test-salt' });
   const packet = {
     facts: [{ topic: 'parking', text: 'Todos los apartamentos comercializados tienen parqueadero.',
       source: { content_version_id: 2, content_hash: 'nunca-debe-viajar-al-modelo' } }],
@@ -499,8 +500,8 @@ test('D3.3: redact() devuelve el texto del modelo en éxito, sin enviarle knowle
 });
 
 test('D3.3: redact() nunca lanza -- un fallo de la API se captura y se marca _fallback:true', async () => {
-  const http = { post: async () => { throw Object.assign(new Error('timeout'), { code: 'ETIMEDOUT' }); } };
-  const ai = new PilotAi({ http, apiKey: 'test-key', safetySalt: 'test-salt' });
+  const client = { messages: { create: async () => { throw Object.assign(new Error('timeout'), { code: 'ETIMEDOUT' }); } } };
+  const ai = new PilotAi({ client, safetySalt: 'test-salt' });
   const packet = { facts: [], numbers: [], dates: [], apartments: [], action: 'RESPONDER INFORMACIÓN APROBADA',
     components: [], pending: [], required_disclosures: [], forbidden_claims: [], questions_to_ask: [],
     knowledge_sources: [], ui: { message_kind: 'text', photo_target_codes: [] },

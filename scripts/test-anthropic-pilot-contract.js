@@ -1,20 +1,18 @@
 'use strict';
 
 require('dotenv').config();
-const axios = require('axios');
 const { PilotAi } = require('../lib/pilot/ai');
 
 async function main() {
-  if (!process.env.OPENAI_API_KEY) throw new Error('openai_api_key_missing');
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error('anthropic_api_key_missing');
   const ai = new PilotAi({
-    http: axios,
-    apiKey: process.env.OPENAI_API_KEY,
-    model: process.env.PILOT_OPENAI_MODEL || 'gpt-5.6-luna',
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    model: process.env.PILOT_ANTHROPIC_MODEL || 'claude-sonnet-5',
     safetySalt: 'synthetic-contract-test'
   });
   const interpreted = await ai.interpret({
     text: 'I need a studio from 2026-08-01 to 2026-08-05 for 2 guests with a balcony.',
-    phone: 'synthetic-openai-contract',
+    phone: 'synthetic-anthropic-contract',
     today: '2026-07-22'
   });
   if (interpreted._fallback) {
@@ -23,10 +21,10 @@ async function main() {
     return;
   }
   if (interpreted.language !== 'en' || interpreted.guests !== 2 || interpreted.check_in !== '2026-08-01') {
-    throw new Error('openai_interpretation_contract_mismatch');
+    throw new Error('anthropic_interpretation_contract_mismatch');
   }
   const presented = await ai.present({
-    phone: 'synthetic-openai-contract',
+    phone: 'synthetic-anthropic-contract',
     decision: {
       action: 'present', language: 'en', questions: [], escalation: null,
       alternatives: [{
@@ -39,16 +37,15 @@ async function main() {
       policy: { max_alternatives: 3, must_separate_offer_from_confirmation: true, no_booking_or_price_claims: true }
     }
   });
-  if (presented._fallback) throw new Error('openai_presentation_used_fallback');
+  if (presented._fallback) throw new Error('anthropic_presentation_used_fallback');
   if (!/availability/i.test(presented.text) || !/confirm/i.test(presented.text)) {
-    throw new Error('openai_presentation_missing_confirmation_notice');
+    throw new Error('anthropic_presentation_missing_confirmation_notice');
   }
   console.log(JSON.stringify({
     ok: true,
-    model: process.env.PILOT_OPENAI_MODEL || 'gpt-5.6-luna',
+    model: process.env.PILOT_ANTHROPIC_MODEL || 'claude-sonnet-5',
     interpretation_contract: true,
-    presentation_contract: true,
-    store: false
+    presentation_contract: true
   }));
 }
 

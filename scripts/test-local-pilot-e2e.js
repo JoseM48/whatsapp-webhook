@@ -17,7 +17,7 @@ async function main() {
     publicBaseUrl: baseUrl,
     timeoutMs: 5000
   });
-  const ai = new PilotAi({ http: { post: async () => { throw new Error('forced_fallback'); } }, apiKey: 'test' });
+  const ai = new PilotAi({ client: { messages: { create: async () => { throw new Error('forced_fallback'); } } } });
   const sent = [];
   const orchestrator = new PilotOrchestrator({
     pms, ai, brainSync: null,
