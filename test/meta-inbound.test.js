@@ -55,6 +55,28 @@ test('un botón/lista clásico (no Flow) sigue extrayendo el título como texto 
   assert.equal(messages[0].flow, null);
 });
 
+test('extrae el objeto referral de un mensaje llegado desde un anuncio click-to-WhatsApp', () => {
+  const payload = { entry: [{ changes: [{ value: {
+    contacts: [{ wa_id: '573146892662', profile: { name: 'Lead' } }],
+    messages: [
+      { id: 'wamid.ad', from: '573146892662', timestamp: '1787688000', type: 'text', text: { body: 'Hola' },
+        referral: { source_type: 'ad', source_id: '12345', source_url: 'https://fb.me/x', headline: 'Apartamentos La Frontera', ctwa_clid: 'abc123' } }
+    ]
+  } }] }] };
+  const messages = extractMetaMessages(payload);
+  assert.deepEqual(messages[0].referral, {
+    source_type: 'ad', source_id: '12345', source_url: 'https://fb.me/x', headline: 'Apartamentos La Frontera', ctwa_clid: 'abc123'
+  });
+});
+
+test('un mensaje sin referral (la inmensa mayoria de los casos) deja el campo en null', () => {
+  const payload = { entry: [{ changes: [{ value: {
+    contacts: [{ wa_id: '573146892662', profile: { name: 'Lead' } }],
+    messages: [{ id: 'wamid.organic', from: '573146892662', timestamp: '1787688000', type: 'text', text: { body: 'Hola' } }]
+  } }] }] };
+  assert.equal(extractMetaMessages(payload)[0].referral, null);
+});
+
 test('ignora estados Meta sin messages porque no son inbound de un lead', () => {
   const payload = { entry: [{ changes: [{ value: { statuses: [{ id: 'wamid.sent', status: 'sent' }] } }] }] };
   assert.deepEqual(extractMetaMessages(payload), []);
