@@ -77,6 +77,39 @@ test('un mensaje sin referral (la inmensa mayoria de los casos) deja el campo en
   assert.equal(extractMetaMessages(payload)[0].referral, null);
 });
 
+test('extrae y quita el codigo [ref:...] del landing antes de que Cami vea el texto', () => {
+  const payload = { entry: [{ changes: [{ value: {
+    contacts: [{ wa_id: '573146892662', profile: { name: 'Lead' } }],
+    messages: [
+      { id: 'wamid.landing', from: '573146892662', timestamp: '1787688000', type: 'text',
+        text: { body: 'Hola, quiero consultar apartamentos amoblados disponibles en La Frontera, El Poblado. Modalidad de interés: 1 mes. [ref:meta:paid_social:meta_apartamentos_la_frontera]' } }
+    ]
+  } }] }] };
+  const messages = extractMetaMessages(payload);
+  assert.equal(messages[0].text, 'Hola, quiero consultar apartamentos amoblados disponibles en La Frontera, El Poblado. Modalidad de interés: 1 mes.');
+  assert.deepEqual(messages[0].landingRef, { utm_source: 'meta', utm_medium: 'paid_social', utm_campaign: 'meta_apartamentos_la_frontera' });
+});
+
+test('un mensaje normal (sin codigo [ref:...]) deja landingRef en null y el texto intacto', () => {
+  const payload = { entry: [{ changes: [{ value: {
+    contacts: [{ wa_id: '573146892662', profile: { name: 'Lead' } }],
+    messages: [{ id: 'wamid.plain', from: '573146892662', timestamp: '1787688000', type: 'text', text: { body: 'Hola, buenas tardes' } }]
+  } }] }] };
+  const messages = extractMetaMessages(payload);
+  assert.equal(messages[0].text, 'Hola, buenas tardes');
+  assert.equal(messages[0].landingRef, null);
+});
+
+test('un codigo [ref:...] mal formado (menos de 3 segmentos) se ignora sin tocar el texto', () => {
+  const payload = { entry: [{ changes: [{ value: {
+    contacts: [{ wa_id: '573146892662', profile: { name: 'Lead' } }],
+    messages: [{ id: 'wamid.malformed', from: '573146892662', timestamp: '1787688000', type: 'text', text: { body: 'Hola [ref:meta:paid_social]' } }]
+  } }] }] };
+  const messages = extractMetaMessages(payload);
+  assert.equal(messages[0].text, 'Hola [ref:meta:paid_social]');
+  assert.equal(messages[0].landingRef, null);
+});
+
 test('ignora estados Meta sin messages porque no son inbound de un lead', () => {
   const payload = { entry: [{ changes: [{ value: { statuses: [{ id: 'wamid.sent', status: 'sent' }] } }] }] };
   assert.deepEqual(extractMetaMessages(payload), []);
