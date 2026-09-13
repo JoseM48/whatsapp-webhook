@@ -474,3 +474,67 @@ test('flattens a multi-line internal body into a single line so Meta never rejec
   assert.equal(parameters[4],'PREGUNTA DEL HUÉSPED: ¿Desde cuándo tienes disponibilidad? TEMAS DETECTADOS: other. '+
     'INSTRUCCIÓN: Validar y responder únicamente con información aprobada.');
 });
+
+// Objetivo persistente "conectar aviso interno sin evento entrante"
+// (2026-09-13), pedido directo de Jose Manuel tras el caso real de Felipe
+// Brand: pollPendingInternalOutbox() es la unica via de entrega que NO
+// depende de un mensaje de WhatsApp entrante -- llama claimClosedPilotOutbound
+// SIN id (PMS elige la fila pending mas antigua) hasta que ya no quede
+// ninguna.
+test('pollPendingInternalOutbox entrega cada fila interna pendiente hasta que PMS ya no reclama ninguna',async()=>{
+  const claims=[
+    {outbox_id:1,claimable:true,recipient_kind:'internal',
+      message_text:'PILOTO M0\nPARA: OPERACIONES\nCASO: M0-9\nAPARTAMENTO: LF-904\nACCIÓN SOLICITADA: ACUSAR RECIBIDO\n\nUse RECIBIDO.'},
+    {outbox_id:2,claimable:true,recipient_kind:'internal',
+      message_text:'PILOTO M0\nPARA: PORTERIA\nCASO: M0-9\nAPARTAMENTO: LF-904\nACCIÓN SOLICITADA: ACUSAR RECIBIDO\n\nUse RECIBIDO.'},
+    {claimable:false,status:'empty'}
+  ];
+  let claimIndex=0;
+  const completed=[];
+  const pms={
+    async claimClosedPilotOutbound(){ return claims[claimIndex++]; },
+    async completeClosedPilotOutbound(body){ completed.push(body); }
+  };
+  const templates=[];
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,
+    async sendText(){}, async sendTemplate(phone,template){ templates.push({phone,template}); return `wamid.internal.${templates.length}`; }});
+  const results=await dispatcher.pollPendingInternalOutbox();
+  assert.equal(results.length,2);
+  assert.deepEqual(results.map((r)=>r.status),['submitted','submitted']);
+  assert.deepEqual(templates.map((t)=>t.phone),[internal,internal]);
+  assert.deepEqual(templates[0].template.parameters,['OPERACIONES','M0-9','LF-904','ACUSAR RECIBIDO','Use RECIBIDO.']);
+  assert.deepEqual(completed.map((c)=>[c.outbox_id,c.status]),[[1,'submitted'],[2,'submitted']]);
+});
+
+test('pollPendingInternalOutbox no hace nada cuando no hay ninguna fila pendiente',async()=>{
+  const pms={async claimClosedPilotOutbound(){ return {claimable:false,status:'empty'}; }};
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(){},async sendTemplate(){ throw new Error('nunca deberia llamarse'); }});
+  const results=await dispatcher.pollPendingInternalOutbox();
+  assert.deepEqual(results,[]);
+});
+
+test('pollPendingInternalOutbox marca failed cuando el envio real falla (sin provider reference)',async()=>{
+  const completed=[];
+  const claims=[
+    {outbox_id:5,claimable:true,recipient_kind:'internal',
+      message_text:'PILOTO M0\nPARA: OPERACIONES\nCASO: M0-9\nAPARTAMENTO: LF-904\nACCIÓN SOLICITADA: ACUSAR RECIBIDO\n\nUse RECIBIDO.'},
+    {claimable:false,status:'empty'}
+  ];
+  let i=0;
+  const pms={async claimClosedPilotOutbound(){ return claims[i++]; }, async completeClosedPilotOutbound(body){ completed.push(body); }};
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(){},
+    async sendTemplate(){ throw Object.assign(new Error('meta_rejected'),{response:{status:400}}); },
+    logger:{error(){}}});
+  const results=await dispatcher.pollPendingInternalOutbox();
+  assert.equal(results[0].status,'failed');
+  assert.equal(completed[0].status,'failed');
+});
+
+test('pollPendingInternalOutbox no hace nada con el piloto M0 deshabilitado',async()=>{
+  let calls=0;
+  const pms={async claimClosedPilotOutbound(){ calls+=1; return {claimable:false,status:'empty'}; }};
+  const dispatcher=createM0ClosedPilotDispatcher({config:{enabled:false},pms,async sendText(){}});
+  const results=await dispatcher.pollPendingInternalOutbox();
+  assert.deepEqual(results,[]);
+  assert.equal(calls,0);
+});

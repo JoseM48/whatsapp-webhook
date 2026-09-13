@@ -715,6 +715,20 @@ startM0ObservationLoop({ enabled: PMS_LITE_M0_ENABLED, observe: async (reason) =
   await observeM0({ enabled: true, pms: pmsPilotClient, reason, logger: console });
 } });
 
+// Objetivo persistente "conectar aviso interno sin evento entrante"
+// (2026-09-13), pedido directo de Jose Manuel tras el caso real de Felipe
+// Brand: reutiliza el mismo loop generico (startM0ObservationLoop) ya
+// probado, con su propio intervalo -- esta corrida NUNCA toca ni depende del
+// observador de arriba (procesos independientes, un fallo en uno no afecta
+// al otro). Cierra el hueco real: hasta hoy, la UNICA forma de entregar un
+// mensaje interno (porteria/operaciones) era de forma sincronica dentro del
+// mismo mensaje de WhatsApp entrante que lo genero -- si alguno quedara
+// 'pending' sin un evento nuevo del mismo caso, nunca se reintentaria.
+startM0ObservationLoop({ enabled: PMS_LITE_M0_ENABLED, intervalMs: 60_000, observe: async () => {
+  const results = await m0ClosedPilot.pollPendingInternalOutbox();
+  if (results.length) console.log('[m0-closed] internal_outbox_poll', { count: results.length, results });
+} });
+
 async function enviarWhatsApp(to, body) {
   const phone = normalizePhone(to);
   if (!phone) { console.error('enviarWhatsApp → número inválido:', to); return { sent: false, providerReference: null }; }
