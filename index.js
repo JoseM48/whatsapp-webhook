@@ -1573,7 +1573,8 @@ app.post('/webhook', async (req, res) => {
 
       res.sendStatus(200);
       setImmediate(async () => {
-        await pilotWaitAck.afterCapture({ captureResult, recipient: normalizePhone(from) });
+        // ACK deshabilitado (2026-09-15): eliminamos respuesta intermedia de "estoy revisando"
+        // await pilotWaitAck.afterCapture({ captureResult, recipient: normalizePhone(from) });
         const today = new Intl.DateTimeFormat('en-CA', {
           timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit'
         }).format(new Date());
