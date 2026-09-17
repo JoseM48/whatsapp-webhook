@@ -538,3 +538,87 @@ test('pollPendingInternalOutbox no hace nada con el piloto M0 deshabilitado',asy
   assert.deepEqual(results,[]);
   assert.equal(calls,0);
 });
+
+// Objetivo persistente "lista de espera" (2026-09-17), decidido por Jose
+// Manuel: hasta hoy sendTemplate solo servia al aviso interno, asi que una
+// cotizacion a alguien que lleva dias en silencio no tenia forma de salir --
+// fuera de la ventana de 24 horas Meta solo acepta plantillas aprobadas. Estas
+// filas ademas nacen de un tick, sin mensaje entrante donde entregarlas, asi
+// que el poller es su unica via.
+const waitlistClaim={outbox_id:41,claimable:true,recipient_kind:'guest',message_kind:'template',
+  recipient_phone:guest,template_name:'lf_cotizacion_lista_espera_v1',
+  template_parameters:['Leo','LF-210','COP 3.300.000','2026-11-20'],
+  message_text:'Cotización para llegada el 2026-11-20: LF-210, COP 3.300.000 al mes.'};
+
+test('deliver envia al huesped por plantilla aprobada cuando la fila es message_kind=template',async()=>{
+  const completed=[],templates=[];
+  let textSends=0;
+  const pms={async claimClosedPilotOutbound(){ return waitlistClaim; },
+    async completeClosedPilotOutbound(body){ completed.push(body); }};
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,
+    async sendText(){ textSends+=1; return 'wamid.text'; },
+    async sendTemplate(phone,template){ templates.push({phone,template}); return 'wamid.espera.1'; }});
+  const [result]=await dispatcher.deliverCommercialOutboxes([{id:41}]);
+  assert.equal(result.status,'submitted');
+  assert.equal(textSends,0,'una plantilla nunca debe degradar a texto libre: es justo cuando el texto libre no se puede enviar');
+  assert.equal(templates[0].phone,guest);
+  assert.equal(templates[0].template.name,'lf_cotizacion_lista_espera_v1');
+  assert.deepEqual(templates[0].template.parameters,['Leo','LF-210','COP 3.300.000','2026-11-20']);
+  assert.deepEqual(completed[0],{outbox_id:41,status:'submitted',provider_reference:'wamid.espera.1'});
+});
+
+test('deliver nunca manda una plantilla al huesped sin nombre ni parametros',async()=>{
+  for(const roto of [{...waitlistClaim,template_name:null},{...waitlistClaim,template_parameters:[]}]) {
+    const pms={async claimClosedPilotOutbound(){ return roto; },async completeClosedPilotOutbound(){}};
+    const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(){},
+      async sendTemplate(){ throw new Error('no deberia llegar a Meta'); },logger:{error(){}}});
+    // deliverCommercialOutboxes usa la via "safe": el fallo no se propaga,
+    // se registra como entrega fallida -- lo que importa es que NADA salga
+    // hacia Meta con una plantilla incompleta.
+    const [result]=await dispatcher.deliverCommercialOutboxes([{id:41}]);
+    assert.equal(result.sent,false);
+  }
+});
+
+test('el poller entrega las plantillas de huesped que ningun mensaje entrante entregaria',async()=>{
+  const claims=[waitlistClaim,{claimable:false,status:'empty'}];
+  let i=0;
+  const completed=[],templates=[];
+  const pms={async claimClosedPilotOutbound(){ return claims[i++]; },
+    async completeClosedPilotOutbound(body){ completed.push(body); }};
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(){},
+    async sendTemplate(phone,template){ templates.push({phone,template}); return 'wamid.espera.2'; }});
+  const results=await dispatcher.pollPendingInternalOutbox();
+  assert.deepEqual(results.map((r)=>r.status),['submitted']);
+  assert.equal(templates[0].phone,guest);
+  assert.equal(templates[0].template.name,'lf_cotizacion_lista_espera_v1');
+  assert.equal(completed[0].status,'submitted');
+});
+
+test('el poller sigue rechazando una fila de huesped que NO es plantilla, sin enviar nada',async()=>{
+  const claims=[{outbox_id:42,claimable:true,recipient_kind:'guest',message_kind:'text',
+    recipient_phone:guest,message_text:'hola'},{claimable:false,status:'empty'}];
+  let i=0;
+  const completed=[];
+  const pms={async claimClosedPilotOutbound(){ return claims[i++]; },
+    async completeClosedPilotOutbound(body){ completed.push(body); }};
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,
+    async sendText(){ throw new Error('no debe enviarse'); },
+    async sendTemplate(){ throw new Error('no debe enviarse'); }});
+  const results=await dispatcher.pollPendingInternalOutbox();
+  assert.equal(results[0].status,'unexpected_recipient_kind');
+  assert.equal(completed[0].status,'unknown');
+});
+
+test('el poller no envia una plantilla de huesped sin telefono valido',async()=>{
+  const claims=[{...waitlistClaim,recipient_phone:''},{claimable:false,status:'empty'}];
+  let i=0;
+  const completed=[];
+  const pms={async claimClosedPilotOutbound(){ return claims[i++]; },
+    async completeClosedPilotOutbound(body){ completed.push(body); }};
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(){},
+    async sendTemplate(){ throw new Error('no debe enviarse'); }});
+  const results=await dispatcher.pollPendingInternalOutbox();
+  assert.equal(results[0].status,'recipient_missing_or_invalid');
+  assert.equal(completed[0].status,'unknown');
+});
