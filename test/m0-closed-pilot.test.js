@@ -595,9 +595,31 @@ test('el poller entrega las plantillas de huesped que ningun mensaje entrante en
   assert.equal(completed[0].status,'submitted');
 });
 
-test('el poller sigue rechazando una fila de huesped que NO es plantilla, sin enviar nada',async()=>{
-  const claims=[{outbox_id:42,claimable:true,recipient_kind:'guest',message_kind:'text',
-    recipient_phone:guest,message_text:'hola'},{claimable:false,status:'empty'}];
+// Actualizada el 2026-09-18: el texto a huesped por esta via ya NO se rechaza,
+// porque es como salen los avisos de reenganche. pms-lite solo los entrega para
+// reclamar si el huesped escribio en las ultimas 23 horas. Lo que si se sigue
+// rechazando es una fila de huesped de un tipo que esta via no sabe manejar.
+test('el poller entrega un aviso de reenganche, que es texto libre a un huesped',async()=>{
+  const claims=[{outbox_id:77,claimable:true,recipient_kind:'guest',message_kind:'text',
+    recipient_phone:guest,message_text:'Sigo por aqui, atento a tu solicitud.'},
+    {claimable:false,status:'empty'}];
+  let i=0;
+  const enviados=[],completed=[];
+  const pms={async claimClosedPilotOutbound(){ return claims[i++]; },
+    async completeClosedPilotOutbound(body){ completed.push(body); }};
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,
+    async sendText(phone,texto){ enviados.push({phone,texto}); return 'wamid.nudge.1'; },
+    async sendTemplate(){ throw new Error('un aviso es texto, no plantilla'); }});
+  const results=await dispatcher.pollPendingInternalOutbox();
+  assert.deepEqual(results.map((r)=>r.status),['submitted']);
+  assert.equal(enviados[0].phone,guest);
+  assert.match(enviados[0].texto,/Sigo por aqui/);
+  assert.equal(completed[0].status,'submitted');
+});
+
+test('el poller sigue rechazando una fila de huesped de un tipo que no maneja',async()=>{
+  const claims=[{outbox_id:42,claimable:true,recipient_kind:'guest',message_kind:'photos',
+    recipient_phone:guest,message_text:'fotos'},{claimable:false,status:'empty'}];
   let i=0;
   const completed=[];
   const pms={async claimClosedPilotOutbound(){ return claims[i++]; },
