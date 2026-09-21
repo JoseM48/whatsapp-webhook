@@ -132,6 +132,8 @@ function main() {
     generated_at: new Date().toISOString(),
     corpus_version: corpus.meta.version,
     today_reference: today,
+    baseline_kind: 'LEGACY_DETERMINISTIC_INTERPRETATION',
+    scope_note: 'NO es el comportamiento end-to-end de Cami: el LLM no se ejecuto.',
     layer_measured: 'deterministicInterpret + reconcileInterpretation (SIN LLM)',
     total_cases: results.length,
     passed: results.filter((r) => r.passed).length,
@@ -141,7 +143,7 @@ function main() {
     merge_layer_deferred: results.filter((r) => r.merge_deferred.length > 0).length,
     by_category: byCategory,
     by_provenance: {
-      real_documented: results.filter((r) => r.provenance === 'real_documented').length,
+      reconstructed_from_documentation: results.filter((r) => r.provenance === 'reconstructed_from_documentation').length,
       synthetic: results.filter((r) => r.provenance === 'synthetic').length
     }
   };
@@ -151,9 +153,9 @@ function main() {
   fs.writeFileSync(path.join(OUT_DIR, `baseline-${stamp}.json`),
     JSON.stringify({ summary, results }, null, 2), 'utf8');
 
-  console.log('BASELINE TECNICO -- capa determinista actual (sin LLM)');
+  console.log('LEGACY / DETERMINISTIC INTERPRETATION BASELINE');
   console.log(`Casos: ${summary.total_cases}  |  pasan: ${summary.passed}  |  fallan: ${summary.failed}  |  revientan: ${summary.crashed}`);
-  console.log(`Reales documentados: ${summary.by_provenance.real_documented}  |  sinteticos: ${summary.by_provenance.synthetic}`);
+  console.log(`Reconstruidos de documentacion: ${summary.by_provenance.reconstructed_from_documentation}  |  sinteticos: ${summary.by_provenance.synthetic}  |  conversaciones reales exportadas: 0`);
   console.log('');
   console.log('Por categoria:');
   for (const [cat, v] of Object.entries(byCategory)) console.log(`  ${cat.padEnd(24)} ${v.passed}/${v.total}`);

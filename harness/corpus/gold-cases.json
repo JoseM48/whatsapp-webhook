@@ -4,8 +4,14 @@
     "created": "2026-09-21",
     "today_reference": "2026-10-05",
     "today_weekday": "lunes",
-    "provenance_policy": "Ningun caso contiene texto literal de un huesped real ni telefono, nombre o correo. Los casos marcados 'real_documented' reproducen un patron de fallo REGISTRADO en documentacion canonica, con su fuente. Los marcados 'synthetic' son construidos para cubrir una categoria exigida.",
-    "scoring": "Solo se puntuan los campos listados en `expect`. Un campo no listado no penaliza."
+    "scoring": "Solo se puntuan los campos listados en `expect`. Un campo no listado no penaliza.",
+    "corpus_classification": {
+      "real_conversations_exported": 0,
+      "reconstructed_from_documentation": 8,
+      "synthetic": 15,
+      "total": 23,
+      "note": "NINGUN caso contiene un mensaje real de un huesped. Los reconstruidos reproducen un patron de fallo registrado en documentacion canonica, con su fuente. No son corpus real y no deben contarse como tal."
+    }
   },
   "cases": [
     {
@@ -25,7 +31,7 @@
     {
       "id": "GC-02-ordinal-palabra",
       "category": "fechas",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "ESTADO_ACTUAL_ECOSISTEMA.md — 'no reconoce ordinales en espanol (primero, 1ro) como dia del mes, solo digitos'",
       "text": "Llego el primero de noviembre",
       "context": {},
@@ -38,7 +44,7 @@
     {
       "id": "GC-03-ordinal-abreviado",
       "category": "fechas",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "ESTADO_ACTUAL_ECOSISTEMA.md — mismo hallazgo",
       "text": "llego el 1ro de noviembre y me quedo 2 semanas",
       "context": {},
@@ -52,7 +58,7 @@
     {
       "id": "GC-04-duracion-meses-sin-fecha",
       "category": "duracion",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §C.2 escenario 5",
       "text": "busco algo por 3 meses",
       "context": {},
@@ -66,7 +72,7 @@
     {
       "id": "GC-05-duracion-vaga",
       "category": "duracion",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §C.2 escenario 4",
       "text": "A principios de octubre, unos días",
       "context": {},
@@ -79,7 +85,7 @@
     {
       "id": "GC-06-duracion-abierta",
       "category": "duracion",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §C.2 escenario 3",
       "text": "llego el 5 de noviembre, un mes, tal vez más",
       "context": {},
@@ -134,7 +140,7 @@
     {
       "id": "GC-10-solo-fecha-salida",
       "category": "correcciones",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "ai.js:425 — bug real confirmado 2026-09-01: una fecha suelta sobreescribia el check_in ya valido",
       "text": "el 20 de octubre",
       "context": {
@@ -236,7 +242,7 @@
     {
       "id": "GC-16-fragmentado",
       "category": "fragmentado",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §F — rafaga real de 16 mensajes",
       "sequence": [
         "Hola",
@@ -267,7 +273,7 @@
     {
       "id": "GC-18-idioma-falso-positivo",
       "category": "idioma",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "META_ADS_CAMBIO_TARGETING_IDIOMA_20260911.md — 11 de 15 leads colombianos clasificados en ingles",
       "text": "ok, y tiene balcony?",
       "context": {

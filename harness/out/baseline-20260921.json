@@ -1,8 +1,10 @@
 {
   "summary": {
-    "generated_at": "2026-09-21T17:21:31.177Z",
+    "generated_at": "2026-09-21T17:28:15.035Z",
     "corpus_version": "1.0",
     "today_reference": "2026-10-05",
+    "baseline_kind": "LEGACY_DETERMINISTIC_INTERPRETATION",
+    "scope_note": "NO es el comportamiento end-to-end de Cami: el LLM no se ejecuto.",
     "layer_measured": "deterministicInterpret + reconcileInterpretation (SIN LLM)",
     "total_cases": 23,
     "passed": 6,
@@ -65,7 +67,7 @@
       }
     },
     "by_provenance": {
-      "real_documented": 8,
+      "reconstructed_from_documentation": 8,
       "synthetic": 15
     }
   },
@@ -114,7 +116,7 @@
     {
       "id": "GC-02-ordinal-palabra",
       "category": "fechas",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "ESTADO_ACTUAL_ECOSISTEMA.md — 'no reconoce ordinales en espanol (primero, 1ro) como dia del mes, solo digitos'",
       "note": "Fallo REGISTRADO del lector determinista. Fuerza CLARIFICAR SOLICITUD en vez de entender.",
       "crashed": null,
@@ -141,7 +143,7 @@
     {
       "id": "GC-03-ordinal-abreviado",
       "category": "fechas",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "ESTADO_ACTUAL_ECOSISTEMA.md — mismo hallazgo",
       "note": "El ordinal falla pero la duracion en semanas deberia resolverse.",
       "crashed": null,
@@ -175,7 +177,7 @@
     {
       "id": "GC-04-duracion-meses-sin-fecha",
       "category": "duracion",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §C.2 escenario 5",
       "note": "El huesped declaro el dato de mayor valor comercial. Hoy no se cotiza por falta de fecha.",
       "crashed": null,
@@ -209,7 +211,7 @@
     {
       "id": "GC-05-duracion-vaga",
       "category": "duracion",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §C.2 escenario 4",
       "note": "Fecha aproximada + duracion vaga. Deberia preguntarse la duracion, nunca la fecha exacta primero.",
       "crashed": null,
@@ -236,7 +238,7 @@
     {
       "id": "GC-06-duracion-abierta",
       "category": "duracion",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §C.2 escenario 3",
       "note": "PERDIDA SEMANTICA CONOCIDA: 'tal vez mas' no tiene campo en el schema. duration_kind='minimum' no existe.",
       "crashed": null,
@@ -339,7 +341,7 @@
     {
       "id": "GC-10-solo-fecha-salida",
       "category": "correcciones",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "ai.js:425 — bug real confirmado 2026-09-01: una fecha suelta sobreescribia el check_in ya valido",
       "note": "Regresion historica. El check_in ya valido NO debe perderse. La preservacion del check_in previo la hace mergeCommercialContext() en pms-lite, no esta capa: se mide aparte.",
       "crashed": null,
@@ -486,7 +488,7 @@
     {
       "id": "GC-16-fragmentado",
       "category": "fragmentado",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §F — rafaga real de 16 mensajes",
       "note": "Cuatro mensajes que son un solo pensamiento. Se evalua el estado acumulado tras el ultimo.",
       "crashed": null,
@@ -533,7 +535,7 @@
     {
       "id": "GC-18-idioma-falso-positivo",
       "category": "idioma",
-      "provenance": "real_documented",
+      "provenance": "reconstructed_from_documentation",
       "source": "META_ADS_CAMBIO_TARGETING_IDIOMA_20260911.md — 11 de 15 leads colombianos clasificados en ingles",
       "note": "FALLO REGISTRADO: detectLanguage() vuelca a ingles por una sola palabra.",
       "crashed": null,
