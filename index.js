@@ -307,7 +307,12 @@ const pmsPilotClient = new PmsPilotClient({
   secret: PMS_LITE_WEBHOOK_SECRET,
   timeoutMs: Number(process.env.MVP_LA_FRONTERA_TIMEOUT_MS || 8000),
   publicBaseUrl: PMS_LITE_PUBLIC_BASE_URL,
-  mediaSigningSecret: process.env.PILOT_MEDIA_SIGNING_SECRET || PMS_LITE_WEBHOOK_SECRET
+  mediaSigningSecret: process.env.PILOT_MEDIA_SIGNING_SECRET || PMS_LITE_WEBHOOK_SECRET,
+  // BLOQUE C: puente de read tools. Si la variable no existe -- que es el
+  // estado de hoy -- el cliente devuelve `not_authorized` en vez de lanzar, y
+  // como la ruta nueva esta apagada nadie lo invoca.
+  conversationalToolsToken: process.env.PMS_LITE_CONVERSATIONAL_TOOLS_TOKEN || '',
+  conversationalToolsTimeoutMs: Number(process.env.PMS_LITE_CONVERSATIONAL_TOOLS_TIMEOUT_MS || 6000)
 });
 
 const pmsWarmup = createPmsWarmup({
