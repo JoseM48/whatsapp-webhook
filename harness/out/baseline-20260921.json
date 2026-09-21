@@ -1,0 +1,678 @@
+{
+  "summary": {
+    "generated_at": "2026-09-21T17:28:15.035Z",
+    "corpus_version": "1.0",
+    "today_reference": "2026-10-05",
+    "baseline_kind": "LEGACY_DETERMINISTIC_INTERPRETATION",
+    "scope_note": "NO es el comportamiento end-to-end de Cami: el LLM no se ejecuto.",
+    "layer_measured": "deterministicInterpret + reconcileInterpretation (SIN LLM)",
+    "total_cases": 23,
+    "passed": 6,
+    "failed": 17,
+    "crashed": 0,
+    "structural_gaps": 5,
+    "merge_layer_deferred": 2,
+    "by_category": {
+      "fechas": {
+        "total": 3,
+        "passed": 0
+      },
+      "duracion": {
+        "total": 3,
+        "passed": 2
+      },
+      "huespedes": {
+        "total": 2,
+        "passed": 1
+      },
+      "correcciones": {
+        "total": 2,
+        "passed": 0
+      },
+      "anafora": {
+        "total": 3,
+        "passed": 0
+      },
+      "referencia_apartamento": {
+        "total": 2,
+        "passed": 0
+      },
+      "fragmentado": {
+        "total": 1,
+        "passed": 0
+      },
+      "idioma": {
+        "total": 2,
+        "passed": 1
+      },
+      "ambiguedad": {
+        "total": 1,
+        "passed": 0
+      },
+      "datos_faltantes": {
+        "total": 1,
+        "passed": 1
+      },
+      "no_repetir": {
+        "total": 1,
+        "passed": 1
+      },
+      "semantic_confirmation": {
+        "total": 1,
+        "passed": 0
+      },
+      "factualidad": {
+        "total": 1,
+        "passed": 0
+      }
+    },
+    "by_provenance": {
+      "reconstructed_from_documentation": 8,
+      "synthetic": 15
+    }
+  },
+  "results": [
+    {
+      "id": "GC-01-fechas-rango",
+      "category": "fechas",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "Camino feliz. Si esto falla, algo esta muy roto.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "check_in",
+          "expected": "2026-10-10",
+          "actual": null,
+          "pass": false,
+          "kind": "field"
+        },
+        {
+          "field": "check_out",
+          "expected": "2026-10-17",
+          "actual": null,
+          "pass": false,
+          "kind": "field"
+        },
+        {
+          "field": "check_in_status",
+          "expected": "valid",
+          "actual": "ambiguous",
+          "pass": false,
+          "kind": "field"
+        },
+        {
+          "field": "check_out_status",
+          "expected": "valid",
+          "actual": "absent",
+          "pass": false,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-02-ordinal-palabra",
+      "category": "fechas",
+      "provenance": "reconstructed_from_documentation",
+      "source": "ESTADO_ACTUAL_ECOSISTEMA.md — 'no reconoce ordinales en espanol (primero, 1ro) como dia del mes, solo digitos'",
+      "note": "Fallo REGISTRADO del lector determinista. Fuerza CLARIFICAR SOLICITUD en vez de entender.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "check_in",
+          "expected": "2026-11-01",
+          "actual": null,
+          "pass": false,
+          "kind": "field"
+        },
+        {
+          "field": "check_in_status",
+          "expected": "valid",
+          "actual": "ambiguous",
+          "pass": false,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-03-ordinal-abreviado",
+      "category": "fechas",
+      "provenance": "reconstructed_from_documentation",
+      "source": "ESTADO_ACTUAL_ECOSISTEMA.md — mismo hallazgo",
+      "note": "El ordinal falla pero la duracion en semanas deberia resolverse.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "check_in",
+          "expected": "2026-11-01",
+          "actual": null,
+          "pass": false,
+          "kind": "field"
+        },
+        {
+          "field": "check_in_status",
+          "expected": "valid",
+          "actual": "ambiguous",
+          "pass": false,
+          "kind": "field"
+        },
+        {
+          "field": "nights",
+          "expected": 14,
+          "actual": 14,
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-04-duracion-meses-sin-fecha",
+      "category": "duracion",
+      "provenance": "reconstructed_from_documentation",
+      "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §C.2 escenario 5",
+      "note": "El huesped declaro el dato de mayor valor comercial. Hoy no se cotiza por falta de fecha.",
+      "crashed": null,
+      "passed": true,
+      "field_checks": [
+        {
+          "field": "nights",
+          "expected": 90,
+          "actual": 90,
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "check_in",
+          "expected": null,
+          "actual": null,
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "check_in_status",
+          "expected": "absent",
+          "actual": "absent",
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-05-duracion-vaga",
+      "category": "duracion",
+      "provenance": "reconstructed_from_documentation",
+      "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §C.2 escenario 4",
+      "note": "Fecha aproximada + duracion vaga. Deberia preguntarse la duracion, nunca la fecha exacta primero.",
+      "crashed": null,
+      "passed": true,
+      "field_checks": [
+        {
+          "field": "nights",
+          "expected": null,
+          "actual": null,
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "check_in_status",
+          "expected": "ambiguous",
+          "actual": "ambiguous",
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-06-duracion-abierta",
+      "category": "duracion",
+      "provenance": "reconstructed_from_documentation",
+      "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §C.2 escenario 3",
+      "note": "PERDIDA SEMANTICA CONOCIDA: 'tal vez mas' no tiene campo en el schema. duration_kind='minimum' no existe.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "check_in",
+          "expected": "2026-11-05",
+          "actual": null,
+          "pass": false,
+          "kind": "field"
+        },
+        {
+          "field": "nights",
+          "expected": 30,
+          "actual": 30,
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-07-huespedes-simple",
+      "category": "huespedes",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "",
+      "crashed": null,
+      "passed": true,
+      "field_checks": [
+        {
+          "field": "guests",
+          "expected": 2,
+          "actual": 2,
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-08-huespedes-composicion",
+      "category": "huespedes",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "PERDIDA SEMANTICA: `guests` es un entero; la composicion (adultos/bebe) no se representa, y puede importar para capacidad y cuna.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "guests",
+          "expected": 3,
+          "actual": 2,
+          "pass": false,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-09-correccion-fecha",
+      "category": "correcciones",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "La nueva fecha debe reemplazar a la vieja, no convivir con ella.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "check_in",
+          "expected": "2026-10-12",
+          "actual": null,
+          "pass": false,
+          "kind": "field"
+        },
+        {
+          "field": "check_in_status",
+          "expected": "valid",
+          "actual": "ambiguous",
+          "pass": false,
+          "kind": "field"
+        },
+        {
+          "field": "corrections_includes",
+          "expected": "check_in",
+          "actual": [
+            "check_out"
+          ],
+          "pass": false,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-10-solo-fecha-salida",
+      "category": "correcciones",
+      "provenance": "reconstructed_from_documentation",
+      "source": "ai.js:425 — bug real confirmado 2026-09-01: una fecha suelta sobreescribia el check_in ya valido",
+      "note": "Regresion historica. El check_in ya valido NO debe perderse. La preservacion del check_in previo la hace mergeCommercialContext() en pms-lite, no esta capa: se mide aparte.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "check_out",
+          "expected": "2026-10-20",
+          "actual": null,
+          "pass": false,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": [
+        "check_in"
+      ]
+    },
+    {
+      "id": "GC-11-anafora-el-otro",
+      "category": "anafora",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "Requiere el turno anterior. Sin transcript es irresoluble. El LLM tampoco puede hoy.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [],
+      "structural_gaps": [
+        {
+          "field": "needs_reference_resolution",
+          "expected": true,
+          "actual": "no representable",
+          "pass": false,
+          "kind": "structural"
+        }
+      ],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-12-anafora-ese",
+      "category": "anafora",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "El tema (balcon) es extraible; el referente (ese) no, sin contexto.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "knowledge_topics_includes",
+          "expected": "balcony",
+          "actual": [
+            "balcony"
+          ],
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [
+        {
+          "field": "needs_reference_resolution",
+          "expected": true,
+          "actual": "no representable",
+          "pass": false,
+          "kind": "structural"
+        }
+      ],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-13-anafora-dia-semana",
+      "category": "anafora",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "Hoy es lunes 2026-10-05; el viernes siguiente es 2026-10-09. Requiere anclaje temporal.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "check_in",
+          "expected": "2026-10-09",
+          "actual": null,
+          "pass": false,
+          "kind": "field"
+        },
+        {
+          "field": "corrections_includes",
+          "expected": "check_in",
+          "actual": [],
+          "pass": false,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-14-referencia-numerica",
+      "category": "referencia_apartamento",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "El huesped NO usa el codigo interno. extractApartmentCode() exige ^LF-\\d{3,4}$.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "requested_apartment_code",
+          "expected": "LF-510",
+          "actual": null,
+          "pass": false,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-15-referencia-atributo",
+      "category": "referencia_apartamento",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "Referencia por atributo. Debe resolverse con tool contra public_attributes, nunca adivinando.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "nights",
+          "expected": 30,
+          "actual": 30,
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [
+        {
+          "field": "needs_reference_resolution",
+          "expected": true,
+          "actual": "no representable",
+          "pass": false,
+          "kind": "structural"
+        }
+      ],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-16-fragmentado",
+      "category": "fragmentado",
+      "provenance": "reconstructed_from_documentation",
+      "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §F — rafaga real de 16 mensajes",
+      "note": "Cuatro mensajes que son un solo pensamiento. Se evalua el estado acumulado tras el ultimo.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "guests",
+          "expected": 2,
+          "actual": 2,
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "check_in",
+          "expected": "2026-10-10",
+          "actual": null,
+          "pass": false,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-17-cambio-idioma-explicito",
+      "category": "idioma",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "",
+      "crashed": null,
+      "passed": true,
+      "field_checks": [
+        {
+          "field": "language",
+          "expected": "es",
+          "actual": "es",
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-18-idioma-falso-positivo",
+      "category": "idioma",
+      "provenance": "reconstructed_from_documentation",
+      "source": "META_ADS_CAMBIO_TARGETING_IDIOMA_20260911.md — 11 de 15 leads colombianos clasificados en ingles",
+      "note": "FALLO REGISTRADO: detectLanguage() vuelca a ingles por una sola palabra.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "language",
+          "expected": "es",
+          "actual": "en",
+          "pass": false,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-19-ambiguedad",
+      "category": "ambiguedad",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "Debe marcarse ambiguo, no inventarse una fecha.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "check_in_status",
+          "expected": "ambiguous",
+          "actual": "absent",
+          "pass": false,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-20-datos-faltantes",
+      "category": "datos_faltantes",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "Nada conocido. Debe pedir UNA cosa, no tres.",
+      "crashed": null,
+      "passed": true,
+      "field_checks": [
+        {
+          "field": "missing_fields_count",
+          "expected": 3,
+          "actual": 3,
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-21-no-repreguntar",
+      "category": "no_repetir",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "El estado conocido no puede perderse al responder una pregunta de conocimiento. Idem: el estado acumulado es responsabilidad de la capa de merge.",
+      "crashed": null,
+      "passed": true,
+      "field_checks": [
+        {
+          "field": "knowledge_topics_includes",
+          "expected": "parking",
+          "actual": [
+            "parking"
+          ],
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [],
+      "merge_deferred": [
+        "guests",
+        "check_in"
+      ]
+    },
+    {
+      "id": "GC-22-confirmacion-semantica",
+      "category": "semantic_confirmation",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "Cambia la duracion CON propuesta vigente: mueve el precio. Disparador obligatorio de confirmacion.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [
+        {
+          "field": "nights",
+          "expected": 90,
+          "actual": 90,
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "corrections_includes",
+          "expected": "nights",
+          "actual": [
+            "nights"
+          ],
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "structural_gaps": [
+        {
+          "field": "should_trigger_confirmation",
+          "expected": true,
+          "actual": "no representable",
+          "pass": false,
+          "kind": "structural"
+        }
+      ],
+      "merge_deferred": []
+    },
+    {
+      "id": "GC-23-hechos-no-inventados",
+      "category": "factualidad",
+      "provenance": "synthetic",
+      "source": null,
+      "note": "Atributo sin fuente aprobada. No se afirma ni se niega. Se evalua en la capa de redaccion, no aqui.",
+      "crashed": null,
+      "passed": false,
+      "field_checks": [],
+      "structural_gaps": [
+        {
+          "field": "must_not_affirm",
+          "expected": true,
+          "actual": "no representable",
+          "pass": false,
+          "kind": "structural"
+        }
+      ],
+      "merge_deferred": []
+    }
+  ]
+}

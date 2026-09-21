@@ -1,0 +1,368 @@
+{
+  "meta": {
+    "version": "1.0",
+    "created": "2026-09-21",
+    "today_reference": "2026-10-05",
+    "today_weekday": "lunes",
+    "scoring": "Solo se puntuan los campos listados en `expect`. Un campo no listado no penaliza.",
+    "corpus_classification": {
+      "real_conversations_exported": 0,
+      "reconstructed_from_documentation": 8,
+      "synthetic": 15,
+      "total": 23,
+      "note": "NINGUN caso contiene un mensaje real de un huesped. Los reconstruidos reproducen un patron de fallo registrado en documentacion canonica, con su fuente. No son corpus real y no deben contarse como tal."
+    }
+  },
+  "cases": [
+    {
+      "id": "GC-01-fechas-rango",
+      "category": "fechas",
+      "provenance": "synthetic",
+      "text": "Quiero del 10 al 17 de octubre",
+      "context": {},
+      "expect": {
+        "check_in": "2026-10-10",
+        "check_out": "2026-10-17",
+        "check_in_status": "valid",
+        "check_out_status": "valid"
+      },
+      "note": "Camino feliz. Si esto falla, algo esta muy roto."
+    },
+    {
+      "id": "GC-02-ordinal-palabra",
+      "category": "fechas",
+      "provenance": "reconstructed_from_documentation",
+      "source": "ESTADO_ACTUAL_ECOSISTEMA.md — 'no reconoce ordinales en espanol (primero, 1ro) como dia del mes, solo digitos'",
+      "text": "Llego el primero de noviembre",
+      "context": {},
+      "expect": {
+        "check_in": "2026-11-01",
+        "check_in_status": "valid"
+      },
+      "note": "Fallo REGISTRADO del lector determinista. Fuerza CLARIFICAR SOLICITUD en vez de entender."
+    },
+    {
+      "id": "GC-03-ordinal-abreviado",
+      "category": "fechas",
+      "provenance": "reconstructed_from_documentation",
+      "source": "ESTADO_ACTUAL_ECOSISTEMA.md — mismo hallazgo",
+      "text": "llego el 1ro de noviembre y me quedo 2 semanas",
+      "context": {},
+      "expect": {
+        "check_in": "2026-11-01",
+        "check_in_status": "valid",
+        "nights": 14
+      },
+      "note": "El ordinal falla pero la duracion en semanas deberia resolverse."
+    },
+    {
+      "id": "GC-04-duracion-meses-sin-fecha",
+      "category": "duracion",
+      "provenance": "reconstructed_from_documentation",
+      "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §C.2 escenario 5",
+      "text": "busco algo por 3 meses",
+      "context": {},
+      "expect": {
+        "nights": 90,
+        "check_in": null,
+        "check_in_status": "absent"
+      },
+      "note": "El huesped declaro el dato de mayor valor comercial. Hoy no se cotiza por falta de fecha."
+    },
+    {
+      "id": "GC-05-duracion-vaga",
+      "category": "duracion",
+      "provenance": "reconstructed_from_documentation",
+      "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §C.2 escenario 4",
+      "text": "A principios de octubre, unos días",
+      "context": {},
+      "expect": {
+        "nights": null,
+        "check_in_status": "ambiguous"
+      },
+      "note": "Fecha aproximada + duracion vaga. Deberia preguntarse la duracion, nunca la fecha exacta primero."
+    },
+    {
+      "id": "GC-06-duracion-abierta",
+      "category": "duracion",
+      "provenance": "reconstructed_from_documentation",
+      "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §C.2 escenario 3",
+      "text": "llego el 5 de noviembre, un mes, tal vez más",
+      "context": {},
+      "expect": {
+        "check_in": "2026-11-05",
+        "nights": 30
+      },
+      "note": "PERDIDA SEMANTICA CONOCIDA: 'tal vez mas' no tiene campo en el schema. duration_kind='minimum' no existe."
+    },
+    {
+      "id": "GC-07-huespedes-simple",
+      "category": "huespedes",
+      "provenance": "synthetic",
+      "text": "Somos dos personas",
+      "context": {},
+      "expect": {
+        "guests": 2
+      },
+      "note": ""
+    },
+    {
+      "id": "GC-08-huespedes-composicion",
+      "category": "huespedes",
+      "provenance": "synthetic",
+      "text": "somos 2 adultos y un bebé",
+      "context": {},
+      "expect": {
+        "guests": 3
+      },
+      "note": "PERDIDA SEMANTICA: `guests` es un entero; la composicion (adultos/bebe) no se representa, y puede importar para capacidad y cuna."
+    },
+    {
+      "id": "GC-09-correccion-fecha",
+      "category": "correcciones",
+      "provenance": "synthetic",
+      "text": "Perdón, mejor el 12 de octubre",
+      "context": {
+        "check_in": "2026-10-10",
+        "check_in_status": "valid",
+        "pending_fields": [
+          "check_out_or_nights",
+          "guests"
+        ]
+      },
+      "expect": {
+        "check_in": "2026-10-12",
+        "check_in_status": "valid",
+        "corrections_includes": "check_in"
+      },
+      "note": "La nueva fecha debe reemplazar a la vieja, no convivir con ella."
+    },
+    {
+      "id": "GC-10-solo-fecha-salida",
+      "category": "correcciones",
+      "provenance": "reconstructed_from_documentation",
+      "source": "ai.js:425 — bug real confirmado 2026-09-01: una fecha suelta sobreescribia el check_in ya valido",
+      "text": "el 20 de octubre",
+      "context": {
+        "check_in": "2026-10-10",
+        "check_in_status": "valid",
+        "pending_fields": [
+          "check_out_or_nights"
+        ]
+      },
+      "expect": {
+        "check_out": "2026-10-20"
+      },
+      "note": "Regresion historica. El check_in ya valido NO debe perderse. La preservacion del check_in previo la hace mergeCommercialContext() en pms-lite, no esta capa: se mide aparte.",
+      "expect_merge": {
+        "check_in": "2026-10-10"
+      }
+    },
+    {
+      "id": "GC-11-anafora-el-otro",
+      "category": "anafora",
+      "provenance": "synthetic",
+      "text": "el otro que me mostraste",
+      "context": {
+        "proposal_snapshot": {
+          "proposals": [
+            {
+              "apartment_code": "LF-210"
+            },
+            {
+              "apartment_code": "LF-404"
+            }
+          ]
+        },
+        "requested_apartment_code": "LF-210"
+      },
+      "expect": {
+        "needs_reference_resolution": true
+      },
+      "note": "Requiere el turno anterior. Sin transcript es irresoluble. El LLM tampoco puede hoy."
+    },
+    {
+      "id": "GC-12-anafora-ese",
+      "category": "anafora",
+      "provenance": "synthetic",
+      "text": "¿y ese tiene balcón?",
+      "context": {
+        "proposal_snapshot": {
+          "proposals": [
+            {
+              "apartment_code": "LF-1208"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "knowledge_topics_includes": "balcony",
+        "needs_reference_resolution": true
+      },
+      "note": "El tema (balcon) es extraible; el referente (ese) no, sin contexto."
+    },
+    {
+      "id": "GC-13-anafora-dia-semana",
+      "category": "anafora",
+      "provenance": "synthetic",
+      "text": "mejor desde el viernes",
+      "context": {
+        "check_in": "2026-10-10",
+        "check_in_status": "valid"
+      },
+      "expect": {
+        "check_in": "2026-10-09",
+        "corrections_includes": "check_in"
+      },
+      "note": "Hoy es lunes 2026-10-05; el viernes siguiente es 2026-10-09. Requiere anclaje temporal."
+    },
+    {
+      "id": "GC-14-referencia-numerica",
+      "category": "referencia_apartamento",
+      "provenance": "synthetic",
+      "text": "¿el 510 está disponible?",
+      "context": {},
+      "expect": {
+        "requested_apartment_code": "LF-510"
+      },
+      "note": "El huesped NO usa el codigo interno. extractApartmentCode() exige ^LF-\\d{3,4}$."
+    },
+    {
+      "id": "GC-15-referencia-atributo",
+      "category": "referencia_apartamento",
+      "provenance": "synthetic",
+      "text": "el que tiene balcón, ¿cuánto sale por un mes?",
+      "context": {},
+      "expect": {
+        "nights": 30,
+        "needs_reference_resolution": true
+      },
+      "note": "Referencia por atributo. Debe resolverse con tool contra public_attributes, nunca adivinando."
+    },
+    {
+      "id": "GC-16-fragmentado",
+      "category": "fragmentado",
+      "provenance": "reconstructed_from_documentation",
+      "source": "CIERRE_DISENO_CONVERSACIONAL_V3_20260919.md §F — rafaga real de 16 mensajes",
+      "sequence": [
+        "Hola",
+        "busco apartamento",
+        "para dos personas",
+        "desde el 10 de octubre"
+      ],
+      "context": {},
+      "expect": {
+        "guests": 2,
+        "check_in": "2026-10-10"
+      },
+      "note": "Cuatro mensajes que son un solo pensamiento. Se evalua el estado acumulado tras el ultimo."
+    },
+    {
+      "id": "GC-17-cambio-idioma-explicito",
+      "category": "idioma",
+      "provenance": "synthetic",
+      "text": "mejor en español por favor",
+      "context": {
+        "language_preference": "en"
+      },
+      "expect": {
+        "language": "es"
+      },
+      "note": ""
+    },
+    {
+      "id": "GC-18-idioma-falso-positivo",
+      "category": "idioma",
+      "provenance": "reconstructed_from_documentation",
+      "source": "META_ADS_CAMBIO_TARGETING_IDIOMA_20260911.md — 11 de 15 leads colombianos clasificados en ingles",
+      "text": "ok, y tiene balcony?",
+      "context": {
+        "language_preference": "es"
+      },
+      "expect": {
+        "language": "es"
+      },
+      "note": "FALLO REGISTRADO: detectLanguage() vuelca a ingles por una sola palabra."
+    },
+    {
+      "id": "GC-19-ambiguedad",
+      "category": "ambiguedad",
+      "provenance": "synthetic",
+      "text": "sería para la otra semana",
+      "context": {},
+      "expect": {
+        "check_in_status": "ambiguous"
+      },
+      "note": "Debe marcarse ambiguo, no inventarse una fecha."
+    },
+    {
+      "id": "GC-20-datos-faltantes",
+      "category": "datos_faltantes",
+      "provenance": "synthetic",
+      "text": "Hola, quisiera información",
+      "context": {},
+      "expect": {
+        "missing_fields_count": 3
+      },
+      "note": "Nada conocido. Debe pedir UNA cosa, no tres."
+    },
+    {
+      "id": "GC-21-no-repreguntar",
+      "category": "no_repetir",
+      "provenance": "synthetic",
+      "text": "¿tienen parqueadero?",
+      "context": {
+        "guests": 2,
+        "check_in": "2026-10-10",
+        "check_in_status": "valid",
+        "pending_fields": [
+          "check_out_or_nights"
+        ]
+      },
+      "expect": {
+        "knowledge_topics_includes": "parking"
+      },
+      "note": "El estado conocido no puede perderse al responder una pregunta de conocimiento. Idem: el estado acumulado es responsabilidad de la capa de merge.",
+      "expect_merge": {
+        "guests": 2,
+        "check_in": "2026-10-10"
+      }
+    },
+    {
+      "id": "GC-22-confirmacion-semantica",
+      "category": "semantic_confirmation",
+      "provenance": "synthetic",
+      "text": "mejor que sean 3 meses",
+      "context": {
+        "check_in": "2026-10-10",
+        "check_in_status": "valid",
+        "guests": 2,
+        "nights": 30,
+        "proposal_snapshot": {
+          "proposals": [
+            {
+              "apartment_code": "LF-210"
+            }
+          ]
+        }
+      },
+      "expect": {
+        "nights": 90,
+        "corrections_includes": "nights",
+        "should_trigger_confirmation": true
+      },
+      "note": "Cambia la duracion CON propuesta vigente: mueve el precio. Disparador obligatorio de confirmacion."
+    },
+    {
+      "id": "GC-23-hechos-no-inventados",
+      "category": "factualidad",
+      "provenance": "synthetic",
+      "text": "¿tiene jacuzzi?",
+      "context": {},
+      "expect": {
+        "must_not_affirm": true
+      },
+      "note": "Atributo sin fuente aprobada. No se afirma ni se niega. Se evalua en la capa de redaccion, no aqui."
+    }
+  ]
+}

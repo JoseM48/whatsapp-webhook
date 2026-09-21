@@ -1,0 +1,1029 @@
+{
+  "summary": {
+    "generated_at": "2026-09-21T17:43:34.819Z",
+    "architecture": "LLM_PRIMARY_V1",
+    "provider": "openai",
+    "model": "gpt-5.6-luna",
+    "corpus_version": "1.0",
+    "total_cases": 23,
+    "passed": 19,
+    "failed": 4,
+    "engine_errors": 0,
+    "usage": {
+      "input_tokens": 45852,
+      "output_tokens": 5499,
+      "calls": 28,
+      "latency_ms": 71933,
+      "errors": 0
+    },
+    "avg_latency_ms": 3128,
+    "tool_calls_total": 5,
+    "confirmations_triggered": 2,
+    "shadow_discrepancies_total": 32,
+    "by_category": {
+      "fechas": {
+        "total": 3,
+        "passed": 3
+      },
+      "duracion": {
+        "total": 3,
+        "passed": 2
+      },
+      "huespedes": {
+        "total": 2,
+        "passed": 2
+      },
+      "correcciones": {
+        "total": 2,
+        "passed": 1
+      },
+      "anafora": {
+        "total": 3,
+        "passed": 3
+      },
+      "referencia_apartamento": {
+        "total": 2,
+        "passed": 1
+      },
+      "fragmentado": {
+        "total": 1,
+        "passed": 1
+      },
+      "idioma": {
+        "total": 2,
+        "passed": 2
+      },
+      "ambiguedad": {
+        "total": 1,
+        "passed": 1
+      },
+      "datos_faltantes": {
+        "total": 1,
+        "passed": 1
+      },
+      "no_repetir": {
+        "total": 1,
+        "passed": 1
+      },
+      "semantic_confirmation": {
+        "total": 1,
+        "passed": 1
+      },
+      "factualidad": {
+        "total": 1,
+        "passed": 0
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "GC-01-fechas-rango",
+      "category": "fechas",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "check_in",
+          "expected": "2026-10-10",
+          "actual": "2026-10-10",
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "check_out",
+          "expected": "2026-10-17",
+          "actual": "2026-10-17",
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "check_in_status",
+          "expected": "valid",
+          "actual": "valid",
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "check_out_status",
+          "expected": "valid",
+          "actual": "valid",
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "check_in",
+          "deterministic": null,
+          "llm": "2026-10-10"
+        },
+        {
+          "field": "check_in_status",
+          "deterministic": "ambiguous",
+          "llm": "valid"
+        },
+        {
+          "field": "nights",
+          "deterministic": null,
+          "llm": 7
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 53,
+      "latency_ms": 3565
+    },
+    {
+      "id": "GC-02-ordinal-palabra",
+      "category": "fechas",
+      "provenance": "reconstructed_from_documentation",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "check_in",
+          "expected": "2026-11-01",
+          "actual": "2026-11-01",
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "check_in_status",
+          "expected": "valid",
+          "actual": "valid",
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "check_in",
+          "deterministic": null,
+          "llm": "2026-11-01"
+        },
+        {
+          "field": "check_in_status",
+          "deterministic": "ambiguous",
+          "llm": "valid"
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 53,
+      "latency_ms": 1790
+    },
+    {
+      "id": "GC-03-ordinal-abreviado",
+      "category": "fechas",
+      "provenance": "reconstructed_from_documentation",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "check_in",
+          "expected": "2026-11-01",
+          "actual": "2026-11-01",
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "check_in_status",
+          "expected": "valid",
+          "actual": "valid",
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "nights",
+          "expected": 14,
+          "actual": 14,
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "check_in",
+          "deterministic": null,
+          "llm": "2026-11-01"
+        },
+        {
+          "field": "check_in_status",
+          "deterministic": "ambiguous",
+          "llm": "valid"
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 53,
+      "latency_ms": 1641
+    },
+    {
+      "id": "GC-04-duracion-meses-sin-fecha",
+      "category": "duracion",
+      "provenance": "reconstructed_from_documentation",
+      "ok": true,
+      "error_code": null,
+      "passed": false,
+      "checks": [
+        {
+          "field": "nights",
+          "expected": 90,
+          "actual": null,
+          "pass": false,
+          "kind": "field"
+        },
+        {
+          "field": "check_in",
+          "expected": null,
+          "actual": null,
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "check_in_status",
+          "expected": "absent",
+          "actual": "absent",
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "nights",
+          "deterministic": 90,
+          "llm": null
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 53,
+      "latency_ms": 1889
+    },
+    {
+      "id": "GC-05-duracion-vaga",
+      "category": "duracion",
+      "provenance": "reconstructed_from_documentation",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "nights",
+          "expected": null,
+          "actual": null,
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "check_in_status",
+          "expected": "ambiguous",
+          "actual": "ambiguous",
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [],
+      "unmapped_meaning": null,
+      "ambiguity": [
+        {
+          "field": "arrival",
+          "reason": "“A principios de octubre” no permite determinar una fecha exacta y, según la fecha actual, ese periodo ya pasó.",
+          "candidates": [
+            "confirmar si se refiere a octubre de 2026",
+            "indicar otra fecha de llegada"
+          ]
+        }
+      ],
+      "context_tokens": 53,
+      "latency_ms": 3171
+    },
+    {
+      "id": "GC-06-duracion-abierta",
+      "category": "duracion",
+      "provenance": "reconstructed_from_documentation",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "check_in",
+          "expected": "2026-11-05",
+          "actual": "2026-11-05",
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "nights",
+          "expected": 30,
+          "actual": 30,
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "check_in",
+          "deterministic": null,
+          "llm": "2026-11-05"
+        },
+        {
+          "field": "check_in_status",
+          "deterministic": "ambiguous",
+          "llm": "valid"
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 53,
+      "latency_ms": 2576
+    },
+    {
+      "id": "GC-07-huespedes-simple",
+      "category": "huespedes",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "guests",
+          "expected": 2,
+          "actual": 2,
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 53,
+      "latency_ms": 2443
+    },
+    {
+      "id": "GC-08-huespedes-composicion",
+      "category": "huespedes",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "guests",
+          "expected": 3,
+          "actual": 3,
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "guests",
+          "deterministic": 2,
+          "llm": 3
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 53,
+      "latency_ms": 2286
+    },
+    {
+      "id": "GC-09-correccion-fecha",
+      "category": "correcciones",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "check_in",
+          "expected": "2026-10-12",
+          "actual": "2026-10-12",
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "check_in_status",
+          "expected": "valid",
+          "actual": "valid",
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "corrections_includes",
+          "expected": "check_in",
+          "actual": [
+            "check_in"
+          ],
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "check_in",
+          "deterministic": null,
+          "llm": "2026-10-12"
+        },
+        {
+          "field": "check_in_status",
+          "deterministic": "absent",
+          "llm": "valid"
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 78,
+      "latency_ms": 1932
+    },
+    {
+      "id": "GC-10-solo-fecha-salida",
+      "category": "correcciones",
+      "provenance": "reconstructed_from_documentation",
+      "ok": true,
+      "error_code": null,
+      "passed": false,
+      "checks": [
+        {
+          "field": "check_out",
+          "expected": "2026-10-20",
+          "actual": null,
+          "pass": false,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "check_in",
+          "deterministic": null,
+          "llm": "2026-10-20"
+        },
+        {
+          "field": "check_in_status",
+          "deterministic": "absent",
+          "llm": "valid"
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 76,
+      "latency_ms": 2487
+    },
+    {
+      "id": "GC-11-anafora-el-otro",
+      "category": "anafora",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "needs_reference_resolution",
+          "expected": true,
+          "actual": {
+            "emitted": true,
+            "called": true
+          },
+          "pass": true,
+          "kind": "structural"
+        }
+      ],
+      "tools_called": [
+        {
+          "tool": "resolve_apartment_reference",
+          "status": "ok"
+        }
+      ],
+      "confirmation": {
+        "triggers": [
+          "anaphora_resolved",
+          "price_affecting_change"
+        ]
+      },
+      "shadow_discrepancies": [
+        {
+          "field": "requested_apartment_code",
+          "deterministic": null,
+          "llm": "LF-404"
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 102,
+      "latency_ms": 5103
+    },
+    {
+      "id": "GC-12-anafora-ese",
+      "category": "anafora",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "knowledge_topics_includes",
+          "expected": "balcony",
+          "actual": [
+            "balcony"
+          ],
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "needs_reference_resolution",
+          "expected": true,
+          "actual": {
+            "emitted": true,
+            "called": false
+          },
+          "pass": true,
+          "kind": "structural"
+        }
+      ],
+      "tools_called": [
+        {
+          "tool": "get_public_apartment_attributes",
+          "status": "ok"
+        }
+      ],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "requested_apartment_code",
+          "deterministic": null,
+          "llm": "LF-1208"
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 79,
+      "latency_ms": 4271
+    },
+    {
+      "id": "GC-13-anafora-dia-semana",
+      "category": "anafora",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "check_in",
+          "expected": "2026-10-09",
+          "actual": "2026-10-09",
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "corrections_includes",
+          "expected": "check_in",
+          "actual": [
+            "check_in"
+          ],
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "check_in",
+          "deterministic": null,
+          "llm": "2026-10-09"
+        },
+        {
+          "field": "check_in_status",
+          "deterministic": "absent",
+          "llm": "valid"
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 66,
+      "latency_ms": 3166
+    },
+    {
+      "id": "GC-14-referencia-numerica",
+      "category": "referencia_apartamento",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "requested_apartment_code",
+          "expected": "LF-510",
+          "actual": "LF-510",
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [
+        {
+          "tool": "resolve_apartment_reference",
+          "status": "ok"
+        }
+      ],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "requested_apartment_code",
+          "deterministic": null,
+          "llm": "LF-510"
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [
+        {
+          "field": "arrival",
+          "reason": "Falta la fecha de llegada para consultar disponibilidad.",
+          "candidates": []
+        },
+        {
+          "field": "duration",
+          "reason": "Falta la duración de la estadía para consultar disponibilidad.",
+          "candidates": []
+        }
+      ],
+      "context_tokens": 53,
+      "latency_ms": 4503
+    },
+    {
+      "id": "GC-15-referencia-atributo",
+      "category": "referencia_apartamento",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": false,
+      "checks": [
+        {
+          "field": "nights",
+          "expected": 30,
+          "actual": null,
+          "pass": false,
+          "kind": "field"
+        },
+        {
+          "field": "needs_reference_resolution",
+          "expected": true,
+          "actual": {
+            "emitted": true,
+            "called": true
+          },
+          "pass": true,
+          "kind": "structural"
+        }
+      ],
+      "tools_called": [
+        {
+          "tool": "resolve_apartment_reference",
+          "status": "needs_clarification"
+        }
+      ],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "nights",
+          "deterministic": 30,
+          "llm": null
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [
+        {
+          "field": "apartment",
+          "reason": "No se pudo identificar de forma inequívoca un apartamento con balcón.",
+          "candidates": []
+        },
+        {
+          "field": "arrival",
+          "reason": "Para cotizar un mes hace falta conocer la fecha de llegada.",
+          "candidates": []
+        }
+      ],
+      "context_tokens": 53,
+      "latency_ms": 7512
+    },
+    {
+      "id": "GC-16-fragmentado",
+      "category": "fragmentado",
+      "provenance": "reconstructed_from_documentation",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "guests",
+          "expected": 2,
+          "actual": 2,
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "check_in",
+          "expected": "2026-10-10",
+          "actual": "2026-10-10",
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "check_in",
+          "deterministic": null,
+          "llm": "2026-10-10"
+        },
+        {
+          "field": "check_in_status",
+          "deterministic": "ambiguous",
+          "llm": "valid"
+        },
+        {
+          "field": "guests",
+          "deterministic": null,
+          "llm": 2
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 104,
+      "latency_ms": 2718
+    },
+    {
+      "id": "GC-17-cambio-idioma-explicito",
+      "category": "idioma",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "language",
+          "expected": "es",
+          "actual": "es",
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [],
+      "unmapped_meaning": "El huésped prefiere continuar la conversación en español.",
+      "ambiguity": [],
+      "context_tokens": 60,
+      "latency_ms": 2532
+    },
+    {
+      "id": "GC-18-idioma-falso-positivo",
+      "category": "idioma",
+      "provenance": "reconstructed_from_documentation",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "language",
+          "expected": "es",
+          "actual": "es",
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [
+        {
+          "tool": "search_commercial_knowledge",
+          "status": "needs_clarification"
+        }
+      ],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "language",
+          "deterministic": "en",
+          "llm": "es"
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [
+        {
+          "field": "apartment",
+          "reason": "No se identifica a qué apartamento se refiere la pregunta sobre el balcón.",
+          "candidates": []
+        }
+      ],
+      "context_tokens": 60,
+      "latency_ms": 5397
+    },
+    {
+      "id": "GC-19-ambiguedad",
+      "category": "ambiguedad",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "check_in_status",
+          "expected": "ambiguous",
+          "actual": "ambiguous",
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "check_in_status",
+          "deterministic": "absent",
+          "llm": "ambiguous"
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 53,
+      "latency_ms": 2960
+    },
+    {
+      "id": "GC-20-datos-faltantes",
+      "category": "datos_faltantes",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "missing_fields_count",
+          "expected": 3,
+          "actual": 3,
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 53,
+      "latency_ms": 1714
+    },
+    {
+      "id": "GC-21-no-repreguntar",
+      "category": "no_repetir",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "knowledge_topics_includes",
+          "expected": "parking",
+          "actual": [
+            "parking"
+          ],
+          "pass": true,
+          "kind": "field"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [
+        {
+          "field": "check_in",
+          "deterministic": null,
+          "llm": "2026-10-10"
+        },
+        {
+          "field": "check_in_status",
+          "deterministic": "absent",
+          "llm": "valid"
+        },
+        {
+          "field": "guests",
+          "deterministic": null,
+          "llm": 2
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 79,
+      "latency_ms": 2078
+    },
+    {
+      "id": "GC-22-confirmacion-semantica",
+      "category": "semantic_confirmation",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": true,
+      "checks": [
+        {
+          "field": "nights",
+          "expected": 90,
+          "actual": 90,
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "corrections_includes",
+          "expected": "nights",
+          "actual": [
+            "nights"
+          ],
+          "pass": true,
+          "kind": "field"
+        },
+        {
+          "field": "should_trigger_confirmation",
+          "expected": true,
+          "actual": true,
+          "pass": true,
+          "kind": "structural"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": {
+        "triggers": [
+          "price_affecting_change"
+        ]
+      },
+      "shadow_discrepancies": [
+        {
+          "field": "check_in",
+          "deterministic": null,
+          "llm": "2026-10-10"
+        },
+        {
+          "field": "check_in_status",
+          "deterministic": "absent",
+          "llm": "valid"
+        },
+        {
+          "field": "guests",
+          "deterministic": null,
+          "llm": 2
+        }
+      ],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 97,
+      "latency_ms": 4513
+    },
+    {
+      "id": "GC-23-hechos-no-inventados",
+      "category": "factualidad",
+      "provenance": "synthetic",
+      "ok": true,
+      "error_code": null,
+      "passed": false,
+      "checks": [
+        {
+          "field": "must_not_affirm",
+          "expected": true,
+          "actual": {
+            "askedTool": false,
+            "declared": false
+          },
+          "pass": false,
+          "kind": "structural"
+        }
+      ],
+      "tools_called": [],
+      "confirmation": null,
+      "shadow_discrepancies": [],
+      "unmapped_meaning": null,
+      "ambiguity": [],
+      "context_tokens": 53,
+      "latency_ms": 1686
+    }
+  ]
+}
