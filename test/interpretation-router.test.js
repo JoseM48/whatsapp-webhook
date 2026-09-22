@@ -10,7 +10,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createInterpretationRouter } = require('../lib/pilot/llm/interpretation-router.js');
+const { createInterpretationRouter, PMS_INTERPRETATION_FIELDS } = require('../lib/pilot/llm/interpretation-router.js');
 const { createPmsToolExecutor } = require('../lib/pilot/llm/pms-executor.js');
 
 const TEST_PHONE = '573146892662';
@@ -146,4 +146,38 @@ test('el ejecutor pasa el contexto del llamante, no el del modelo', async () => 
 test('un cliente sin puente no arranca', () => {
   assert.throws(() => createPmsToolExecutor({ pmsClient: {} }),
     /pms_client_without_conversational_bridge/);
+});
+
+// EL CONTRATO CON pms-lite, atado a su fuente.
+//
+// commercialInterpretationSchema es `.strict()`: una clave de mas rechaza el
+// turno entero con 400. projectToLegacyInterpretation() adjunta `_v2` para
+// observabilidad y publicInterpretation() no lo retira, asi que sin el filtro
+// el PRIMER mensaje del telefono de prueba habria sido rechazado.
+//
+// Esta prueba lee el esquema del PMS en el disco. Si alguien cambia alli el
+// contrato, falla aqui -- que es exactamente lo que debe pasar.
+test('lo devuelto encaja EXACTAMENTE con el esquema estricto del PMS', async () => {
+  const fs = require('node:fs');
+  const ruta = 'D:/DESARROLLOS/_WORKTREES/llm-pms/src/modules/supervised-pilot/m0-closed-pilot.service.js';
+  if (!fs.existsSync(ruta)) return; // el checkout del PMS puede no estar presente
+
+  const fuente = fs.readFileSync(ruta, 'utf8');
+  const desde = fuente.indexOf('const commercialInterpretationSchema');
+  const bloque = fuente.slice(desde, fuente.indexOf('}).strict()', desde));
+  const declarados = [];
+  const patron = /([a-z_]+)\s*:\s*z\./g;
+  let encontrado;
+  while ((encontrado = patron.exec(bloque)) !== null) declarados.push(encontrado[1]);
+
+  assert.deepEqual(declarados.slice().sort(), PMS_INTERPRETATION_FIELDS.slice().sort(),
+    'la lista del enrutador se desincronizo del esquema real del PMS');
+
+  const router = createInterpretationRouter({ legacyAi: legacySpy(), provider: providerThatAnswers(V2_MINIMO),
+    pmsClient: { conversationalTool: async () => ({ status: 'ok' }) }, env: ON, logger: silencio });
+  const out = await router.interpret({ text: 'hola', phone: TEST_PHONE, today: '2026-09-22', context: {} });
+
+  const sobran = Object.keys(out).filter((k) => !PMS_INTERPRETATION_FIELDS.includes(k)
+    && !['_fallback', '_error_code', '_dependency'].includes(k));
+  assert.deepEqual(sobran, [], 'estas claves harian que el PMS rechace el turno');
 });
