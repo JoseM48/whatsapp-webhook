@@ -1,0 +1,369 @@
+[
+ {
+  "conv": 1,
+  "turno": 1,
+  "cuando": "2026-09-02T20:57:25+00",
+  "texto": "Hola, necesito un alojamiento",
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD",
+   "fallback": false
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "intent": "lodging_search",
+   "knowledge_topics": [],
+   "requests_human": false,
+   "exception_request": false,
+   "needs_clarification": true,
+   "missing": [
+    "check_in",
+    "check_out_or_nights",
+    "guests"
+   ]
+  },
+  "ok": true,
+  "error_code": null,
+  "ambiguity": [],
+  "unmapped": null,
+  "confirmation": null,
+  "tools": [],
+  "usage": {
+   "input_tokens": 1822,
+   "output_tokens": 181,
+   "calls": 1
+  },
+  "latency_ms": 4187,
+  "shadow": []
+ },
+ {
+  "conv": 1,
+  "turno": 2,
+  "cuando": "2026-09-02T21:06:32+00",
+  "texto": "Necesito alojamiento para 2 personas por 3 meses",
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 90,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD",
+   "fallback": false
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 90,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "intent": "lodging_search",
+   "knowledge_topics": [],
+   "requests_human": false,
+   "exception_request": false,
+   "needs_clarification": true,
+   "missing": [
+    "check_in"
+   ]
+  },
+  "ok": true,
+  "error_code": null,
+  "ambiguity": [
+   {
+    "field": "arrival",
+    "reason": "No indicó la fecha de llegada.",
+    "candidates": []
+   }
+  ],
+  "unmapped": null,
+  "confirmation": null,
+  "tools": [],
+  "usage": {
+   "input_tokens": 1877,
+   "output_tokens": 252,
+   "calls": 1
+  },
+  "latency_ms": 4325,
+  "shadow": []
+ },
+ {
+  "conv": 1,
+  "turno": 3,
+  "cuando": "2026-09-02T21:15:22+00",
+  "texto": "Del 2026-10-02, 3 meses, 2 personas.",
+  "legacy": {
+   "check_in": "2026-10-02",
+   "status": "valid",
+   "nights": 90,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "PROPUESTA PRESENTADA",
+   "fallback": false
+  },
+  "llm": {
+   "check_in": "2026-10-02",
+   "status": "valid",
+   "nights": 90,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "intent": "lodging_search",
+   "knowledge_topics": [],
+   "requests_human": false,
+   "exception_request": false,
+   "needs_clarification": false,
+   "missing": []
+  },
+  "ok": true,
+  "error_code": null,
+  "ambiguity": [],
+  "unmapped": null,
+  "confirmation": null,
+  "tools": [],
+  "usage": {
+   "input_tokens": 1905,
+   "output_tokens": 232,
+   "calls": 1
+  },
+  "latency_ms": 3724,
+  "shadow": []
+ },
+ {
+  "conv": 1,
+  "turno": 4,
+  "cuando": "2026-09-02T21:20:05+00",
+  "texto": "Y si solo necesito del 10 al 15 de octubre, serían 5 noches",
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 5,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD",
+   "fallback": false
+  },
+  "llm": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": 5,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "intent": "lodging_search",
+   "knowledge_topics": [],
+   "requests_human": false,
+   "exception_request": false,
+   "needs_clarification": false,
+   "missing": []
+  },
+  "ok": true,
+  "error_code": null,
+  "ambiguity": [],
+  "unmapped": null,
+  "confirmation": {
+   "campo": null,
+   "motivo": null
+  },
+  "tools": [],
+  "usage": {
+   "input_tokens": 1936,
+   "output_tokens": 248,
+   "calls": 1
+  },
+  "latency_ms": 3597,
+  "shadow": [
+   {
+    "field": "check_in",
+    "deterministic": null,
+    "llm": "2026-10-10"
+   },
+   {
+    "field": "check_in_status",
+    "deterministic": "ambiguous",
+    "llm": "valid"
+   },
+   {
+    "field": "guests",
+    "deterministic": null,
+    "llm": 2
+   }
+  ]
+ },
+ {
+  "conv": 1,
+  "turno": 5,
+  "cuando": "2026-09-02T21:28:42+00",
+  "texto": "Del 2026-10-10 al 2026-10-15, 2 personas.",
+  "legacy": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": null,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "REMITIR A AIRBNB",
+   "fallback": false
+  },
+  "llm": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": 5,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "intent": "lodging_search",
+   "knowledge_topics": [],
+   "requests_human": false,
+   "exception_request": false,
+   "needs_clarification": false,
+   "missing": []
+  },
+  "ok": true,
+  "error_code": null,
+  "ambiguity": [
+   {
+    "field": "other",
+    "reason": "La consulta de disponibilidad no pudo completarse por un error interno del sistema.",
+    "candidates": []
+   }
+  ],
+  "unmapped": null,
+  "confirmation": {
+   "campo": null,
+   "motivo": null
+  },
+  "tools": [
+   {
+    "tool": "check_availability",
+    "args": {
+     "arrival_date": "2026-10-10",
+     "nights": 5,
+     "guests": 2,
+     "apartment_code": null
+    },
+    "status": "error",
+    "reason": "null value in column \"lead_id\" of relation \"commercial_proposals\" violates not-null constraint"
+   },
+   {
+    "tool": "quote_stay",
+    "args": {
+     "nights": 5,
+     "arrival_date": "2026-10-10",
+     "apartment_code": null
+    },
+    "status": "ok",
+    "reason": null
+   }
+  ],
+  "usage": {
+   "input_tokens": 4505,
+   "output_tokens": 595,
+   "calls": 2
+  },
+  "latency_ms": 10714,
+  "shadow": [
+   {
+    "field": "nights",
+    "deterministic": null,
+    "llm": 5
+   }
+  ]
+ },
+ {
+  "conv": 1,
+  "turno": 6,
+  "cuando": "2026-09-02T21:34:48+00",
+  "texto": "¿Ustedes reciben mascotas grandes? Tengo un perro de 40kg y quiero saber si hay restricciones",
+  "legacy": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": null,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "RESPONDER INFORMACIÓN APROBADA",
+   "fallback": false
+  },
+  "llm": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": 5,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "intent": "lodging_question",
+   "knowledge_topics": [
+    "pets"
+   ],
+   "requests_human": false,
+   "exception_request": false,
+   "needs_clarification": false,
+   "missing": []
+  },
+  "ok": true,
+  "error_code": null,
+  "ambiguity": [
+   {
+    "field": "other",
+    "reason": "No hay una política de mascotas publicada que confirme si se aceptan perros de 40 kg ni qué restricciones aplican.",
+    "candidates": []
+   }
+  ],
+  "unmapped": "El huésped quiere saber específicamente si aceptan un perro grande de 40 kg.",
+  "confirmation": {
+   "campo": null,
+   "motivo": null
+  },
+  "tools": [
+   {
+    "tool": "get_policy",
+    "args": {
+     "policy_key": "pets"
+    },
+    "status": "needs_clarification",
+    "reason": "policy_not_published:pets"
+   }
+  ],
+  "usage": {
+   "input_tokens": 4056,
+   "output_tokens": 517,
+   "calls": 2
+  },
+  "latency_ms": 8370,
+  "shadow": [
+   {
+    "field": "check_in",
+    "deterministic": null,
+    "llm": "2026-10-10"
+   },
+   {
+    "field": "check_in_status",
+    "deterministic": "absent",
+    "llm": "valid"
+   },
+   {
+    "field": "nights",
+    "deterministic": null,
+    "llm": 5
+   },
+   {
+    "field": "guests",
+    "deterministic": null,
+    "llm": 2
+   }
+  ]
+ }
+]
