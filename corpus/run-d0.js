@@ -122,7 +122,7 @@ async function main() {
         ok: Boolean(r.ok), error_code: r.error_code || null,
         ambiguity: r.v2?.ambiguity || null,
         unmapped: r.v2?.unmapped_meaning || null,
-        confirmation: r.confirmation ? { campo: r.confirmation.field ?? null, motivo: r.confirmation.reason ?? null } : null,
+        confirmation: r.confirmation ? { triggers: r.confirmation.triggers, fields: r.confirmation.fields } : null,
         tools: (r.tool_trace || []).map((x) => ({ tool: x.tool, args: x.arguments, status: x.status, reason: x.reason })),
         usage: r.usage || null, latency_ms: r.latency_ms ?? (Date.now() - arranque),
         shadow: r.shadow?.discrepancies || null

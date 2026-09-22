@@ -1,0 +1,2515 @@
+[
+ {
+  "conv": 1,
+  "turno": 4,
+  "texto": "Y si solo necesito del 10 al 15 de octubre, serían 5 noches",
+  "campos": [
+   "check_in",
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 5,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": 5,
+   "guests": 2,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 1,
+  "turno": 5,
+  "texto": "Del 2026-10-10 al 2026-10-15, 2 personas.",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": null,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "REMITIR A AIRBNB"
+  },
+  "llm": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": 5,
+   "guests": 2,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 1,
+  "turno": 6,
+  "texto": "¿Ustedes reciben mascotas grandes? Tengo un perro de 40kg y quiero saber si hay restricciones",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": null,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "RESPONDER INFORMACIÓN APROBADA"
+  },
+  "llm": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": 5,
+   "guests": 2,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": [
+   "get_policy:needs_clarification"
+  ]
+ },
+ {
+  "conv": 1,
+  "turno": 8,
+  "texto": "¿Tienen parqueadero y a qué hora es el check-in y el check-out?",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": null,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "RESPONDER INFORMACIÓN APROBADA"
+  },
+  "llm": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": 5,
+   "guests": 2,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": [
+   "get_policy:needs_clarification",
+   "get_policy:needs_clarification"
+  ]
+ },
+ {
+  "conv": 1,
+  "turno": 10,
+  "texto": "Del 10 de octubre al 8 de enero para 2 personas en el LF-210. ¿Tienen parqueadero? Y aparte, ¿me pueden hacer un descuento especial?",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 2,
+   "apt": "LF-210",
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": 90,
+   "guests": 2,
+   "apt": "LF-210",
+   "lang": "es"
+  },
+  "tools": [
+   "check_availability:ok",
+   "quote_stay:ok",
+   "get_public_apartment_attributes:needs_clarification",
+   "get_policy:needs_clarification"
+  ]
+ },
+ {
+  "conv": 1,
+  "turno": 11,
+  "texto": "Del 10 de octubre de 2026 al 8 de enero de 2027 para 2 personas en el LF-210. ¿Tienen parqueadero? Y aparte, ¿me pueden hacer un precio especial?",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": null,
+   "guests": 2,
+   "apt": "LF-210",
+   "lang": "es",
+   "accion": "ESCALAR VALIDACIÓN COMERCIAL"
+  },
+  "llm": {
+   "check_in": "2026-10-10",
+   "status": "valid",
+   "nights": 90,
+   "guests": 2,
+   "apt": "LF-210",
+   "lang": "es"
+  },
+  "tools": [
+   "get_public_apartment_attributes:needs_clarification",
+   "check_availability:ok",
+   "quote_stay:ok",
+   "get_policy:needs_clarification"
+  ]
+ },
+ {
+  "conv": 1,
+  "turno": 12,
+  "texto": "Del 15 de noviembre de 2026 al 15 de febrero de 2027 para 2 personas en el LF-404. ¿Tienen parqueadero? Y aparte, ¿me pueden hacer un precio especial?",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2026-11-15",
+   "status": "valid",
+   "nights": null,
+   "guests": 2,
+   "apt": "LF-404",
+   "lang": "es",
+   "accion": "PROPUESTA PRESENTADA"
+  },
+  "llm": {
+   "check_in": "2026-11-15",
+   "status": "valid",
+   "nights": 92,
+   "guests": 2,
+   "apt": "LF-404",
+   "lang": "es"
+  },
+  "tools": [
+   "get_public_apartment_attributes:needs_clarification",
+   "quote_stay:ok"
+  ]
+ },
+ {
+  "conv": 2,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 3,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 4,
+  "turno": 1,
+  "texto": "OHi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 5,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 5,
+  "turno": 4,
+  "texto": "Entrada 10 de septiembre",
+  "campos": [
+   "check_in",
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-09-10",
+   "status": "valid",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 5,
+  "turno": 5,
+  "texto": "Salida 10 de octubre",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-09-10",
+   "status": "valid",
+   "nights": 30,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 5,
+  "turno": 6,
+  "texto": "Hola",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 5,
+  "turno": 7,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-09-10",
+   "status": "valid",
+   "nights": 30,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 6,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 7,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 8,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 9,
+  "turno": 1,
+  "texto": "Hola, corizame de oct 3 a nov 3, mejor precio",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-03",
+   "status": "valid",
+   "nights": 31,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": [
+   "quote_stay:ok"
+  ]
+ },
+ {
+  "conv": 10,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 11,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 14,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 15,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 16,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 16,
+  "turno": 2,
+  "texto": "Del 2027-01-16 al 2028-01-16, 1 persona.",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2027-01-16",
+   "status": "valid",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "PROPUESTA PRESENTADA"
+  },
+  "llm": {
+   "check_in": "2027-01-16",
+   "status": "valid",
+   "nights": 365,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": [
+   "check_availability:ok",
+   "quote_stay:ok"
+  ]
+ },
+ {
+  "conv": 16,
+  "turno": 3,
+  "texto": "Mes pormes",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2027-01-16",
+   "status": "valid",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "ESCALAR A HUMANO"
+  },
+  "llm": {
+   "check_in": "2027-01-16",
+   "status": "valid",
+   "nights": 30,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 16,
+  "turno": 4,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "check_in",
+   "status",
+   "guests",
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": null,
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": null,
+   "accion": "ESPERAR RESPUESTA MANUAL"
+  },
+  "llm": {
+   "check_in": "2027-01-16",
+   "status": "valid",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 18,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 19,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 20,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 21,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 21,
+  "turno": 2,
+  "texto": "Es para estadía larga más o menos 6 meses y para dos personas",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 180,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 180,
+   "guests": 2,
+   "apt": null,
+   "lang": "en"
+  },
+  "tools": []
+ },
+ {
+  "conv": 21,
+  "turno": 3,
+  "texto": "Enero",
+  "campos": [
+   "check_in"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 180,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2027-01-01",
+   "status": "ambiguous",
+   "nights": 180,
+   "guests": 2,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 22,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 23,
+  "turno": 1,
+  "texto": "Hola buenas noches una pregunta tienes Airbnb en Medellín para 3 personas y un bebé menor",
+  "campos": [
+   "guests"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": 3,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": 4,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 24,
+  "turno": 1,
+  "texto": "Hi! Interested in a long-stay studio. / Hola, me interesa una estadía larga.",
+  "campos": [
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 24,
+  "turno": 4,
+  "texto": "1ro de octubre",
+  "campos": [
+   "check_in",
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 24,
+  "turno": 5,
+  "texto": "Una sola persona",
+  "campos": [
+   "check_in",
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 24,
+  "turno": 6,
+  "texto": "Mensual",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": 30,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 24,
+  "turno": 7,
+  "texto": "Llegando Octubre 1 2026",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": 30,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 24,
+  "turno": 10,
+  "texto": "Gracias",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": "2026-11-01",
+   "status": "valid",
+   "nights": 30,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-11-01",
+   "status": "absent",
+   "nights": 30,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 6,
+  "texto": "Es por 4 meses del 20 de Septiembre al 20 de enero",
+  "campos": [
+   "check_in",
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 120,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-09-20",
+   "status": "valid",
+   "nights": 120,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 7,
+  "texto": "20 de septiembre al 20 de Enero",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-09-20",
+   "status": "valid",
+   "nights": 122,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": [
+   "check_availability:unavailable",
+   "quote_stay:ok"
+  ]
+ },
+ {
+  "conv": 25,
+  "turno": 8,
+  "texto": "Desde presente año",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-09-20",
+   "status": "valid",
+   "nights": 120,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 9,
+  "texto": "Hola",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 10,
+  "texto": "1 octubre al 1 noviembre 1 persona",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": 31,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 11,
+  "texto": "1/10/1026 1/12/2026",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": 61,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 12,
+  "texto": "2 meses",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 13,
+  "texto": "😡😡😡😡😡",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 14,
+  "texto": "No lees",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 15,
+  "texto": "Precio",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "ESCALAR BRECHA DE CONOCIMIENTO"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 16,
+  "texto": "😡😡😡😡😡😡",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 17,
+  "texto": "No sabe leer",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 18,
+  "texto": "Siempre lo mismo",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 19,
+  "texto": "Lea",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 20,
+  "texto": "Lea",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 21,
+  "texto": "Lea",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 22,
+  "texto": "Vaya a escuela",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 23,
+  "texto": "Estudie",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 24,
+  "texto": "Estudié",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 25,
+  "texto": "Desde la semana pasada pregunta lo mismo",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 26,
+  "texto": "Lea",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 27,
+  "texto": "Bruta",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 28,
+  "texto": "Bruto",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 29,
+  "texto": "😡😡😡😡😡",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 30,
+  "texto": "Falsa publicación",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 31,
+  "texto": "Mentira",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 25,
+  "turno": 32,
+  "texto": "Engañi",
+  "campos": [
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 60,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 27,
+  "turno": 2,
+  "texto": "Sería para un tiempo de estadía largo un año y medio",
+  "campos": [
+   "status",
+   "nights",
+   "lang"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": null,
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": null,
+   "accion": "INTERPRETAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 180,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 29,
+  "turno": 3,
+  "texto": "Como te dije antes, busco algo con al menos dos habitaciones Qué tienes disponible ahora?",
+  "campos": [
+   "check_in",
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 180,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "ESCALAR BRECHA DE CONOCIMIENTO"
+  },
+  "llm": {
+   "check_in": "2026-09-15",
+   "status": "valid",
+   "nights": 180,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": [
+   "check_availability:unavailable"
+  ]
+ },
+ {
+  "conv": 31,
+  "turno": 2,
+  "texto": "18 al 21 sep",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2026-09-18",
+   "status": "valid",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-09-18",
+   "status": "valid",
+   "nights": 3,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": [
+   "check_availability:unavailable"
+  ]
+ },
+ {
+  "conv": 31,
+  "turno": 3,
+  "texto": "2 niños y 2 adultos",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2026-09-18",
+   "status": "valid",
+   "nights": null,
+   "guests": 4,
+   "apt": null,
+   "lang": "es",
+   "accion": "REMITIR A AIRBNB"
+  },
+  "llm": {
+   "check_in": "2026-09-18",
+   "status": "valid",
+   "nights": 3,
+   "guests": 4,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 33,
+  "turno": 3,
+  "texto": "Entrada domingo 20 sep salida 20 oct",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2026-09-20",
+   "status": "valid",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "PROPUESTA PRESENTADA"
+  },
+  "llm": {
+   "check_in": "2026-09-20",
+   "status": "valid",
+   "nights": 30,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": [
+   "check_availability:unavailable"
+  ]
+ },
+ {
+  "conv": 35,
+  "turno": 2,
+  "texto": "Hola 2 adultos 1 semama del 18/ al 28/09/26",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-09-18",
+   "status": "valid",
+   "nights": 10,
+   "guests": 2,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 35,
+  "turno": 3,
+  "texto": "10 dias.",
+  "campos": [
+   "check_in",
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 10,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-09-18",
+   "status": "valid",
+   "nights": 10,
+   "guests": 2,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 35,
+  "turno": 4,
+  "texto": "18/09/26",
+  "campos": [
+   "check_in",
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 10,
+   "guests": 2,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-09-18",
+   "status": "valid",
+   "nights": 10,
+   "guests": 2,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": [
+   "check_availability:unavailable"
+  ]
+ },
+ {
+  "conv": 38,
+  "turno": 3,
+  "texto": "12 diciembre 2026",
+  "campos": [
+   "check_in",
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-12-12",
+   "status": "valid",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 38,
+  "turno": 4,
+  "texto": "Del 2026-09-16 al 2026-12-12, 1 persona.",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2026-09-16",
+   "status": "valid",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "PROPUESTA PRESENTADA"
+  },
+  "llm": {
+   "check_in": "2026-09-16",
+   "status": "valid",
+   "nights": 87,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": [
+   "check_availability:unavailable",
+   "quote_stay:ok"
+  ]
+ },
+ {
+  "conv": 42,
+  "turno": 2,
+  "texto": "Hola buen día como están Alquilan el apartamento para vivir para realizar masajes a caballeros Alquiler por mes",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "absent",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "ESCALAR BRECHA DE CONOCIMIENTO"
+  },
+  "llm": {
+   "check_in": null,
+   "status": "absent",
+   "nights": 30,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": [
+   "get_policy:needs_clarification"
+  ]
+ },
+ {
+  "conv": 43,
+  "turno": 2,
+  "texto": "llegada 25 de septiembre salida 28 de septiembre",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-09-25",
+   "status": "valid",
+   "nights": 3,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 43,
+  "turno": 3,
+  "texto": "llegada el 25 de septiembre de 2026",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2026-09-25",
+   "status": "valid",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-09-25",
+   "status": "valid",
+   "nights": 3,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 43,
+  "turno": 4,
+  "texto": "salida 28 de septiembre 2026",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2026-09-25",
+   "status": "valid",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-09-25",
+   "status": "valid",
+   "nights": 3,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 49,
+  "turno": 3,
+  "texto": "Perfecto para empezar desde el 1 octubre",
+  "campos": [
+   "check_in",
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 49,
+  "turno": 4,
+  "texto": "Estadía larga mensual 01 octubre 2026",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": 30,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 49,
+  "turno": 5,
+  "texto": "Hola si me interesa",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": 30,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 49,
+  "turno": 6,
+  "texto": "6 meses y empiezo el primero de octubre 2026",
+  "campos": [
+   "check_in",
+   "status"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": 180,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": 180,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": [
+   "check_availability:ok",
+   "quote_stay:ok"
+  ]
+ },
+ {
+  "conv": 52,
+  "turno": 2,
+  "texto": "9 octubre 2026 hasta 9 enero 2027",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-09",
+   "status": "valid",
+   "nights": 92,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 52,
+  "turno": 3,
+  "texto": "9 octubre 2026 hasta 9 enero 2027",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-09",
+   "status": "valid",
+   "nights": 92,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 52,
+  "turno": 4,
+  "texto": "Ingreso el 9 de octubre hasta el 9 de enero del 2027",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-09",
+   "status": "valid",
+   "nights": 92,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 52,
+  "turno": 5,
+  "texto": "Llego el 9.10.26",
+  "campos": [
+   "nights",
+   "guests"
+  ],
+  "legacy": {
+   "check_in": "2026-10-09",
+   "status": "valid",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "PROPUESTA PRESENTADA"
+  },
+  "llm": {
+   "check_in": "2026-10-09",
+   "status": "valid",
+   "nights": 92,
+   "guests": null,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 52,
+  "turno": 6,
+  "texto": "1 persona",
+  "campos": [
+   "check_in",
+   "status",
+   "nights"
+  ],
+  "legacy": {
+   "check_in": null,
+   "status": "ambiguous",
+   "nights": null,
+   "guests": 1,
+   "apt": null,
+   "lang": "es",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-09",
+   "status": "valid",
+   "nights": 92,
+   "guests": 1,
+   "apt": null,
+   "lang": "es"
+  },
+  "tools": []
+ },
+ {
+  "conv": 55,
+  "turno": 2,
+  "texto": "Oct 1 to Nov 1",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": null,
+   "guests": null,
+   "apt": null,
+   "lang": "en",
+   "accion": "CLARIFICAR SOLICITUD"
+  },
+  "llm": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": 31,
+   "guests": null,
+   "apt": null,
+   "lang": "en"
+  },
+  "tools": []
+ },
+ {
+  "conv": 55,
+  "turno": 3,
+  "texto": "2 people",
+  "campos": [
+   "nights"
+  ],
+  "legacy": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": null,
+   "guests": 2,
+   "apt": null,
+   "lang": "en",
+   "accion": "PROPUESTA PRESENTADA"
+  },
+  "llm": {
+   "check_in": "2026-10-01",
+   "status": "valid",
+   "nights": 31,
+   "guests": 2,
+   "apt": null,
+   "lang": "en"
+  },
+  "tools": []
+ }
+]
