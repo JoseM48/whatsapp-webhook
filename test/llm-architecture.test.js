@@ -126,13 +126,38 @@ test('el lazo BLOQUEA una action command pedida por el modelo y sigue', async ()
 
 test('el lazo tiene tope de iteraciones y no se cuelga', async () => {
   const pms = createFakePms();
+  // Los argumentos CAMBIAN en cada vuelta a proposito: asi se ejercita el tope
+  // de iteraciones y no la guarda de llamadas repetidas, que es otra cosa y
+  // tiene su propia prueba justo debajo.
+  let n = 0;
+  const provider = { structured: async () => ({ output: null, usage: {}, meta: {},
+    tool_calls: [{ id: 't' + (++n), name: 'check_availability', arguments: { nights: n }, _raw: {} }] }) };
   const result = await runToolLoop({
-    provider: providerStub([{ output: null, tool_calls: [{ id: 't', name: 'get_current_proposal', arguments: {}, _raw: {} }], usage: {}, meta: {} }]),
-    system: 's', input: 'i', executor: pms.execute, maxIterations: 3, logger: { warn() {}, info() {} }
+    provider, system: 's', input: 'i', executor: pms.execute, maxIterations: 3,
+    logger: { warn() {}, info() {} }
   });
   assert.equal(result.stop_reason, 'max_iterations_exceeded');
   assert.equal(result.output, null, 'sin respuesta final no se inventa una');
   assert.equal(result.iterations, 3);
+});
+
+// Guarda anadida el 2026-09-22 tras verla fallar contra produccion: ante
+// "¿el 210 tiene balcon?" el modelo pedia las dos mismas tools vuelta tras
+// vuelta -- mismo nombre, mismos argumentos -- hasta agotar el lazo. Estas
+// tools no tienen efectos, asi que repetir no puede dar otra respuesta.
+test('una llamada repetida con los mismos argumentos se sirve de lo ya sabido', async () => {
+  const pms = createFakePms();
+  const provider = { structured: async () => ({ output: null, usage: {}, meta: {},
+    tool_calls: [{ id: 't', name: 'check_availability', arguments: { nights: 30 }, _raw: {} }] }) };
+  const result = await runToolLoop({
+    provider, system: 's', input: 'i', executor: pms.execute, maxIterations: 6,
+    logger: { warn() {}, info() {} }
+  });
+
+  assert.equal(result.stop_reason, 'repeated_calls_no_progress');
+  assert.equal(pms.calls.length, 1, 'el PMS se consulta UNA vez, no una por vuelta');
+  assert.equal(result.trace.filter((t) => t.reason === 'repeated_call').length, result.trace.length - 1);
+  assert.ok(result.iterations < 6, 'corta antes de agotar el tope');
 });
 
 test('una tool que revienta no rompe el turno', async () => {

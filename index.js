@@ -37,6 +37,9 @@ const { startM0ObservationLoop } = require('./lib/pilot/m0-observation-loop');
 const { resolveM0ControlCommand } = require('./lib/pilot/m0-kill-switch-command');
 const { createM0ClosedPilotDispatcher } = require('./lib/pilot/m0-closed-pilot');
 const { createM0CommercialResponder } = require('./lib/pilot/m0-commercial-responder');
+const { createInterpretationRouter } = require('./lib/pilot/llm/interpretation-router');
+const { OpenAiProvider } = require('./lib/pilot/llm/provider');
+const { readGateConfig } = require('./lib/pilot/llm/route-gate');
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
@@ -540,9 +543,41 @@ const m0DeliveryReceipts = createM0DeliveryReceiptHandler({
   logger: console
 });
 
+// BLOQUE C: ruta conversacional nueva.
+//
+// OpenAI es el proveedor PRINCIPAL de esta ruta. Anthropic sigue intacto donde
+// hoy corresponde -- present(), redact() y la propia interpretacion legacy --
+// y el audio sigue con el transcriptor de OpenAI que ya existia. No se
+// reconstruye nada de eso.
+//
+// El proveedor se construye SIEMPRE, incluso con la ruta apagada: si falta la
+// clave se descubre aqui, al arrancar, y no en el primer turno de un huesped.
+const newRouteGate = readGateConfig(process.env);
+const conversationalProvider = new OpenAiProvider({
+  apiKey: process.env.OPENAI_API_KEY,
+  model: process.env.NEW_LLM_CONVERSATIONAL_MODEL || 'gpt-5.6-luna',
+  http: axios
+});
+console.log('LLM ROUTE >', {
+  enabled: newRouteGate.enabled,
+  allowlist_size: newRouteGate.phones.length,
+  model: process.env.NEW_LLM_CONVERSATIONAL_MODEL || 'gpt-5.6-luna',
+  openai_key: process.env.OPENAI_API_KEY ? 'presente' : 'AUSENTE'
+});
+
+// El enrutador recibe la instancia legacy y cae a ella ante cualquier duda.
+// Con la ruta apagada su unico efecto es una comparacion de cadena por turno.
+const m0InterpretationAi = createInterpretationRouter({
+  legacyAi: pilotAi,
+  provider: conversationalProvider,
+  pmsClient: pmsPilotClient,
+  logger: console,
+  timeoutMs: Number(process.env.NEW_LLM_CONVERSATIONAL_TIMEOUT_MS || 20000)
+});
+
 const m0CommercialResponder = createM0CommercialResponder({
   capture: (payload) => pmsWarmup.run(() => pilotOrchestrator.capture(payload)),
-  ai: pilotAi,
+  ai: m0InterpretationAi,
   closedPilot: m0ClosedPilot,
   pms: pmsPilotClient,
   logger: console
