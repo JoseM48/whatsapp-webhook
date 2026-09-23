@@ -30,7 +30,8 @@ const CONTEXTO_LIBRE = {
   ]
 };
 
-const proveedorQueDevuelve = (output) => ({ structured: async () => ({ output }) });
+const proveedorQueDevuelve = (output) => ({ structured: async () => ({
+  output: { case_reference_kind: 'none', case_reference_value: null, ...output } }) });
 
 test('elige una accion permitida y devuelve el comando REAL del PMS', async () => {
   const r = await interpretManagerMessage({ text: 'Lo tomo', context: CONTEXTO_LIBRE },
@@ -171,4 +172,47 @@ test('el lenguaje natural NO se confunde con un comando literal', () => {
     'Devuélveselo a Cami', 'tomalo tu', 'quiero tomar caso de este huesped', '', '   ']) {
     assert.equal(isLiteralCommand(natural), false, `"${natural}" debe ir al gerente conversacional`);
   }
+});
+
+// D1.3 -- LA REFERENCIA AL CASO SE REPORTA, NO SE RESUELVE.
+//
+// El modelo dice "habla del 210"; quien decide QUE caso es -- o que hay dos y
+// hay que preguntar -- es el PMS. Si el modelo pudiera resolverla, volveriamos
+// al problema que D1.3 existe para cerrar: elegir en silencio entre casos.
+test('reporta la referencia del gerente sin resolverla', async () => {
+  const r = await interpretManagerMessage({ text: 'toma el del 210', context: CONTEXTO_LIBRE },
+    { provider: proveedorQueDevuelve({ kind: 'action', action_id: 'take_case', reply_text: null,
+      answer: 'Listo.', confidence: 0.95,
+      case_reference_kind: 'apartment', case_reference_value: '210' }), logger: silencio });
+
+  assert.equal(r.case_reference.kind, 'apartment');
+  assert.equal(r.case_reference.value, '210');
+  // Sigue sin componer comandos: el comando es el que trajo el PMS.
+  assert.equal(commandForAction(r.action, null), 'TOMAR CASO M0-20260915-2A492795');
+});
+
+test('sin referencia explicita devuelve none, no una inventada', async () => {
+  const r = await interpretManagerMessage({ text: 'lo tomo', context: CONTEXTO_LIBRE },
+    { provider: proveedorQueDevuelve({ kind: 'action', action_id: 'take_case', reply_text: null,
+      answer: 'Listo.', confidence: 0.95 }), logger: silencio });
+
+  assert.equal(r.case_reference.kind, 'none');
+  assert.equal(r.case_reference.value, null);
+});
+
+test('una referencia vacia se trata como none', async () => {
+  const r = await interpretManagerMessage({ text: '¿que paso?', context: CONTEXTO_TOMADO },
+    { provider: proveedorQueDevuelve({ kind: 'read', action_id: null, reply_text: null,
+      answer: 'Esta tomado por ti.', confidence: 0.9,
+      case_reference_kind: 'name', case_reference_value: '   ' }), logger: silencio });
+
+  assert.equal(r.kind, 'read');
+  assert.equal(r.case_reference.kind, 'none');
+});
+
+test('el contrato obliga al modelo a declarar la referencia', () => {
+  const { INTENT_SCHEMA } = require('../lib/pilot/llm/manager-intent.js');
+  assert.ok(INTENT_SCHEMA.required.includes('case_reference_kind'));
+  assert.deepEqual(INTENT_SCHEMA.properties.case_reference_kind.enum,
+    ['none', 'case_key', 'apartment', 'name']);
 });

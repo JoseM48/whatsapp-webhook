@@ -561,6 +561,24 @@ function managerRouteEnabled() {
   return String(process.env.NEW_LLM_MANAGER_ROUTE_ENABLED || '').trim() === 'true';
 }
 
+// Cuando el caso no queda inequivoco se PREGUNTA, y se pregunta con lo que el
+// PMS sabe: los candidatos reales, nombrados por apartamento para que el
+// gerente los distinga sin tener que leer una clave. Nunca se elige por el.
+function preguntaPorCaso(respuesta) {
+  const candidatos = respuesta?.candidates || [];
+  if (candidatos.length > 1) {
+    const lista = candidatos.slice(0, 5)
+      .map((c) => `${c.case_key}${c.apartment_code ? ` (${c.apartment_code})` : ''}`)
+      .join('; ');
+    return `Hay varios casos que encajan y no quiero equivocarme: ${lista}. ¿Cuál de ellos?`;
+  }
+  if (respuesta?.reason === 'reference_not_found') {
+    return 'No encuentro ningún caso abierto que encaje con esa referencia. ¿Me das la clave del caso?';
+  }
+  if (respuesta?.status === 'not_authorized') return 'No puedo atender esa petición ahora mismo.';
+  return 'No tengo claro de qué caso hablas. Dime la clave del caso o el apartamento, por favor.';
+}
+
 const newRouteGate = readGateConfig(process.env);
 const conversationalProvider = new OpenAiProvider({
   apiKey: process.env.OPENAI_API_KEY,
@@ -1445,12 +1463,13 @@ app.post('/webhook', async (req, res) => {
           if (managerRouteEnabled() && m0ClosedPilot.isInternal(incoming.from)
             && raw && !isLiteralCommand(raw)) {
             try {
-              const contexto = await pmsPilotClient.conversationalTool('get_manager_case_context', {}, {});
+              // FASE 1 -- LEER. Una lectura puede apoyarse en el cursor: leer
+              // no le escribe a nadie. Se pasa el texto crudo para que el PMS
+              // -- no el modelo -- extraiga la clave o el apartamento.
+              const contexto = await pmsPilotClient.conversationalTool('get_manager_case_context',
+                { texto: raw, proposito: 'read', source_message_id: incoming.messageId }, {});
               if (contexto?.status !== 'ok') {
-                await sendPilotWhatsAppText(incoming.from,
-                  contexto?.status === 'needs_clarification'
-                    ? 'No tengo claro de que caso hablas. Dime la clave del caso, por favor.'
-                    : 'No puedo atender esa peticion ahora mismo.');
+                await sendPilotWhatsAppText(incoming.from, preguntaPorCaso(contexto));
                 console.warn('[manager-route] contexto_no_disponible', { reason: contexto?.reason || null });
                 continue;
               }
@@ -1459,13 +1478,45 @@ app.post('/webhook', async (req, res) => {
 
               console.info('[manager-route] turn', { kind: intent.kind,
                 action: intent.action?.id || null, rejected: intent.rejected_reason || null,
+                referencia: intent.case_reference?.kind || 'none',
                 case_key: contexto.data?.case?.case_key || null });
 
               if (intent.kind === 'action') {
-                const comando = commandForAction(intent.action, intent.reply_text);
+                // FASE 2 -- ACTUAR. Aqui la regla es mas dura, y por eso se
+                // vuelve a resolver: una accion NO puede apoyarse solo en el
+                // cursor heredado, que lo reescribe cualquier huesped que abra
+                // un caso nuevo. Si el caso no queda inequivoco se pregunta y
+                // no se ejecuta nada. Es la leccion del 2026-09-23: el cursor
+                // apuntaba al caso de un tercero real.
+                const ref = intent.case_reference || { kind: 'none', value: null };
+                const confirmado = await pmsPilotClient.conversationalTool('get_manager_case_context', {
+                  texto: raw, proposito: 'action', source_message_id: incoming.messageId,
+                  case_key: ref.kind === 'case_key' ? ref.value : null,
+                  apartamento: ref.kind === 'apartment' ? ref.value : null,
+                  nombre: ref.kind === 'name' ? ref.value : null
+                }, {});
+
+                if (confirmado?.status !== 'ok') {
+                  console.warn('[manager-route] accion_sin_caso_inequivoco',
+                    { reason: confirmado?.reason || null, candidatos: confirmado?.candidates?.length ?? 0 });
+                  await sendPilotWhatsAppText(incoming.from, preguntaPorCaso(confirmado));
+                  continue;
+                }
+                // La accion se re-deriva del caso CONFIRMADO, no del de la fase
+                // de lectura: si no coinciden, manda el confirmado.
+                const accion = (confirmado.data.allowed_actions || [])
+                  .find((item) => item.id === intent.action.id);
+                if (!accion) {
+                  await sendPilotWhatsAppText(incoming.from,
+                    `Sobre el caso ${confirmado.data.case.case_key} no puedo hacer eso. ` +
+                    offerAvailableActions(confirmado.data));
+                  continue;
+                }
+                const comando = commandForAction(accion, intent.reply_text);
                 const ejecutado = await m0ClosedPilot.process({ phone: incoming.from, text: comando,
                   messageId: incoming.messageId, occurredAt: incoming.timestamp });
-                console.info('[manager-route] ejecutado', { action: intent.action.id,
+                console.info('[manager-route] ejecutado', { action: accion.id,
+                  case_key: confirmado.data.case.case_key,
                   state: ejecutado.result?.state || null });
                 continue;
               }
