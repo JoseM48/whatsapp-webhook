@@ -1513,10 +1513,15 @@ app.post('/webhook', async (req, res) => {
                   continue;
                 }
                 const comando = commandForAction(accion, intent.reply_text);
+                // BLOQUE B: la ruta DECLARA bajo que rol actua, en vez de
+                // heredar en silencio el del cursor. El PMS lo valida contra
+                // admin_role_grants; si no esta concedido, no ejecuta nada.
                 const ejecutado = await m0ClosedPilot.process({ phone: incoming.from, text: comando,
-                  messageId: incoming.messageId, occurredAt: incoming.timestamp });
+                  messageId: incoming.messageId, occurredAt: incoming.timestamp,
+                  authority: { requested_role: 'gerente', capability: accion.id, source: 'manager_llm' } });
                 console.info('[manager-route] ejecutado', { action: accion.id,
                   case_key: confirmado.data.case.case_key,
+                  executed_as_role: 'gerente',
                   state: ejecutado.result?.state || null });
                 continue;
               }
