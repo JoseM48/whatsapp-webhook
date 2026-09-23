@@ -40,6 +40,8 @@ const { createM0CommercialResponder } = require('./lib/pilot/m0-commercial-respo
 const { createInterpretationRouter } = require('./lib/pilot/llm/interpretation-router');
 const { OpenAiProvider } = require('./lib/pilot/llm/provider');
 const { readGateConfig } = require('./lib/pilot/llm/route-gate');
+const { interpretManagerMessage, commandForAction, offerAvailableActions,
+  isLiteralCommand } = require('./lib/pilot/llm/manager-intent');
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
@@ -552,6 +554,13 @@ const m0DeliveryReceipts = createM0DeliveryReceiptHandler({
 //
 // El proveedor se construye SIEMPRE, incluso con la ruta apagada: si falta la
 // clave se descubre aqui, al arrancar, y no en el primer turno de un huesped.
+// Compuerta propia de D1.2, independiente de la del huesped: son dos
+// superficies distintas y una no debe encender la otra. Fail closed -- solo el
+// literal "true".
+function managerRouteEnabled() {
+  return String(process.env.NEW_LLM_MANAGER_ROUTE_ENABLED || '').trim() === 'true';
+}
+
 const newRouteGate = readGateConfig(process.env);
 const conversationalProvider = new OpenAiProvider({
   apiKey: process.env.OPENAI_API_KEY,
@@ -1421,6 +1430,57 @@ app.post('/webhook', async (req, res) => {
             }
           }
           const raw = m0CommercialText(incoming);
+
+          // D1.2 -- GERENTE CONVERSACIONAL INTERNO.
+          //
+          // Solo para el numero interno, solo con la bandera encendida, y solo
+          // cuando el texto NO es ya un comando literal: quien escriba
+          // "TOMAR CASO X" sigue pasando por el camino de siempre, intacto.
+          //
+          // El modelo no compone comandos. Pide al PMS el contexto y las
+          // acciones permitidas, elige UNA por su id, y lo que se ejecuta es
+          // el `command` que trajo esa accion -- resuelto por el PMS. Despues
+          // se envia por el MISMO camino de siempre, asi que la autoridad, la
+          // validacion de rol y la auditoria no cambian.
+          if (managerRouteEnabled() && m0ClosedPilot.isInternal(incoming.from)
+            && raw && !isLiteralCommand(raw)) {
+            try {
+              const contexto = await pmsPilotClient.conversationalTool('get_manager_case_context', {}, {});
+              if (contexto?.status !== 'ok') {
+                await sendPilotWhatsAppText(incoming.from,
+                  contexto?.status === 'needs_clarification'
+                    ? 'No tengo claro de que caso hablas. Dime la clave del caso, por favor.'
+                    : 'No puedo atender esa peticion ahora mismo.');
+                console.warn('[manager-route] contexto_no_disponible', { reason: contexto?.reason || null });
+                continue;
+              }
+              const intent = await interpretManagerMessage({ text: raw, context: contexto.data },
+                { provider: conversationalProvider, timeoutMs: Number(process.env.NEW_LLM_CONVERSATIONAL_TIMEOUT_MS || 20000) });
+
+              console.info('[manager-route] turn', { kind: intent.kind,
+                action: intent.action?.id || null, rejected: intent.rejected_reason || null,
+                case_key: contexto.data?.case?.case_key || null });
+
+              if (intent.kind === 'action') {
+                const comando = commandForAction(intent.action, intent.reply_text);
+                const ejecutado = await m0ClosedPilot.process({ phone: incoming.from, text: comando,
+                  messageId: incoming.messageId, occurredAt: incoming.timestamp });
+                console.info('[manager-route] ejecutado', { action: intent.action.id,
+                  state: ejecutado.result?.state || null });
+                continue;
+              }
+              // read o unclear: se responde al gerente y NO se ejecuta nada.
+              const cola = intent.kind === 'unclear' ? ` ${offerAvailableActions(contexto.data)}` : '';
+              await sendPilotWhatsAppText(incoming.from, `${intent.answer}${cola}`.trim());
+              continue;
+            } catch (error) {
+              console.error('[manager-route] fallo', { message: String(error?.message || '').slice(0, 200) });
+              await sendPilotWhatsAppText(incoming.from,
+                'No pude procesar eso. Puedes usar los comandos de siempre.');
+              continue;
+            }
+          }
+
           if (m0ClosedPilot.accepts(incoming.from) && !incoming.text && m0ClosedPilot.isControl(incoming.from, raw)) {
             console.warn('[m0-closed] internal_unsupported_quarantined', {
               phone: maskPilotPhone(incoming.from), message_type: incoming.messageType
