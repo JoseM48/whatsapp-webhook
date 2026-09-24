@@ -34,6 +34,17 @@ test('reserva comandos exactos para control y envía conversación comercial a l
   assert.equal(dispatcher.isControl(guest,'¿Tienen disponibilidad para septiembre?'),false);
   assert.equal(dispatcher.isControl(guest,'DISPONIBILIDAD 2026-09-10 2026-09-17 HUÉSPEDES 2 LF-210'),false);
   assert.equal(dispatcher.isControl(internal,'cualquier operación interna'),true);
+  // P0 (2026-09-24): `REINICIAR CASO` YA NO ES CONTROL PARA UN HUÉSPED.
+  //
+  // Borra verificaciones hechas por el equipo interno -- pago conciliado,
+  // Airbnb verificado -- sobre el caso del propio remitente. La frontera de
+  // seguridad es el PMS, que ahora exige teléfono interno más concesión activa
+  // de rol; quitarlo de aquí evita además que un huésped que escriba esa frase
+  // reciba un error en vez de seguir su conversación.
+  assert.equal(dispatcher.isControl(guest,'REINICIAR CASO'),false);
+  assert.equal(dispatcher.isControl('573111111111','REINICIAR CASO'),false);
+  // Para el interno sigue siendo control, como todo lo que escriba.
+  assert.equal(dispatcher.isControl(internal,'REINICIAR CASO'),true);
   // A stranger typing the exact literal control phrase still resolves as
   // "control" — PMS is the one that rejects them (no enrolled lead), not the
   // webhook's routing layer. A stranger's ordinary conversation is not control.
