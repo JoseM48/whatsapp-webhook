@@ -159,12 +159,19 @@ test('un cliente sin puente no arranca', () => {
 // contrato, falla aqui -- que es exactamente lo que debe pasar.
 test('lo devuelto encaja EXACTAMENTE con el esquema estricto del PMS', async () => {
   const fs = require('node:fs');
-  const ruta = 'D:/DESARROLLOS/_WORKTREES/llm-pms/src/modules/supervised-pilot/m0-closed-pilot.service.js';
+  // Experimento (2026-09-24): la ruta del PMS se puede fijar por entorno --
+  // el experimento vive en otro worktree -- y del bloque se retiran los
+  // z.object() ANIDADOS antes de escanear: sus claves internas (field,
+  // adults, status...) no son campos del contrato.
+  const raiz = process.env.M0_PMS_SOURCE_ROOT || 'D:/DESARROLLOS/_WORKTREES/llm-pms';
+  const ruta = `${raiz}/src/modules/supervised-pilot/m0-closed-pilot.service.js`;
   if (!fs.existsSync(ruta)) return; // el checkout del PMS puede no estar presente
 
   const fuente = fs.readFileSync(ruta, 'utf8');
   const desde = fuente.indexOf('const commercialInterpretationSchema');
-  const bloque = fuente.slice(desde, fuente.indexOf('}).strict()', desde));
+  const finExterno = desde + fuente.slice(desde).search(/^\}\)\.strict\(\)/m); // cierre EXTERNO (columna 0), no el de un objeto anidado
+  let bloque = fuente.slice(desde, finExterno);
+  for (let i = 0; i < 5; i += 1) bloque = bloque.replace(/z\.object\(\{(?:[^{}]|\{[^{}]*\})*\}\)/g, 'z.object(...)');
   const declarados = [];
   const patron = /([a-z_]+)\s*:\s*z\./g;
   let encontrado;

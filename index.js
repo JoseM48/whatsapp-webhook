@@ -502,6 +502,15 @@ const pilotOrchestrator = new PilotOrchestrator({
   logger: console
 });
 
+// EXPERIMENTO "el LLM escribe" (2026-09-24): el proveedor conversacional se
+// construye AQUI, antes del dispatcher, porque el dispatcher lo necesita para
+// redactar. Es el mismo objeto que usa la ruta de interpretacion mas abajo.
+const conversationalProvider = new OpenAiProvider({
+  apiKey: process.env.OPENAI_API_KEY,
+  model: process.env.NEW_LLM_CONVERSATIONAL_MODEL || 'gpt-5.6-luna',
+  http: axios
+});
+
 const m0ClosedPilot = createM0ClosedPilotDispatcher({
   config: {
     enabled: M0_CLOSED_PILOT_ENABLED,
@@ -533,6 +542,12 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
   // present() -- redact() solo se invoca si naturalPresentationEnabled es
   // true (ver deliver() en m0-closed-pilot.js).
   redactionAi: pilotAi,
+  // Experimento (2026-09-24): el redactor. Solo actua con paquete v2 y solo
+  // si la ruta conversacional esta encendida -- misma compuerta que la
+  // interpretacion, para que no haya un turno entendido por legacy y escrito
+  // por el modelo nuevo.
+  writerProvider: () => (readGateConfig(process.env).enabled ? conversationalProvider : null),
+  writerTimeoutMs: Number(process.env.NEW_LLM_CONVERSATIONAL_TIMEOUT_MS || 20000),
   logger: console
 });
 
@@ -580,11 +595,7 @@ function preguntaPorCaso(respuesta) {
 }
 
 const newRouteGate = readGateConfig(process.env);
-const conversationalProvider = new OpenAiProvider({
-  apiKey: process.env.OPENAI_API_KEY,
-  model: process.env.NEW_LLM_CONVERSATIONAL_MODEL || 'gpt-5.6-luna',
-  http: axios
-});
+// (conversationalProvider se construye arriba, antes del dispatcher.)
 console.log('LLM ROUTE >', {
   enabled: newRouteGate.enabled,
   allowlist_size: newRouteGate.phones.length,
