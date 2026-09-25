@@ -789,7 +789,16 @@ function observeM0Soon(reason) {
   setImmediate(() => { void observeM0({ enabled: true, pms: pmsPilotClient, reason, logger: console }); });
 }
 
+// `[m0-monitor] unavailable 503` permanente (diagnosticado 2026-09-25): el
+// panel del PMS exige una atestacion del webhook vigente (TTL 15 min), pero
+// el webhook solo atestiguaba al atender un mensaje, con 5 min de frescura.
+// Sin trafico, la atestacion caducaba y el observador fallaba cada minuto.
+// Ahora renueva la atestacion antes de observar: como esta cacheada 5 min,
+// cuesta una llamada al PMS cada 5 min, no una por minuto.
 startM0ObservationLoop({ enabled: PMS_LITE_M0_ENABLED, observe: async (reason) => {
+  await ensureM0RuntimeAttestation().catch((error) => {
+    console.warn('[m0-monitor] attestation_failed', { code: error?.code || error?.message || 'unknown' });
+  });
   await observeM0({ enabled: true, pms: pmsPilotClient, reason, logger: console });
 } });
 
