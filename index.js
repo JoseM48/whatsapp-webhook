@@ -45,6 +45,7 @@ const { interpretManagerMessage, commandForAction, offerAvailableActions,
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
+const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
 const { parseFlowResponse, flowResponseToText } = require('./lib/pilot/flow-response');
 const { toFile } = require('openai');
 
@@ -113,6 +114,12 @@ const M0_AUDIO_TRANSCRIPTION_ALLOWLIST_PHONES = parseAllowlist(process.env.M0_AU
 const inboundAudioTranscriber = new InboundAudioTranscriber({
   http: axios, openai, toFile, accessToken: process.env.ACCESS_TOKEN
 });
+
+// Fase 3 (2026-09-28): adjuntos entrantes del huesped (imagen, documento,
+// video, sticker). Encendido por defecto: la descarga no tiene costo y sin ella
+// el archivo se pierde. M0_INBOUND_MEDIA_ENABLED=false lo apaga sin desplegar.
+const M0_INBOUND_MEDIA_ENABLED = String(process.env.M0_INBOUND_MEDIA_ENABLED || 'true').toLowerCase() !== 'false';
+const inboundMediaDownloader = new InboundMediaDownloader({ http: axios, accessToken: process.env.ACCESS_TOKEN });
 
 // ===============================
 // Motor de reservas (adapter Puppeteer) – carga tolerante
@@ -614,7 +621,7 @@ const m0InterpretationAi = createInterpretationRouter({
 });
 
 const m0CommercialResponder = createM0CommercialResponder({
-  capture: (payload) => pmsWarmup.run(() => pilotOrchestrator.capture(payload)),
+  capture: (payload) => capturarConRespaldo((p) => pmsWarmup.run(() => pilotOrchestrator.capture(p)), payload),
   ai: m0InterpretationAi,
   closedPilot: m0ClosedPilot,
   pms: pmsPilotClient,
@@ -1587,10 +1594,17 @@ app.post('/webhook', async (req, res) => {
               phone: maskPilotPhone(incoming.from) });
             return res.sendStatus(503);
           }
+          // Solo mensajes de huesped: el numero interno ya salio arriba.
+          let adjunto = null;
+          if (M0_INBOUND_MEDIA_ENABLED && incoming.media) {
+            adjunto = await inboundMediaDownloader.adjunto(incoming.media);
+            console.info('[m0-media] inbound', { phone: maskPilotPhone(incoming.from), tipo: adjunto.tipo,
+              estado: adjunto.estado, bytes: adjunto.size_bytes ?? null, motivo: adjunto.motivo ?? null });
+          }
           const closed = await m0CommercialResponder.captureAndAcknowledge({
             from: normalizePhone(incoming.from), text: raw, messageId: incoming.messageId,
             timestamp: incoming.timestamp, name: incoming.name, referral: incoming.referral,
-            landingRef: incoming.landingRef
+            landingRef: incoming.landingRef, adjunto
           });
           console.info('[m0-commercial] inbound_captured', {
             deduplicated: closed.capture_result?.deduplicated === true,

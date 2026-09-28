@@ -41,6 +41,9 @@ test('la captura comercial M0 espera PMS y recupera sólo su operación idempote
   const wait = source.indexOf('await pmsWarmup.waitUntilReady()', closedBranch);
   const capture = source.indexOf('m0CommercialResponder.captureAndAcknowledge', closedBranch);
   assert.ok(closedBranch > 0 && wait > closedBranch && capture > wait);
-  assert.match(source, /capture:\s*\(payload\)\s*=>\s*pmsWarmup\.run\(\(\)\s*=>\s*pilotOrchestrator\.capture\(payload\)\)/);
+  // Fase 3 (2026-09-28): la captura va envuelta en capturarConRespaldo (si falla
+  // con archivo, se reintenta sin el contenido), pero sigue pasando por la misma
+  // operacion idempotente del PMS a traves de pmsWarmup.run.
+  assert.match(source, /capture:\s*\(payload\)\s*=>\s*capturarConRespaldo\(\(p\)\s*=>\s*pmsWarmup\.run\(\(\)\s*=>\s*pilotOrchestrator\.capture\(p\)\),\s*payload\)/);
   assert.match(source, /M0_CLOSED_PILOT_ENABLED\) await pmsWarmup\.waitUntilReady\(\{ force: true \}\)/);
 });
