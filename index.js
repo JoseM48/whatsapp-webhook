@@ -5,6 +5,16 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+// Red de seguridad (2026-09-30): ninguna promesa sin manejar debe tumbar la
+// recepcion de WhatsApp. El 27-sep un 503 del PMS sin catch mato el proceso en
+// bucle y Meta reentrego mensajes hasta 28 h tarde. Se registra y se sigue; los
+// fallos reales quedan visibles en el log y en el watchdog externo.
+process.on('unhandledRejection', (reason) => {
+  console.error('[process] unhandled_rejection', {
+    code: reason?.code || reason?.message || String(reason).slice(0, 200),
+    status: reason?.response?.status ?? null
+  });
+});
 const express = require('express');
 const axios = require('axios');
 const crypto = require('crypto');
@@ -818,7 +828,7 @@ startM0ObservationLoop({ enabled: PMS_LITE_M0_ENABLED, observe: async (reason) =
 // mensaje interno (porteria/operaciones) era de forma sincronica dentro del
 // mismo mensaje de WhatsApp entrante que lo genero -- si alguno quedara
 // 'pending' sin un evento nuevo del mismo caso, nunca se reintentaria.
-startM0ObservationLoop({ enabled: PMS_LITE_M0_ENABLED, intervalMs: 60_000, observe: async () => {
+startM0ObservationLoop({ enabled: PMS_LITE_M0_ENABLED, intervalMs: 60_000, name: 'internal_outbox_poll', observe: async () => {
   const results = await m0ClosedPilot.pollPendingInternalOutbox();
   if (results.length) console.log('[m0-closed] internal_outbox_poll', { count: results.length, results });
 } });
@@ -1883,9 +1893,13 @@ app.post('/webhook', async (req, res) => {
 // ===============================
 // Health & debug
 // ===============================
+// Hora de arranque del proceso: el watchdog externo la compara entre chequeos
+// para detectar reinicios (caidas en bucle del 2026-09-27).
+const WEBHOOK_STARTED_AT = new Date().toISOString();
 app.get('/health', (_req, res) => res.json({
   ok: true,
   service: 'whatsapp-webhook',
+  started_at: WEBHOOK_STARTED_AT,
   pilot_la_frontera: {
     enabled: MVP_LA_FRONTERA_ENABLED,
     allowlist_count: MVP_LA_FRONTERA_ALLOWLIST_PHONES.length,

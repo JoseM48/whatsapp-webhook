@@ -109,3 +109,14 @@ test('entrega visual parcial no se reintenta automáticamente', async () => {
   assert.equal(status.status, 'failed');
   assert.equal(status.error_code, 'partial_delivery_unknown');
 });
+
+// Revision independiente 2026-09-30: sin `await`, un 503 del PMS en claim()
+// escapaba del catch de processCaptured como promesa sin manejar y, llamado
+// desde un setImmediate sin catch, tumbaba el proceso del webhook.
+test('un 503 del PMS al reclamar el envio queda contenido: processCaptured resuelve con fallo registrado', async () => {
+  const { orchestrator, calls, pms } = fixture();
+  pms.claim = async () => { throw Object.assign(new Error('Request failed with status code 503'), { response: { status: 503 } }); };
+  const result = await orchestrator.processCaptured({ from: '573001112233', text: 'hola', messageId: 'wamid.503', today: '2026-09-30' });
+  assert.equal(result.ok, false);
+  assert.ok(calls.some(([kind]) => kind === 'failure'));
+});
