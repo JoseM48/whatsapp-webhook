@@ -92,3 +92,9 @@ test('con accepts.writer_provenance y sin redactor: writer deterministic', async
   await dispatcher.completeCommercial(turno('wamid.b1e'));
   assert.deepEqual(completados[0].writer, { source: 'deterministic' });
 });
+
+test('con accepts.media_reason el PMS recibe por que no salio la foto (sin archivo)', async () => {
+  const { dispatcher, completados } = montar({ packet: paquete({ accepts: { writer_provenance: true, media_reason: true } }), provider: null });
+  await dispatcher.completeCommercial(turno('wamid.b1f'));
+  assert.deepEqual(completados[0].media_sent.find((m) => m.code === 'LF-510'), { code: 'LF-510', kind: 'cover', ok: false, reason: 'missing' });
+});
