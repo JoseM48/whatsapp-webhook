@@ -43,7 +43,7 @@ function pmsQueRegistra(veredicto = { valid: true }) {
 }
 
 test('el esquema y el prompt piden presented_codes y explican candidatas, contexto y movimientos', () => {
-  assert.deepEqual(WRITER_SCHEMA.required, ['reply', 'presented_codes']);
+  assert.deepEqual(WRITER_SCHEMA.required, ['reply', 'presented_codes', 'send_photos']);
   assert.match(WRITER_SYSTEM_PROMPT, /CANDIDATES/);
   assert.match(WRITER_SYSTEM_PROMPT, /presented_codes/);
   assert.match(WRITER_SYSTEM_PROMPT, /ALLOWED MOVES/);
