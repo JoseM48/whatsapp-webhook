@@ -16,7 +16,7 @@ const config = { enabled: true, guestPhone: guest, internalPhone: internal, meta
   pmsM0Enabled: true, controlledIngressEnabled: true, pmsConfigured: true, receiptsEnabled: true,
   internalTemplateName: 'm0_internal_escalation_v1', internalTemplateLanguage: 'es_CO' };
 
-function paquete({ codes = ['LF-1208', 'LF-510'], accepts } = {}) {
+function paquete({ codes = ['LF-1208', 'LF-1109'], accepts } = {}) {
   return {
     packet_version: 2, action: 'PROPUESTA PRESENTADA',
     deterministic_text: codes.map((c) => `${c}: COP 3.300.000 total, anticipo COP 600.000`).join('\n'),
@@ -53,14 +53,14 @@ function montar({ packet, provider, validacion = { valid: true } }) {
 
 const turno = (id) => ({ externalMessageId: id, interpretation: {}, ai: {}, writerInput: { guestText: 'precio', transcript: [] } });
 
-test('portada inexistente (LF-510): no se intenta, se reporta ok:false y queda un aviso en el log', async () => {
+test('portada inexistente (LF-1109): no se intenta, se reporta ok:false y queda un aviso en el log', async () => {
   const { dispatcher, fotos, completados, avisos } = montar({ packet: paquete(), provider: null });
   await dispatcher.completeCommercial(turno('wamid.b1a'));
   assert.equal(fotos.length, 1);
   assert.ok(fotos[0].includes('/LF-1208/01-portada.jpg'));
   assert.deepEqual(completados[0].media_sent, [
     { code: 'LF-1208', kind: 'cover', ok: true, provider_reference: 'wamid.photo.1' },
-    { code: 'LF-510', kind: 'cover', ok: false }
+    { code: 'LF-1109', kind: 'cover', ok: false }
   ]);
   assert.deepEqual(avisos.map((a) => a.evento), ['[m0-closed] photo_missing']);
 });
@@ -96,5 +96,12 @@ test('con accepts.writer_provenance y sin redactor: writer deterministic', async
 test('con accepts.media_reason el PMS recibe por que no salio la foto (sin archivo)', async () => {
   const { dispatcher, completados } = montar({ packet: paquete({ accepts: { writer_provenance: true, media_reason: true } }), provider: null });
   await dispatcher.completeCommercial(turno('wamid.b1f'));
-  assert.deepEqual(completados[0].media_sent.find((m) => m.code === 'LF-510'), { code: 'LF-510', kind: 'cover', ok: false, reason: 'missing' });
+  assert.deepEqual(completados[0].media_sent.find((m) => m.code === 'LF-1109'), { code: 'LF-1109', kind: 'cover', ok: false, reason: 'missing' });
+});
+
+test('con accepts.media_url el PMS recibe la direccion de la imagen enviada (para la miniatura del CEM)', async () => {
+  const { dispatcher, completados } = montar({ packet: paquete({ accepts: { media_url: true } }), provider: null });
+  await dispatcher.completeCommercial(turno('wamid.b1g'));
+  const portada = completados[0].media_sent.find((m) => m.code === 'LF-1208');
+  assert.match(portada.url, /\/media\/photos\/LF-1208\/01-portada\.jpg$/);
 });

@@ -38,7 +38,7 @@ test('4b: el esquema exige send_photos y el prompt explica cuando pedir fotos', 
 // Turno sin propuesta: el huesped pregunta como es el 404, ya cotizado antes.
 const paquetePregunta = {
   packet_version: 2, action: 'RESPONDER CONOCIMIENTO', deterministic_text: 'El LF-404 es un estudio con balcón.',
-  numbers: [], dates: [], apartments: ['LF-404', 'LF-510'], required_facts: [], suggested_goals: [], facts: [], notes: [],
+  numbers: [], dates: [], apartments: ['LF-404', 'LF-1109'], required_facts: [], suggested_goals: [], facts: [], notes: [],
   forbidden_claims: [], semantic_claims: [], ui: { message_kind: 'text', photo_target_codes: [] },
   presentation: null, allowed_moves: [], unit_context: [], accepts: { writer_provenance: true }
 };
@@ -77,11 +77,11 @@ test('4b: una unidad no autorizada en el paquete nunca dispara fotos', async () 
   assert.deepEqual(fotos, []);
 });
 
-test('4b: unidad autorizada sin archivos (LF-510) -> no se envia nada y se reporta ok:false', async () => {
-  const { dispatcher, fotos, completados } = montar({ reply: 'Te muestro el 510.', presented_codes: [], send_photos: ['LF-510'] });
+test('4b: unidad autorizada sin archivos (LF-1109) -> no se envia nada y se reporta ok:false', async () => {
+  const { dispatcher, fotos, completados } = montar({ reply: 'Te muestro el 510.', presented_codes: [], send_photos: ['LF-1109'] });
   await dispatcher.completeCommercial(turno('wamid.4b3'));
   assert.deepEqual(fotos, []);
-  assert.deepEqual(completados[0].media_sent, [{ code: 'LF-510', kind: 'gallery', ok: false }]);
+  assert.deepEqual(completados[0].media_sent, [{ code: 'LF-1109', kind: 'gallery', ok: false }]);
 });
 
 test('4b: si el texto lo rechaza el validador (sale el determinista) no se envian las fotos pedidas', async () => {
