@@ -78,7 +78,7 @@ test('4b: una unidad no autorizada en el paquete nunca dispara fotos', async () 
 });
 
 test('4b: unidad autorizada sin archivos (LF-1109) -> no se envia nada y se reporta ok:false', async () => {
-  const { dispatcher, fotos, completados } = montar({ reply: 'Te muestro el 510.', presented_codes: [], send_photos: ['LF-1109'] });
+  const { dispatcher, fotos, completados } = montar({ reply: 'Te muestro el 1109.', presented_codes: [], send_photos: ['LF-1109'] });
   await dispatcher.completeCommercial(turno('wamid.4b3'));
   assert.deepEqual(fotos, []);
   assert.deepEqual(completados[0].media_sent, [{ code: 'LF-1109', kind: 'gallery', ok: false }]);
