@@ -150,3 +150,11 @@ test('galeria pedida: usa ui.photo_target_codes del paquete, no el texto', async
   assert.equal(fotos.length, 6);
   assert.ok(fotos.every((u) => u.includes('/LF-404/')));
 });
+
+// 2026-10-04 (lead 65: 15 portadas repetidas en 20 minutos).
+test('portadas: no se reenvia la de una unidad que el lead ya recibio en 24 h', () => {
+  const { photosForDelivery } = require('../lib/pilot/m0-closed-pilot');
+  const packet = { presentation: { mode: 'candidates', candidates: [{ code: 'LF-404' }, { code: 'LF-210' }],
+    cover_codes: ['LF-404', 'LF-210'], covers_recently_sent: ['LF-404'] } };
+  assert.deepEqual(photosForDelivery({}, packet, ['LF-404', 'LF-210']).map((p) => p.code), ['LF-210']);
+});
