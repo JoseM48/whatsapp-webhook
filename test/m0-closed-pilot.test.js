@@ -129,8 +129,8 @@ test('a proposal message (message_kind:text mentioning "LF-210: COP") sends the 
   assert.equal(sent.length,1);
   assert.deepEqual(photos.map((p)=>p.phone),[guest,guest]);
   assert.deepEqual(photos.map((p)=>p.url),[
-    'https://whatsapp-webhook-erom.onrender.com/media/photos/LF-210/01-portada.jpg',
-    'https://whatsapp-webhook-erom.onrender.com/media/photos/LF-404/01-portada.jpg'
+    'https://whatsapp-webhook-erom.onrender.com/media/photos/LF-210/01-portada.jpg?v=20261004',
+    'https://whatsapp-webhook-erom.onrender.com/media/photos/LF-404/01-portada.jpg?v=20261004'
   ]);
   assert.equal(result.deliveries[0].sent,true);
 });
@@ -149,8 +149,8 @@ test('a message_kind:photos row sends the full gallery for the apartment it name
   const result=await dispatcher.process({phone:guest,text:'x',messageId:'wamid.gallery',occurredAt:new Date().toISOString()});
   assert.equal(photos.length,6);
   assert.equal(photos.every((p)=>p.phone===guest),true);
-  assert.equal(photos[0].url,'https://whatsapp-webhook-erom.onrender.com/media/photos/LF-210/01-portada.jpg');
-  assert.equal(photos[5].url,'https://whatsapp-webhook-erom.onrender.com/media/photos/LF-210/06-tv.jpg');
+  assert.equal(photos[0].url,'https://whatsapp-webhook-erom.onrender.com/media/photos/LF-210/01-portada.jpg?v=20261004');
+  assert.equal(photos[5].url,'https://whatsapp-webhook-erom.onrender.com/media/photos/LF-210/06-cocina.jpg?v=20261004');
   assert.equal(result.deliveries[0].sent,true);
 });
 

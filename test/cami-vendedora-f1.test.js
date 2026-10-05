@@ -106,7 +106,7 @@ test('fotos por identidad: Cami presento solo LF-404 -> solo su portada, aunque 
     provider: proveedor([{ reply: 'Te recomiendo el 404, cabe uno más: COP 3.300.000 en total. Sin dinero real todavía.', presented_codes: ['LF-404'] }]) });
   await dispatcher.completeCommercial({ externalMessageId: 'wamid.98', interpretation: {}, ai: {},
     writerInput: { guestText: 'precio', transcript: [] } });
-  assert.deepEqual(fotos, ['https://whatsapp-webhook-erom.onrender.com/media/photos/LF-404/01-portada.jpg']);
+  assert.deepEqual(fotos, ['https://whatsapp-webhook-erom.onrender.com/media/photos/LF-404/01-portada.jpg?v=20261004']);
   assert.deepEqual(completados[0].presented_codes, ['LF-404']);
   assert.deepEqual(completados[0].media_sent, [{ code: 'LF-404', kind: 'cover', ok: true, provider_reference: 'wamid.photo.1' }]);
 });
@@ -116,7 +116,7 @@ test('fotos sin regex: el formato del texto no importa (sin "LF-xxx: COP") y sal
     provider: proveedor([{ reply: 'Te muestro los dos: el 1208 y el 404, cada uno a COP 3.300.000 por la estadía.', presented_codes: ['LF-1208', 'LF-404'] }]) });
   await dispatcher.completeCommercial({ externalMessageId: 'wamid.98b', interpretation: {}, ai: {}, writerInput: { guestText: 'x', transcript: [] } });
   assert.equal(fotos.length, 2);
-  assert.ok(fotos[0].includes('/LF-1208/01-portada.jpg'));
+  assert.ok(fotos[0].includes('/LF-1208/01-portada.jpg?v=20261004'));
 });
 
 test('una identidad no autorizada nunca dispara una foto', async () => {

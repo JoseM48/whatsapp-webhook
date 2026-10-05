@@ -38,7 +38,7 @@ test('4b: el esquema exige send_photos y el prompt explica cuando pedir fotos', 
 // Turno sin propuesta: el huesped pregunta como es el 404, ya cotizado antes.
 const paquetePregunta = {
   packet_version: 2, action: 'RESPONDER CONOCIMIENTO', deterministic_text: 'El LF-404 es un estudio con balcón.',
-  numbers: [], dates: [], apartments: ['LF-404', 'LF-1109'], required_facts: [], suggested_goals: [], facts: [], notes: [],
+  numbers: [], dates: [], apartments: ['LF-404', 'LF-1101'], required_facts: [], suggested_goals: [], facts: [], notes: [],
   forbidden_claims: [], semantic_claims: [], ui: { message_kind: 'text', photo_target_codes: [] },
   presentation: null, allowed_moves: [], unit_context: [], accepts: { writer_provenance: true }
 };
@@ -77,11 +77,11 @@ test('4b: una unidad no autorizada en el paquete nunca dispara fotos', async () 
   assert.deepEqual(fotos, []);
 });
 
-test('4b: unidad autorizada sin archivos (LF-1109) -> no se envia nada y se reporta ok:false', async () => {
-  const { dispatcher, fotos, completados } = montar({ reply: 'Te muestro el 1109.', presented_codes: [], send_photos: ['LF-1109'] });
+test('4b: unidad autorizada sin archivos (LF-1101) -> no se envia nada y se reporta ok:false', async () => {
+  const { dispatcher, fotos, completados } = montar({ reply: 'Te muestro el 1101.', presented_codes: [], send_photos: ['LF-1101'] });
   await dispatcher.completeCommercial(turno('wamid.4b3'));
   assert.deepEqual(fotos, []);
-  assert.deepEqual(completados[0].media_sent, [{ code: 'LF-1109', kind: 'gallery', ok: false }]);
+  assert.deepEqual(completados[0].media_sent, [{ code: 'LF-1101', kind: 'gallery', ok: false }]);
 });
 
 test('4b: si el texto lo rechaza el validador (sale el determinista) no se envian las fotos pedidas', async () => {
@@ -113,5 +113,29 @@ test('4b (revision): en un turno de escalamiento no se envian fotos pedidas', as
   const packet = { ...paquetePregunta, action: 'CAMBIO REQUIERE HUMANO' };
   const { dispatcher, fotos } = montar({ reply: 'José Manuel revisa el cambio al 404.', presented_codes: [], send_photos: ['LF-404'] }, packet);
   await dispatcher.completeCommercial(turno('wamid.4b6'));
+  assert.deepEqual(fotos, []);
+});
+
+// 2026-10-04: fotos de zonas comunes (EDIFICIO), aprobadas por José Manuel.
+test('zonas comunes: la vista del redactor las ofrece y el prompt explica cuando pedirlas', () => {
+  assert.equal(writerViewOfPacket({ packet_version: 2 }).building_photos_available, true);
+  assert.match(WRITER_SYSTEM_PROMPT, /"EDIFICIO"/);
+  assert.match(WRITER_SYSTEM_PROMPT, /never from the photo/);
+});
+
+test('zonas comunes: Cami pide EDIFICIO -> salen las 6 fotos del edificio (incluido el parqueadero), reportadas como EDIFICIO', async () => {
+  const { dispatcher, fotos, completados } = montar({ reply: 'Te envío fotos de las zonas comunes.', presented_codes: [], send_photos: ['edificio'] });
+  await dispatcher.completeCommercial(turno('wamid.ed1'));
+  assert.equal(fotos.length, 6);
+  assert.ok(fotos[5].includes('06-parqueadero'));
+  assert.ok(fotos.every((u) => u.includes('/EDIFICIO/')));
+  assert.ok(fotos[0].includes('01-fachada'));
+  assert.ok(completados[0].media_sent.every((m) => m.code === 'EDIFICIO' && m.kind === 'gallery' && m.ok));
+});
+
+test('zonas comunes: en un turno de escalamiento no salen fotos del edificio', async () => {
+  const { dispatcher, fotos } = montar({ reply: 'Lo consulto con José Manuel.', presented_codes: [], send_photos: ['EDIFICIO'] },
+    { ...paquetePregunta, action: 'ESCALAR A HUMANO' });
+  await dispatcher.completeCommercial(turno('wamid.ed2'));
   assert.deepEqual(fotos, []);
 });
