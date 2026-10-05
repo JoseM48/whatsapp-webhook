@@ -139,3 +139,15 @@ test('zonas comunes: en un turno de escalamiento no salen fotos del edificio', a
   await dispatcher.completeCommercial(turno('wamid.ed2'));
   assert.deepEqual(fotos, []);
 });
+
+// EMBUDO 2026-10-04: las fechas cercanas confirmables llegan al redactor.
+test('embudo: la vista del redactor trae nearby_dates de la candidata protegida y el prompt manda ofrecerlas', () => {
+  const vista = writerViewOfPacket({ packet_version: 2, presentation: { mode: 'candidates', min: 1, max: 2, candidates: [
+    { code: 'LF-404', bookable_now: false, options: [{ total: 'COP 3.300.000', deposit: 'COP 600.000' }],
+      nearby_dates: [{ check_in: '2026-11-03', check_out: '2026-12-03' }] },
+    { code: 'LF-210', bookable_now: true, options: [{ total: 'COP 3.300.000', deposit: 'COP 600.000' }] }] } });
+  assert.deepEqual(vista.presentation.candidates[0].nearby_dates, [{ check_in: '2026-11-03', check_out: '2026-12-03' }]);
+  assert.deepEqual(vista.presentation.candidates[1].nearby_dates, []);
+  assert.match(WRITER_SYSTEM_PROMPT, /"nearby_dates"/);
+  assert.match(WRITER_SYSTEM_PROMPT, /Never leave a guest with only "cannot be confirmed"/);
+});
