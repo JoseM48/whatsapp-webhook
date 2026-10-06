@@ -1585,7 +1585,7 @@ app.post('/webhook', async (req, res) => {
           if (!m0ClosedPilot.accepts(incoming.from) || m0ClosedPilot.isControl(incoming.from, raw)) {
             try {
               const closed = await m0ClosedPilot.process({ phone: incoming.from, text: raw,
-                messageId: incoming.messageId, occurredAt: incoming.timestamp });
+                messageId: incoming.messageId, occurredAt: incoming.timestamp, replyTo: incoming.replyTo || null });
               if (closed.quarantined) console.warn('[m0-closed] phone_quarantined', { phone: maskPilotPhone(incoming.from) });
               else console.info('[m0-closed] control_processed', { case_key: closed.result?.case_key || null,
                 state: closed.result?.state || null, deduplicated: closed.result?.deduplicated === true,

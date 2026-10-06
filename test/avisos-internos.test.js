@@ -69,3 +69,26 @@ test('el boton de respuesta rapida de una plantilla ("Ver detalle") llega como t
   // Otros botones de plantilla (de huesped) no cambian de comportamiento.
   assert.equal(textForMessage({ type: 'button', button: { text: 'Sí, me interesa' } }), null);
 });
+
+// --- FASE 3: respuestas con numero ---------------------------------------
+const { isLiteralCommand } = require('../lib/pilot/llm/manager-intent');
+const { extractMetaMessages } = require('../lib/pilot/meta-inbound');
+
+test('fase 3: las respuestas a un aviso no pasan por el modelo del gerente', () => {
+  for (const t of ['114 1', 'Sí 96', 'SI', 'no 96', 'DESHACER', 'deshacer 114', '114: Hola, soy José Manuel', 'Ver detalle', 'APROBAR 96', 'conciliar 96'])
+    assert.equal(isLiteralCommand(t), true, t);
+  for (const t of ['no', '¿qué pasó con el lead 114?', 'aprueba lo de Ana']) assert.equal(isLiteralCommand(t), false, t);
+});
+
+test('fase 3: el id del mensaje citado viaja al PMS solo desde el numero interno', async () => {
+  const msgs = extractMetaMessages({ entry: [{ changes: [{ value: { messages: [
+    { from: internal, id: 'wamid.in.9', timestamp: '1760000000', type: 'text', text: { body: '1' }, context: { id: 'wamid.aviso.1' } }] } }] }] });
+  assert.equal(msgs[0].replyTo, 'wamid.aviso.1');
+  const bodies = [];
+  const pms = { async closedPilotInbound(body) { bodies.push(body); return { outboxes: [] }; } };
+  const d = createM0ClosedPilotDispatcher({ config, pms, async sendText() {} });
+  await d.process({ phone: internal, text: '1', messageId: 'wamid.in.9', occurredAt: new Date().toISOString(), replyTo: 'wamid.aviso.1' });
+  await d.process({ phone: '573146892662', text: 'NUEVA PRUEBA', messageId: 'wamid.in.10', occurredAt: new Date().toISOString(), replyTo: 'wamid.x' });
+  assert.equal(bodies[0].reply_to_message_id, 'wamid.aviso.1');
+  assert.equal('reply_to_message_id' in bodies[1], false);
+});
