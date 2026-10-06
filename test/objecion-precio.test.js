@@ -70,3 +70,11 @@ test('prompt del redactor: los cinco desenlaces, sin numeros ni descuentos', () 
   assert.match(WRITER_SYSTEM_PROMPT, /write NO numbers at all/);
   assert.match(WRITER_SYSTEM_PROMPT, /never say you will keep their contact/);
 });
+
+// Lead 114 (2026-10-06): con opciones ya enviadas para la misma estadia, el PMS
+// responde "PROPUESTA VIGENTE" en vez de re-presentarlas; el redactor no debe
+// volver a listarlas ni a dar precios.
+test('prompt del redactor: PROPUESTA VIGENTE no repite opciones ni precios', () => {
+  assert.ok(WRITER_SYSTEM_PROMPT.includes('"PROPUESTA VIGENTE"'));
+  assert.match(WRITER_SYSTEM_PROMPT, /Do NOT list the options or prices again/);
+});
