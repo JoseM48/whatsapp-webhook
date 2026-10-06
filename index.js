@@ -1488,6 +1488,24 @@ app.post('/webhook', async (req, res) => {
           }
           const raw = m0CommercialText(incoming);
 
+          // Fase 4 de avisos (2026-10-06): la Contadora (hoy el numero interno)
+          // devuelve la factura como PDF o imagen. Antes todo archivo del
+          // interno se descartaba aqui abajo.
+          if (M0_INBOUND_MEDIA_ENABLED && incoming.media && !incoming.text && m0ClosedPilot.isInternal(incoming.from)) {
+            try {
+              const adjunto = await inboundMediaDownloader.adjunto(incoming.media);
+              const doc = await m0ClosedPilot.internalDocument({ phone: incoming.from, messageId: incoming.messageId,
+                occurredAt: incoming.timestamp, caption: incoming.media.caption || null, replyTo: incoming.replyTo || null, adjunto });
+              console.info('[m0-factura] internal_document', { estado: adjunto.estado, action: doc.result?.action || null,
+                deliveries: doc.deliveries?.map((item) => item.status) || [] });
+            } catch (error) {
+              console.error('[m0-factura] internal_document_failed', { code: error?.code || error?.message || 'unknown',
+                http_status: error?.response?.status || null });
+              await sendPilotWhatsAppText(incoming.from, 'No pude registrar ese archivo. Si es una factura, reenvíala con el número del lead en la descripción.').catch(() => {});
+            }
+            continue;
+          }
+
           // D1.2 -- GERENTE CONVERSACIONAL INTERNO.
           //
           // Solo para el numero interno, solo con la bandera encendida, y solo

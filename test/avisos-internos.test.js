@@ -92,3 +92,23 @@ test('fase 3: el id del mensaje citado viaja al PMS solo desde el numero interno
   assert.equal(bodies[0].reply_to_message_id, 'wamid.aviso.1');
   assert.equal('reply_to_message_id' in bodies[1], false);
 });
+
+// --- FASE 4: factura en PDF desde el numero interno ------------------------
+test('fase 4: un archivo del numero interno va al PMS como documento y se entregan sus salidas', async () => {
+  const bodies = [], sent = [];
+  const pms = {
+    async closedPilotInternalDocument(body) { bodies.push(body); return { action: 'FACTURA RECIBIDA', outboxes: [{ id: 5 }] }; },
+    async claimClosedPilotOutbound() { return { outbox_id: 5, claimable: true, recipient_kind: 'internal', message_text: SOBRE,
+      internal_delivery: 'text', internal_text: 'CONTADORA · INFO · Lead #3 · Factura recibida' }; },
+    async completeClosedPilotOutbound() {}
+  };
+  const d = createM0ClosedPilotDispatcher({ config, pms, async sendText(phone, text) { sent.push(text); return 'wamid.x'; } });
+  const r = await d.internalDocument({ phone: internal, messageId: 'wamid.doc.1', occurredAt: new Date().toISOString(),
+    caption: '3', replyTo: null, adjunto: { tipo: 'document', estado: 'guardado' } });
+  assert.equal(r.handled, true);
+  assert.equal(bodies[0].caption, '3');
+  assert.equal(bodies[0].phone, internal);
+  assert.deepEqual(sent, ['CONTADORA · INFO · Lead #3 · Factura recibida']);
+  // Un huesped nunca entra por aqui.
+  assert.equal((await d.internalDocument({ phone: '573146892662', messageId: 'w', occurredAt: new Date().toISOString(), adjunto: {} })).handled, false);
+});
