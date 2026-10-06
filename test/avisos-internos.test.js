@@ -66,4 +66,6 @@ test('PMS anterior (sin campos nuevos): se parte el sobre como siempre', () => {
 test('el boton de respuesta rapida de una plantilla ("Ver detalle") llega como texto', () => {
   assert.equal(textForMessage({ type: 'button', button: { text: 'Ver detalle', payload: 'Ver detalle' } }), 'Ver detalle');
   assert.equal(textForMessage({ type: 'button', button: {} }), null);
+  // Otros botones de plantilla (de huesped) no cambian de comportamiento.
+  assert.equal(textForMessage({ type: 'button', button: { text: 'Sí, me interesa' } }), null);
 });
