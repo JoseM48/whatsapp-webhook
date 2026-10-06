@@ -75,9 +75,9 @@ const { isLiteralCommand } = require('../lib/pilot/llm/manager-intent');
 const { extractMetaMessages } = require('../lib/pilot/meta-inbound');
 
 test('fase 3: las respuestas a un aviso no pasan por el modelo del gerente', () => {
-  for (const t of ['114 1', 'Sí 96', 'SI', 'no 96', 'DESHACER', 'deshacer 114', '114: Hola, soy José Manuel', 'Ver detalle', 'APROBAR 96', 'conciliar 96'])
+  for (const t of ['114 1', 'Sí 96', 'no 96', 'DESHACER', 'deshacer 114', '114: Hola, soy José Manuel', 'Ver detalle', 'APROBAR 96', 'conciliar 96', 'FACTURA ENTREGADA 3'])
     assert.equal(isLiteralCommand(t), true, t);
-  for (const t of ['no', '¿qué pasó con el lead 114?', 'aprueba lo de Ana']) assert.equal(isLiteralCommand(t), false, t);
+  for (const t of ['no', '¿qué pasó con el lead 114?', 'aprueba lo de Ana', '8:30 llego', 'CANCELAR 96']) assert.equal(isLiteralCommand(t), false, t);
 });
 
 test('fase 3: el id del mensaje citado viaja al PMS solo desde el numero interno', async () => {
