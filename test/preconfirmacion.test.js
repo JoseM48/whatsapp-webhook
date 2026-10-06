@@ -36,10 +36,11 @@ test('ruta legada: esquema sincronizado y "si" corto determinista', () => {
   assert.deepEqual(interpretationSchema.properties.accepts_offer, { type: 'boolean' });
   assert.ok(interpretationSchema.required.includes('accepts_offer'));
   const today = '2026-10-05';
-  for (const t of ['Sí', 'Si, confirmo', 'Confirmo', 'Dale', 'Lo tomo', 'Listo, reconfirmo']) {
+  for (const t of ['Sí', 'Si, confirmo', 'Confirmo', 'Dale', 'Lo tomo', 'Reconfirmo!', 'sí.']) {
     assert.equal(deterministicInterpret(t, { today }).accepts_offer, true, t);
   }
-  for (const t of ['¿Sí incluye limpieza?', 'No, gracias', 'Lo pienso y te aviso', 'Busco apartamento para 2 personas desde el 5 de noviembre por un mes']) {
+  for (const t of ['¿Sí incluye limpieza?', 'No, gracias', 'Lo pienso y te aviso', 'Busco apartamento para 2 personas desde el 5 de noviembre por un mes',
+    'Perfecto, gracias', 'Listo, lo pienso y te aviso', 'Sí, pero mejor en diciembre', 'Si quiero ver otras fechas', 'Dale, mándame fotos']) {
     assert.equal(deterministicInterpret(t, { today }).accepts_offer, false, t);
   }
   assert.equal(reconcileInterpretation('vale', { accepts_offer: true }, { today }).accepts_offer, true);
