@@ -421,7 +421,9 @@ async function sendM0ApartmentPhoto(to, link) {
 async function sendM0ClosedInternalTemplate(to, { name, language, parameters }) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
-  if (!name || !language || !Array.isArray(parameters) || parameters.length !== 5) {
+  // 2026-10-06: la plantilla corta del aviso interno (mio_aviso_interno_v2)
+  // lleva 4 parametros; la de siempre, 5. Se acepta de 1 a 10.
+  if (!name || !language || !Array.isArray(parameters) || parameters.length < 1 || parameters.length > 10) {
     throw Object.assign(new Error('invalid_internal_template'), { code: 'invalid_internal_template' });
   }
   const response = await axios.post(WHATSAPP_API_URL, {
