@@ -12,7 +12,8 @@ const { writerViewOfPacket, WRITER_SYSTEM_PROMPT } = require('../lib/pilot/llm/w
 test('el prompt del redactor explica la regla y prohíbe "se descuenta del total"', () => {
   assert.match(WRITER_SYSTEM_PROMPT, /ADVANCE AND DEPOSIT \(decision 2026-10-06\)/);
   assert.match(WRITER_SYSTEM_PROMPT, /NOT deducted from the total/);
-  assert.match(WRITER_SYSTEM_PROMPT, /refunded after check-out/);
+  assert.match(WRITER_SYSTEM_PROMPT, /refunded when the stay ends/);
+  assert.match(WRITER_SYSTEM_PROMPT, /first month/);
   assert.match(WRITER_SYSTEM_PROMPT, /Never say or imply that the advance is deducted/);
 });
 
