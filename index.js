@@ -46,6 +46,7 @@ const { sendGovernedM0 } = require('./lib/pilot/m0-governed-outbound');
 const { startM0ObservationLoop } = require('./lib/pilot/m0-observation-loop');
 const { resolveM0ControlCommand } = require('./lib/pilot/m0-kill-switch-command');
 const { createM0ClosedPilotDispatcher } = require('./lib/pilot/m0-closed-pilot');
+const { documentMessagePayload } = require('./lib/pilot/guest-documents');
 const { createM0CommercialResponder } = require('./lib/pilot/m0-commercial-responder');
 const { createInterpretationRouter } = require('./lib/pilot/llm/interpretation-router');
 const { OpenAiProvider } = require('./lib/pilot/llm/provider');
@@ -418,6 +419,20 @@ async function sendM0ApartmentPhoto(to, link) {
   return response.data?.messages?.[0]?.id || null;
 }
 
+// GUIA DEL HUESPED (2026-10-07): documento (PDF) al huesped por Meta Cloud API.
+// Solo lo pide el PMS para una reserva confirmada y dentro de la ventana de
+// 24 h; el enlace lo manda el PMS y se valida contra la lista cerrada de
+// guest-documents.js.
+async function sendM0GuestDocument(to, { link, filename, caption }) {
+  const phone = normalizePhone(to);
+  if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  const response = await axios.post(WHATSAPP_API_URL, documentMessagePayload(phone, { link, filename, caption }), {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    timeout: 20000
+  });
+  return response.data?.messages?.[0]?.id || null;
+}
+
 async function sendM0ClosedInternalTemplate(to, { name, language, parameters }) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
@@ -557,6 +572,7 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
   sendTemplate: sendM0ClosedInternalTemplate,
   sendFlow: sendPilotWhatsAppFlow,
   sendPhoto: sendM0ApartmentPhoto,
+  sendDocument: sendM0GuestDocument,
   // Incremento D3.3: misma instancia de PilotAi ya usada por interpret()/
   // present() -- redact() solo se invoca si naturalPresentationEnabled es
   // true (ver deliver() en m0-closed-pilot.js).
