@@ -88,3 +88,13 @@ test('lead 115: se envia como siempre si no hay mensaje nuevo, si no es aclaraci
     assert.equal(enviados.length, 1, JSON.stringify(caso.opciones));
   }
 });
+
+test('lead 115: si el PMS no registra "superseded", la aclaracion se envia como siempre (nunca queda colgada)', async () => {
+  const { dispatcher, enviados, completados } = montar();
+  const original = completados.push.bind(completados);
+  let primera = true;
+  completados.push = (body) => { if (primera && body.status === 'superseded') { primera = false; throw new Error('pms_down'); } return original(body); };
+  await dosMensajes(dispatcher);
+  assert.equal(enviados.length, 1);
+  assert.equal(completados.some((c) => c.status === 'submitted'), true);
+});
