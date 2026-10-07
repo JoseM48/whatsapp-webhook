@@ -73,3 +73,38 @@ test('prompt del redactor: pre-confirmacion, frase, orden y nada de desplazamien
   assert.match(WRITER_SYSTEM_PROMPT, /Never mention other guests who might take it/);
   assert.match(WRITER_SYSTEM_PROMPT, /15 days before arrival/);
 });
+
+// TEXTO FIJO (2026-10-07): el mensaje de pre-confirmacion es texto aprobado
+// palabra por palabra; con fixed_text el redactor con IA no se llama.
+test('paquete con fixed_text: sale el texto determinista sin llamar al redactor', async () => {
+  const { createM0ClosedPilotDispatcher } = require('../lib/pilot/m0-closed-pilot');
+  const guest = '573146892662';
+  const texto = 'Listo: tu estadía en LF-404 del 17 de noviembre al 17 de diciembre queda pre-confirmada, con el precio que te cotizamos: COP 3.300.000 en total. Por ahora no pagas nada.';
+  const packet = { packet_version: 2, fixed_text: true, action: 'PRE-CONFIRMACIÓN', deterministic_text: texto, numbers: [], dates: [],
+    apartments: ['LF-404'], required_facts: [], suggested_goals: [], facts: [], notes: [], forbidden_claims: [], semantic_claims: [],
+    ui: { message_kind: 'text', photo_target_codes: [] }, presentation: null, allowed_moves: [], unit_context: [] };
+  const enviados = []; let llamadasRedactor = 0;
+  const pms = {
+    async processClosedPilotCommercial() { return { outboxes: [{ id: 81 }], authorized_response_packet: packet }; },
+    async claimClosedPilotOutbound() { return { outbox_id: 81, claimable: true, recipient_kind: 'guest', recipient_phone: guest,
+      message_kind: 'text', message_text: texto }; },
+    async validateAuthorizedResponse() { return { valid: true }; },
+    async completeClosedPilotOutbound() {}
+  };
+  const dispatcher = createM0ClosedPilotDispatcher({
+    config: { enabled: true, guestPhone: guest, internalPhone: '573006774425', metaSignatureRequired: true, pmsM0Enabled: true,
+      controlledIngressEnabled: true, pmsConfigured: true, receiptsEnabled: true,
+      internalTemplateName: 'm0_internal_escalation_v1', internalTemplateLanguage: 'es_CO' },
+    pms, logger: { info() {}, warn() {}, error() {} },
+    async sendText(phone, body) { enviados.push(body); return 'wamid.text'; },
+    async sendPhoto() { return 'wamid.photo'; },
+    writerProvider: { model: 'm', async structured() { llamadasRedactor += 1; return { output: { text: 'parafrasis' }, usage: {} }; } } });
+  await dispatcher.completeCommercial({ externalMessageId: 'wamid.fx1', interpretation: {}, ai: {}, writerInput: { guestText: 'LF-404', transcript: [] } });
+  assert.equal(llamadasRedactor, 0);
+  assert.deepEqual(enviados, [texto]);
+});
+
+test('prompt del redactor: sin "reconfirm" como instruccion para el huesped', () => {
+  assert.doesNotMatch(WRITER_SYSTEM_PROMPT, /can reconfirm|defined 15 days before/);
+  assert.match(WRITER_SYSTEM_PROMPT, /Never use the word "reconfirmar" with the guest/);
+});
