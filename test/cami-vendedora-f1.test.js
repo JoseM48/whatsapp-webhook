@@ -47,7 +47,7 @@ test('el esquema y el prompt piden presented_codes y explican candidatas, contex
   assert.match(WRITER_SYSTEM_PROMPT, /CANDIDATES/);
   assert.match(WRITER_SYSTEM_PROMPT, /presented_codes/);
   assert.match(WRITER_SYSTEM_PROMPT, /ALLOWED MOVES/);
-  assert.match(WRITER_SYSTEM_PROMPT, /never promise an automatic notice/);
+  assert.match(WRITER_SYSTEM_PROMPT, /never talk about notices or notifications/);
 });
 
 test('la vista del redactor trae candidatas, movimientos y unit_context con fotos disponibles, sin texto determinista', () => {
