@@ -161,7 +161,8 @@ test('un comando literal nunca entra por la ruta nueva', () => {
   const { isLiteralCommand } = require('../lib/pilot/llm/manager-intent.js');
   for (const literal of ['TOMAR CASO', 'DEVOLVER CASO M0-20260915-2A492795',
     'RESPONDER CASO M0-1: hola', 'ESTADO CASO', 'CASOS ACTIVOS', 'NUEVA PRUEBA',
-    'tomar caso m0-1', '  Devolver Caso  ', 'APAGAR PILOTO', '3']) {
+    'tomar caso m0-1', '  Devolver Caso  ', 'APAGAR PILOTO', '3',
+    'RETOMAR 114: ya tenemos disponibilidad', 'retomar caso 7: hola', 'Retomar 7']) {
     assert.equal(isLiteralCommand(literal), true, `"${literal}" debe seguir por el camino de siempre`);
   }
 });
@@ -169,7 +170,8 @@ test('un comando literal nunca entra por la ruta nueva', () => {
 test('el lenguaje natural NO se confunde con un comando literal', () => {
   const { isLiteralCommand } = require('../lib/pilot/llm/manager-intent.js');
   for (const natural of ['Lo tomo', '¿Qué pasó con este caso?', 'Respóndele que estoy revisando',
-    'Devuélveselo a Cami', 'tomalo tu', 'quiero tomar caso de este huesped', '', '   ']) {
+    'Devuélveselo a Cami', 'tomalo tu', 'quiero tomar caso de este huesped', '', '   ',
+    'retomar la conversacion con el de ayer']) {
     assert.equal(isLiteralCommand(natural), false, `"${natural}" debe ir al gerente conversacional`);
   }
 });
