@@ -133,6 +133,15 @@ test('zonas comunes: Cami pide EDIFICIO -> salen las 6 fotos del edificio (inclu
   assert.ok(completados[0].media_sent.every((m) => m.code === 'EDIFICIO' && m.kind === 'gallery' && m.ok));
 });
 
+// Lead 121 (2026-10-07): el PMS ya manda las del edificio en este turno.
+test('zonas comunes: si el PMS ya las manda en este turno (photo_target_codes), Cami no las repite', async () => {
+  const packet = { ...paquetePregunta, ui: { message_kind: 'text', photo_target_codes: ['EDIFICIO'] } };
+  const { dispatcher, fotos } = montar({ reply: 'Te comparto fotos de las zonas comunes.', presented_codes: [], send_photos: ['EDIFICIO'] }, packet);
+  await dispatcher.completeCommercial(turno('wamid.ed3'));
+  assert.deepEqual(fotos, []);
+  assert.match(WRITER_SYSTEM_PROMPT, /ALREADY sending this turn/);
+});
+
 test('zonas comunes: en un turno de escalamiento no salen fotos del edificio', async () => {
   const { dispatcher, fotos } = montar({ reply: 'Lo consulto con José Manuel.', presented_codes: [], send_photos: ['EDIFICIO'] },
     { ...paquetePregunta, action: 'ESCALAR A HUMANO' });
