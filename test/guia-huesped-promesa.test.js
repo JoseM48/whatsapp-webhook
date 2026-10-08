@@ -3,8 +3,8 @@
 // GUIA DEL HUESPED, AJUSTES (José Manuel, 2026-10-07; DECISIONES_LOG "Guía del
 // huésped, ajustes", punto 1). Cami puede decir "al confirmar tu reserva te
 // enviamos una guía del sector", solo si el paquete lo trae (FAQ
-// `guia_del_sector`, que el PMS publica con la política encendida), en un
-// momento natural y una sola vez. El validador del PMS rechaza la promesa sin
+// `guia_del_sector`, que el PMS publica con la política encendida), solo
+// cuando el huésped pregunta qué recibe y una sola vez (el pago ya la lleva). El validador del PMS rechaza la promesa sin
 // respaldo en el paquete.
 
 const test = require('node:test');
@@ -15,6 +15,9 @@ test('la regla de la guía: solo con el tema en el paquete, en un momento natura
   assert.match(WRITER_SYSTEM_PROMPT, /GUEST GUIDE \(decision 2026-10-07\)/);
   assert.match(WRITER_SYSTEM_PROMPT, /topic "guia_del_sector"/);
   assert.match(WRITER_SYSTEM_PROMPT, /al confirmar tu reserva te enviamos una guía del sector/);
+  assert.match(WRITER_SYSTEM_PROMPT, /ONLY when the guest asks what they receive/);
+  assert.match(WRITER_SYSTEM_PROMPT, /Do not bring it up on your own/);
+  assert.match(WRITER_SYSTEM_PROMPT, /in the payment step never repeat it/);
   assert.match(WRITER_SYSTEM_PROMPT, /at most once in the conversation/);
   assert.match(WRITER_SYSTEM_PROMPT, /Without that topic in the packet, do not mention any guide/);
 });
