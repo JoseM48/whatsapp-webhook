@@ -1,0 +1,252 @@
+{
+ "packet_version": 2,
+ "accepts": {
+  "writer_provenance": true,
+  "media_reason": true,
+  "media_url": true,
+  "superseded": true
+ },
+ "presentation": {
+  "mode": "candidates",
+  "min": 1,
+  "max": 3,
+  "candidates": [
+   {
+    "code": "LF-210",
+    "bookable_now": true,
+    "options": [
+     {
+      "total": "COP 5.220.000",
+      "deposit": "COP 180.000",
+      "requires_policy": false
+     }
+    ]
+   },
+   {
+    "code": "LF-404",
+    "bookable_now": true,
+    "options": [
+     {
+      "total": "COP 5.220.000",
+      "deposit": "COP 180.000",
+      "requires_policy": false
+     }
+    ]
+   },
+   {
+    "code": "LF-510",
+    "bookable_now": true,
+    "options": [
+     {
+      "total": "COP 5.220.000",
+      "deposit": "COP 180.000",
+      "requires_policy": false
+     }
+    ]
+   }
+  ],
+  "cover_codes": [
+   "LF-210",
+   "LF-404",
+   "LF-510"
+  ],
+  "covers_recently_sent": []
+ },
+ "allowed_moves": [
+  "present_subset",
+  "compare_options",
+  "ask_one",
+  "advance_to_selection"
+ ],
+ "unit_context": [
+  {
+   "code": "LF-210",
+   "capacity": 2,
+   "published_sheet": false,
+   "public_attributes": null
+  },
+  {
+   "code": "LF-404",
+   "capacity": 2,
+   "published_sheet": false,
+   "public_attributes": null
+  },
+  {
+   "code": "LF-510",
+   "capacity": 2,
+   "published_sheet": false,
+   "public_attributes": null
+  }
+ ],
+ "building_facts": [],
+ "unit_comparison": null,
+ "monthly_alternative": {
+  "check_in": "2026-11-01",
+  "check_out": "2026-12-01",
+  "nights": 30,
+  "requested_nights": 29,
+  "total": "COP 3.300.000",
+  "apartments": [
+   {
+    "code": "LF-210",
+    "total": "COP 3.300.000"
+   },
+   {
+    "code": "LF-404",
+    "total": "COP 3.300.000"
+   },
+   {
+    "code": "LF-510",
+    "total": "COP 3.300.000"
+   }
+  ]
+ },
+ "facts": [
+  {
+   "topic": "trust",
+   "text": "Cami es el asistente de Mío La Frontera."
+  }
+ ],
+ "numbers": [
+  {
+   "id": "LF-210.total",
+   "label": "total LF-210",
+   "formatted": "COP 5.220.000"
+  },
+  {
+   "id": "LF-210.deposit",
+   "label": "anticipo LF-210",
+   "formatted": "COP 180.000"
+  },
+  {
+   "id": "LF-404.total",
+   "label": "total LF-404",
+   "formatted": "COP 5.220.000"
+  },
+  {
+   "id": "LF-404.deposit",
+   "label": "anticipo LF-404",
+   "formatted": "COP 180.000"
+  },
+  {
+   "id": "LF-510.total",
+   "label": "total LF-510",
+   "formatted": "COP 5.220.000"
+  },
+  {
+   "id": "LF-510.deposit",
+   "label": "anticipo LF-510",
+   "formatted": "COP 180.000"
+  },
+  {
+   "id": "monthly_alternative.total",
+   "label": "total por 30 noches (misma llegada)",
+   "formatted": "COP 3.300.000",
+   "required": true
+  }
+ ],
+ "dates": [
+  {
+   "id": "check_in",
+   "formatted": "2026-11-01"
+  },
+  {
+   "id": "check_out",
+   "formatted": "2026-11-30"
+  },
+  {
+   "id": "monthly_alternative.check_out",
+   "formatted": "2026-12-01",
+   "required": true
+  }
+ ],
+ "apartments": [
+  "LF-210",
+  "LF-404",
+  "LF-510"
+ ],
+ "action": "PROPUESTA PRESENTADA",
+ "case_state": "proposal_presented",
+ "action_result": {
+  "action": "PROPUESTA PRESENTADA",
+  "summary": "Se presentaron opciones reales con disponibilidad y precio autorizado. Para dejar una en trámite el huésped debe elegirla (sin dinero real todavía)."
+ },
+ "first_contact": true,
+ "components": [
+  "search"
+ ],
+ "pending": [],
+ "required_disclosures": [
+  {
+   "id": "no_real_money",
+   "text": "sin dinero real todavía"
+  },
+  {
+   "id": "monthly_alternative",
+   "text": "por 30 noches el total es menor"
+  }
+ ],
+ "required_facts": [
+  {
+   "id": "no_real_money",
+   "statement": "Todavía no hay dinero real de por medio: por ahora no se cobra nada.",
+   "patterns": [
+    "sin dinero",
+    "no hay dinero",
+    "todav[ií]a no (te |se )?(cobr|pag)",
+    "sin (ning[uú]n )?(pago|cobro|anticipo por ahora)",
+    "no (se )?(te )?cobra",
+    "no pagas nada",
+    "no te cobro",
+    "nada de dinero",
+    "sin compromiso de pago",
+    "no money",
+    "no payment",
+    "nothing to pay",
+    "no charge"
+   ]
+  },
+  {
+   "id": "monthly_alternative",
+   "statement": "Por 30 noches, con la misma fecha de llegada, el total es MENOR que por las noches pedidas: se dice primero, con sus fechas y su total exacto.",
+   "patterns": [
+    "30 noches",
+    "treinta noches",
+    "30 nights",
+    "thirty nights"
+   ]
+  }
+ ],
+ "suggested_goals": [],
+ "notes": [],
+ "forbidden_claims": [
+  "reserva_confirmada",
+  "disponibilidad_confirmada_sin_cotizar",
+  "excepcion_aprobada",
+  "excepcion_rechazada",
+  "precio_distinto_a_numbers",
+  "accion_interna_ejecutada",
+  "eleccion_afirmada",
+  "logica_interna_revelada"
+ ],
+ "questions_to_ask": [],
+ "knowledge_sources": [],
+ "ui": {
+  "message_kind": "text",
+  "photo_target_codes": []
+ },
+ "deterministic_text": "Por 30 noches, del 1 de noviembre al 1 de diciembre, el valor es COP 3.300.000 en total, con nuestra tarifa mensual MIO Flex (limpieza incluida): menos que por 29 noches. Si te sirve, dime y te dejo las opciones para esas fechas.\n\nTengo estas opciones del 1 de noviembre al 30 de noviembre para 1 persona:\nLF-210: COP 5.220.000 total, anticipo COP 180.000\nLF-404: COP 5.220.000 total, anticipo COP 180.000\nLF-510: COP 5.220.000 total, anticipo COP 180.000\n\nResponde con el código del apartamento que prefieras para dejarlo en trámite (sin dinero real todavía).",
+ "semantic_claims": [
+  {
+   "id": "availability",
+   "concept": "availability",
+   "state": "affirmative"
+  }
+ ],
+ "presentation_source": "deterministic",
+ "guest_name": "Lead",
+ "guest_name_reliable": true,
+ "guest_name_source": "perfil",
+ "general_knowledge": [],
+ "direction_notes": []
+}
