@@ -219,3 +219,15 @@ test('el contrato obliga al modelo a declarar la referencia', () => {
   assert.deepEqual(INTENT_SCHEMA.properties.case_reference_kind.enum,
     ['none', 'case_key', 'apartment', 'name']);
 });
+
+// PERSONAS (2026-10-08): "PERSONAS <lead> <N>" cambia las personas de la
+// reserva vigente del lead. Lo resuelve el PMS; el modelo no lo reinterpreta.
+test('"PERSONAS <lead> <N>" es comando literal (no pasa por el modelo)', () => {
+  const { isLiteralCommand } = require('../lib/pilot/llm/manager-intent.js');
+  for (const t of ['PERSONAS 65 4', 'personas 65: 4', 'Personas lead #65 3', 'PERSONAS 65', 'PERSONAS 65 cuatro', 'PERSONAS 65 11']) {
+    assert.equal(isLiteralCommand(t), true, t);
+  }
+  for (const t of ['personas', 'somos 4 personas', 'PERSONAS: 4', 'cuantas personas caben en el 65']) {
+    assert.equal(isLiteralCommand(t), false, t);
+  }
+});
