@@ -1486,7 +1486,11 @@ app.post('/webhook', async (req, res) => {
         await pmsWarmup.waitUntilReady();
         for (const incoming of metaMessages) {
           if (M0_AUDIO_TRANSCRIPTION_ENABLED && incoming.messageType === 'audio' && incoming.audio?.id && !incoming.text
-            && isAllowlisted(incoming.from, M0_AUDIO_TRANSCRIPTION_ALLOWLIST_PHONES)) {
+            // Lista vacia = todos los huespedes (decision de José Manuel: abierto a
+            // todos, ESTADO_ACTUAL_ECOSISTEMA). Antes una lista vacia dejaba a
+            // TODOS sin transcripcion (lead 128, 2026-10-08).
+            && (M0_AUDIO_TRANSCRIPTION_ALLOWLIST_PHONES.length === 0
+              || isAllowlisted(incoming.from, M0_AUDIO_TRANSCRIPTION_ALLOWLIST_PHONES))) {
             try {
               incoming.text = await inboundAudioTranscriber.transcribe(incoming.audio.id);
               console.info('[m0-audio] transcribed', { phone: maskPilotPhone(incoming.from), chars: incoming.text.length });
