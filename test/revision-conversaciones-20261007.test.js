@@ -98,3 +98,10 @@ test('lead 115: si el PMS no registra "superseded", la aclaracion se envia como 
   assert.equal(enviados.length, 1);
   assert.equal(completados.some((c) => c.status === 'submitted'), true);
 });
+
+test('lead 120: con earliest_available el prompt pide UNA sola decision y la lista de espera como opcion secundaria', () => {
+  assert.match(WRITER_SYSTEM_PROMPT, /ONE DECISION PER MESSAGE \(lead 120/);
+  assert.match(WRITER_SYSTEM_PROMPT, /do NOT say the request is \(or stays\) on the waitlist; the alternative is the ONLY question/);
+  assert.ok(WRITER_SYSTEM_PROMPT.includes('Para tus fechas del <A> al <B> no tengo disponibilidad. Lo más pronto que puedo recibirlos por <N> noches es del <C> al <D>. ¿Te sirve esa fecha? Si prefieres esperar por tus fechas originales, escríbeme "lista de espera" y te aviso si se libera algo.'));
+  assert.match(WRITER_SYSTEM_PROMPT, /If the guest then writes "lista de espera", just confirm/);
+});
