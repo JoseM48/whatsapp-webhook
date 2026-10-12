@@ -55,8 +55,18 @@ test('sin telefono del huesped o sin parametros no se envia nada', async () => {
   assert.equal(sinTelefono.templates.length, 0);
   assert.equal(sinTelefono.completed[0].status, 'unknown');
 
-  const sinParametros = poller([claimRetomar({ template_parameters: [] })]);
+  // REVENUE R2 (2026-10-12): una lista VACIA explicita es una plantilla sin
+  // variables y se envia; sin lista (o con un parametro vacio) no sale nada.
+  const sinParametros = poller([claimRetomar({ template_parameters: undefined })]);
   await sinParametros.d.pollPendingInternalOutbox();
   assert.equal(sinParametros.templates.length, 0);
   assert.equal(sinParametros.completed[0].status, 'failed');
+  const parametroVacio = poller([claimRetomar({ template_parameters: ['Ana', '  '] })]);
+  await parametroVacio.d.pollPendingInternalOutbox();
+  assert.equal(parametroVacio.templates.length, 0);
+  assert.equal(parametroVacio.completed[0].status, 'failed');
+  const sinVariables = poller([claimRetomar({ template_name: 'lf_rescate_motivo_sn_v1', template_parameters: [] })]);
+  await sinVariables.d.pollPendingInternalOutbox();
+  assert.equal(sinVariables.templates.length, 1);
+  assert.deepEqual(sinVariables.templates[0].template.parameters, []);
 });

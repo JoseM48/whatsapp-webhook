@@ -437,14 +437,16 @@ async function sendM0ClosedInternalTemplate(to, { name, language, parameters }) 
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
   // 2026-10-06: la plantilla corta del aviso interno (mio_aviso_interno_v2)
-  // lleva 4 parametros; la de siempre, 5. Se acepta de 1 a 10.
-  if (!name || !language || !Array.isArray(parameters) || parameters.length < 1 || parameters.length > 10) {
+  // lleva 4 parametros; la de siempre, 5. Se acepta de 0 a 10 (2026-10-12, R2:
+  // las plantillas al huesped sin variables van sin componente de cuerpo).
+  if (!name || !language || !Array.isArray(parameters) || parameters.length > 10) {
     throw Object.assign(new Error('invalid_internal_template'), { code: 'invalid_internal_template' });
   }
+  const components = parameters.length
+    ? [{ type: 'body', parameters: parameters.map((text) => ({ type: 'text', text })) }] : [];
   const response = await axios.post(WHATSAPP_API_URL, {
     messaging_product: 'whatsapp', to: phone, type: 'template',
-    template: { name, language: { code: language }, components: [{ type: 'body',
-      parameters: parameters.map((text) => ({ type: 'text', text })) }] }
+    template: { name, language: { code: language }, ...(components.length ? { components } : {}) }
   }, {
     headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
     timeout: 15000
