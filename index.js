@@ -404,14 +404,17 @@ async function sendPilotWhatsAppImage(to, link) {
 
 // Independent of the legacy MVP_LA_FRONTERA_MEDIA_ENABLED flag above -- this
 // is the M0 closed pilot's own apartment-photo delivery, unrelated feature.
-async function sendM0ApartmentPhoto(to, link) {
+// caption (2026-10-13): pie corto opcional ("LF-510 · 1/6"), solo lo usan las
+// fotos del canal de Desarrollos; las de Cami siguen saliendo sin pie.
+async function sendM0ApartmentPhoto(to, link, caption = null) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
   // Without an explicit type, Meta defaults to expecting a text message and
   // rejects the request with "(#100) Invalid parameter: the parameter 'text'
   // cannot be null" -- confirmed against a real 400 response, not guessed.
   const response = await axios.post(WHATSAPP_API_URL, {
-    messaging_product: 'whatsapp', to: phone, type: 'image', image: { link }
+    messaging_product: 'whatsapp', to: phone, type: 'image',
+    image: caption ? { link, caption: String(caption).slice(0, 1024) } : { link }
   }, {
     headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
     timeout: 20000
