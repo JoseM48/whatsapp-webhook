@@ -235,7 +235,7 @@
   "message_kind": "text",
   "photo_target_codes": []
  },
- "deterministic_text": "Por 30 noches, del 1 de noviembre al 1 de diciembre, el valor es COP 3.300.000 en total, con nuestra tarifa mensual MIO Flex (limpieza incluida): menos que por 29 noches. Si te sirve, dime y te dejo las opciones para esas fechas.\n\nTengo estas opciones del 1 de noviembre al 30 de noviembre para 1 persona:\nLF-210: COP 5.220.000 total, anticipo COP 180.000\nLF-404: COP 5.220.000 total, anticipo COP 180.000\nLF-510: COP 5.220.000 total, anticipo COP 180.000\n\nResponde con el código del apartamento que prefieras para dejarlo en trámite (sin dinero real todavía).",
+ "deterministic_text": "Por 30 noches, del 1 de noviembre al 1 de diciembre, el valor es COP 3.300.000 en total, con nuestra tarifa mensual MIU Flex (limpieza incluida): menos que por 29 noches. Si te sirve, dime y te dejo las opciones para esas fechas.\n\nTengo estas opciones del 1 de noviembre al 30 de noviembre para 1 persona:\nLF-210: COP 5.220.000 total, anticipo COP 180.000\nLF-404: COP 5.220.000 total, anticipo COP 180.000\nLF-510: COP 5.220.000 total, anticipo COP 180.000\n\nResponde con el código del apartamento que prefieras para dejarlo en trámite (sin dinero real todavía).",
  "semantic_claims": [
   {
    "id": "availability",
