@@ -18,11 +18,11 @@ const guest = '573146892662', internal = '573006774425';
 const config = { enabled: true, guestPhone: guest, internalPhone: internal, metaSignatureRequired: true,
   pmsM0Enabled: true, controlledIngressEnabled: true, pmsConfigured: true, receiptsEnabled: true,
   internalTemplateName: 'm0_internal_escalation_v1', internalTemplateLanguage: 'es_CO' };
-const CAPTION = 'Te comparto la guía del sector de Mío La Frontera: lugares cercanos, cómo moverte y datos útiles. ¡Bienvenido!';
+const CAPTION = 'Te comparto la guía del sector de Miu La Frontera: lugares cercanos, cómo moverte y datos útiles. ¡Bienvenido!';
 const LINK = `https://pms-lite-pilot.onrender.com/media/guia/${'a1'.repeat(12)}/guia-sector-mio-la-frontera-v1.pdf`;
 
 test('lista cerrada: solo la clave conocida con un enlace https de la forma esperada', () => {
-  assert.deepEqual(guestDocument('guia_huesped_v1', LINK), { key: 'guia_huesped_v1', link: LINK, filename: 'Guía del sector - Mío La Frontera.pdf' });
+  assert.deepEqual(guestDocument('guia_huesped_v1', LINK), { key: 'guia_huesped_v1', link: LINK, filename: 'Guía del sector - Miu La Frontera.pdf' });
   for (const malo of [null, '', 'http://pms/media/guia/' + 'a1'.repeat(12) + '/guia-sector-mio-la-frontera-v1.pdf',
     LINK.replace('guia-sector', 'otra'), LINK + '?x=1', 'https://pms/media/guia/zz/guia-sector-mio-la-frontera-v1.pdf',
     'https://pms/media/guia/' + 'a1'.repeat(12) + '/../../x/guia-sector-mio-la-frontera-v1.pdf', 'javascript:alert(1)']) {
@@ -78,7 +78,7 @@ test('entrega: una fila de documento sale como documento (enlace, nombre y texto
   assert.equal(result.deliveries[0].sent, true);
   assert.deepEqual(sent.text, []);
   assert.deepEqual(sent.photo, []);
-  assert.deepEqual(sent.document, [{ to: guest, link: LINK, filename: 'Guía del sector - Mío La Frontera.pdf', caption: CAPTION }]);
+  assert.deepEqual(sent.document, [{ to: guest, link: LINK, filename: 'Guía del sector - Miu La Frontera.pdf', caption: CAPTION }]);
   assert.deepEqual(completed, [{ outbox_id: 77, status: 'submitted', provider_reference: 'wamid.doc' }]);
 });
 

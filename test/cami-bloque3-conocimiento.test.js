@@ -10,10 +10,10 @@ const { writerViewOfPacket, WRITER_SYSTEM_PROMPT } = require('../lib/pilot/llm/w
 
 test('la vista del redactor trae general_knowledge (tema y texto) y building_facts aunque no haya candidatas', () => {
   const vista = writerViewOfPacket({ packet_version: 2, presentation: null,
-    building_facts: ['Todos los apartamentos de Mío La Frontera son estudios.'],
+    building_facts: ['Todos los apartamentos de Miu La Frontera son estudios.'],
     general_knowledge: [{ topic: 'pets', text: 'Solo mascotas pequeñas.', interno: 'x' }] });
   assert.equal(vista.presentation, null);
-  assert.deepEqual(vista.building_facts, ['Todos los apartamentos de Mío La Frontera son estudios.']);
+  assert.deepEqual(vista.building_facts, ['Todos los apartamentos de Miu La Frontera son estudios.']);
   assert.deepEqual(vista.general_knowledge, [{ topic: 'pets', text: 'Solo mascotas pequeñas.' }]);
 });
 

@@ -1045,7 +1045,7 @@ async function consultarChatGPT(pregunta) {
   const r = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
-      { role: 'system', content: 'Eres el asistente de Mio La Frontera (Medellín). Responde claro, amable y breve. Si no sabes la respuesta, di que lo consultarás con el equipo humano.' },
+      { role: 'system', content: 'Eres el asistente de Miu La Frontera (Medellín). Responde claro, amable y breve. Si no sabes la respuesta, di que lo consultarás con el equipo humano.' },
       { role: 'user', content: pregunta }
     ],
     temperature: 0.4,
@@ -1149,7 +1149,7 @@ const MENU_TXT = [
 
 async function enviarMenu(to) {
   await enviarWhatsApp(to, [
-    '¡Hola! 👋 Soy el asistente de Mio La Frontera.',
+    '¡Hola! 👋 Soy el asistente de Miu La Frontera.',
     'Elige una opción:',
     MENU_TXT
   ].join('\n'));

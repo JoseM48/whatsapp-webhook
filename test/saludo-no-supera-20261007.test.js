@@ -38,7 +38,7 @@ test('el responder no marca un saludo suelto como mensaje con texto', async () =
 test('la aclaracion del mensaje del anuncio sale aunque despues llegue un "Buen día"', async () => {
   const enviados = [], completados = [];
   const packet = { packet_version: 2, action: 'CLARIFICAR SOLICITUD',
-    deterministic_text: '¡Hola! Soy Cami de Mío La Frontera. ¿Qué fechas necesitas y para cuántas personas?',
+    deterministic_text: '¡Hola! Soy Cami, la asistente virtual de Miu La Frontera. ¿Qué fechas necesitas y para cuántas personas?',
     accepts: { writer_provenance: true, superseded: true },
     numbers: [], dates: [], apartments: [], required_facts: [], facts: [], forbidden_claims: [], semantic_claims: [] };
   const pms = {
