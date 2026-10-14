@@ -493,6 +493,26 @@ async function sendPilotWhatsAppFlow(to, { flowId, flowToken, firstScreen, ctaTe
   return response.data?.messages?.[0]?.id || null;
 }
 
+// CONTACTO CON UNA PERSONA (2026-10-14): mensaje con botones de respuesta rapida
+// (interactive "button"). Al tocarlo, Meta devuelve interactive.button_reply con
+// el titulo, que meta-inbound.js ya convierte en el texto del huesped.
+async function sendPilotWhatsAppButtons(to, { bodyText, buttons }) {
+  const phone = normalizePhone(to);
+  if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  const response = await axios.post(WHATSAPP_API_URL, {
+    messaging_product: 'whatsapp', to: phone, type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: { text: String(bodyText || '').slice(0, 1024) },
+      action: { buttons: buttons.map((b) => ({ type: 'reply', reply: { id: b.id, title: b.title } })) }
+    }
+  }, {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    timeout: 15000
+  });
+  return response.data?.messages?.[0]?.id || null;
+}
+
 async function sendPilotWhatsAppTemplate(to, templateName, parameters, documentProviderReference = null) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
@@ -576,6 +596,7 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
   sendText: sendPilotWhatsAppText,
   sendTemplate: sendM0ClosedInternalTemplate,
   sendFlow: sendPilotWhatsAppFlow,
+  sendButtons: sendPilotWhatsAppButtons,
   sendPhoto: sendM0ApartmentPhoto,
   sendDocument: sendM0GuestDocument,
   // Incremento D3.3: misma instancia de PilotAi ya usada por interpret()/
