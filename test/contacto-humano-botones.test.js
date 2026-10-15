@@ -7,7 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createM0ClosedPilotDispatcher } = require('../lib/pilot/m0-closed-pilot');
 
-const guest = '573146892662', internal = '573006774425';
+const guest = '573000000001', internal = '573006774425';
 const config = { enabled: true, guestPhone: guest, internalPhone: internal, metaSignatureRequired: true,
   pmsM0Enabled: true, controlledIngressEnabled: true, pmsConfigured: true, receiptsEnabled: true,
   internalTemplateName: 'm0_internal_escalation_v1', internalTemplateLanguage: 'es_CO' };
