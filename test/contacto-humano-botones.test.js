@@ -61,6 +61,19 @@ test('sin botones (lista vacia o titulo de mas de 20) o sin emisor, sale el mism
   }
 });
 
+test('sin poder poner botones, envía el texto de respaldo del PMS (con la pista de qué escribir)', async () => {
+  const textos = [], completados = [];
+  const respaldo = `${OFERTA}
+
+Responde «Que me llamen», «Hablar con José» o «Seguir con Cami».`;
+  const claims = [{ outbox_id: 72, recipient_kind: 'guest', recipient_phone: guest, message_kind: 'buttons', message_text: OFERTA,
+    buttons: BOTONES, fallback_text: respaldo }];
+  const dispatcher = createM0ClosedPilotDispatcher({ config, pms: pmsCon(claims, completados),
+    async sendText(phone, text) { textos.push(text); return 'wamid.t'; } });
+  await dispatcher.completeCommercial({ externalMessageId: 'wamid.in-respaldo', interpretation: {}, ai: {} });
+  assert.deepEqual(textos, [respaldo]);
+});
+
 test('el claim declara que este webhook sabe enviar botones', () => {
   const PmsClient = require('../lib/pilot/pms-client');
   const fuente = require('node:fs').readFileSync(require.resolve('../lib/pilot/pms-client'), 'utf8');
