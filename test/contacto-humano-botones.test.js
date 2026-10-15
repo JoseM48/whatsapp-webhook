@@ -78,5 +78,5 @@ test('el claim declara que este webhook sabe enviar botones', () => {
   const PmsClient = require('../lib/pilot/pms-client');
   const fuente = require('node:fs').readFileSync(require.resolve('../lib/pilot/pms-client'), 'utf8');
   assert.ok(PmsClient);
-  assert.match(fuente, /'X-M0-Accepts': 'document, image, buttons'/);
+  assert.match(fuente, /'X-M0-Accepts': 'document, image, buttons(, equipo_image)?'/);
 });
