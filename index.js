@@ -405,7 +405,7 @@ async function sendPilotWhatsAppImage(to, link) {
 // Independent of the legacy MVP_LA_FRONTERA_MEDIA_ENABLED flag above -- this
 // is the M0 closed pilot's own apartment-photo delivery, unrelated feature.
 // caption (2026-10-13): pie corto opcional ("LF-510 · 1/6"), solo lo usan las
-// fotos del canal de Desarrollos; las de Cami siguen saliendo sin pie.
+// fotos del canal de Desarrollos; desde el 2026-10-17 tambien las de Cami (codigo de la unidad).
 async function sendM0ApartmentPhoto(to, link, caption = null) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
