@@ -130,6 +130,25 @@ test('el ejecutor rechaza una action command sin tocar la red', async () => {
   assert.equal(llamado, false, 'no debe salir un solo paquete');
 });
 
+test('la ruta nueva pasa a las tools las propuestas de la conversacion (proposal_snapshot), no las del modelo', async () => {
+  const vistos = [];
+  let n = 0;
+  const provider = { name: 'openai', model: 'modelo-de-prueba', structured: async () => (++n === 1
+    ? { output: null, tool_calls: [{ id: 't1', name: 'check_availability', arguments: { arrival_date: '2026-10-10', nights: 30, proposal_snapshot: { proposal_ids: [999] } }, _raw: {} }], usage: {}, meta: {} }
+    : { output: V2_MINIMO, tool_calls: [], usage: { input_tokens: 1, output_tokens: 1 } }) };
+  const router = createInterpretationRouter({ legacyAi: legacySpy(), provider,
+    pmsClient: { conversationalTool: async (tool, args, context) => { vistos.push({ tool, context }); return { status: 'ok', data: {} }; } },
+    env: ON, logger: silencio });
+  const snapshot = { proposal_ids: [11, 12] };
+  await router.interpret({ text: 'hola', phone: TEST_PHONE, today: '2026-09-22', context: { proposal_snapshot: snapshot } });
+  assert.equal(vistos.length, 1);
+  assert.deepEqual(vistos[0].context, { as_of: '2026-09-22', proposal_snapshot: snapshot });
+  // Sin propuestas en la conversacion: null explicito.
+  vistos.length = 0; n = 0;
+  await router.interpret({ text: 'hola', phone: TEST_PHONE, today: '2026-09-22', context: {} });
+  assert.equal(vistos[0].context.proposal_snapshot, null);
+});
+
 test('el ejecutor pasa el contexto del llamante, no el del modelo', async () => {
   let visto = null;
   const executor = createPmsToolExecutor({
