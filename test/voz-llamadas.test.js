@@ -135,6 +135,7 @@ const TEXTO_FIJO_PMS = 'Hola, soy Cami (texto fijo del PMS).';
 function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, viaFin = 'outbox', viaRechazo = 'outbox',
   resumenJson = { resumen: 'Busca 30 noches.', alerta: null, alerta_motivo: null }, huerfanas = [] } = {}) {
   const posts = [], textos = [], pmsLlamadas = [], herramientas = [];
+  const estado = { alertaFalla: false };
   const config = readVozConfig({ VOZ_LLAMADAS_HABILITADAS: habilitada ? 'true' : '', VOZ_OPENAI_API_KEY: 'sk-test-no-real',
     VOZ_OPENAI_WEBHOOK_SECRET: SECRETO });
   const http = { post: async (url, body) => {
@@ -149,7 +150,7 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
       return b.avisar_huesped ? { estado: b.estado, seguimiento_via: viaRechazo, seguimiento_texto: TEXTO_FIJO_PMS } : { estado: b.estado }; },
     vozFin: async (b) => { pmsLlamadas.push(['fin', b]);
       return { seguimiento_via: b.siguiente_paso && b.enviar_seguimiento ? viaFin : 'no_enviado', seguimiento_texto: TEXTO_FIJO_PMS }; },
-    vozAlerta: async (b) => { pmsLlamadas.push(['alerta', b]); return { aviso_encolado: true }; },
+    vozAlerta: async (b) => { pmsLlamadas.push(['alerta', b]); if (estado.alertaFalla) throw new Error('down'); return { aviso_encolado: true }; },
     vozSeguimientoDirecto: async (b) => { pmsLlamadas.push(['directo', b]); return {}; },
     vozHuerfanas: async (b) => { pmsLlamadas.push(['huerfanas', b]); return { llamadas: huerfanas }; },
     vozMetaEvento: async (b) => { pmsLlamadas.push(['meta', b]); return {}; },
@@ -161,7 +162,8 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
     sendText: async (to, body) => { textos.push({ to, body }); },
     logger: { info() {}, warn() {}, error() {} } });
   const de = (paso) => pmsLlamadas.filter((c) => c[0] === paso).map((c) => c[1]);
-  return { manager, posts, textos, pmsLlamadas, herramientas, de, avanzar: (ms) => { t += ms; } };
+  return { manager, posts, textos, pmsLlamadas, herramientas, de, avanzar: (ms) => { t += ms; },
+    fallarAlerta: () => { estado.alertaFalla = true; } };
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
@@ -270,7 +272,8 @@ test('P1-1: pedir_persona avisa de inmediato al PMS con tipo y motivo; el paso e
   const fin = m.de('fin')[0];
   assert.equal(fin.siguiente_paso, 'persona');
   assert.equal(fin.requiere_persona, true);
-  assert.equal(fin.alerta, null, 'ya se aviso durante la llamada');
+  assert.equal(fin.alerta, 'emergencia', 'se repite al cerrar; el PMS no duplica el aviso');
+  assert.equal(fin.alerta_motivo, 'fuga de agua');
 });
 
 test('P1-1: el resumen que detecta una queja la manda como alerta al cerrar', async () => {
@@ -366,4 +369,20 @@ test('eventos de Meta se registran en el PMS solo con la funcion encendida', asy
   const off = montar({ habilitada: false });
   await off.manager.registrarEventosMeta(ev);
   assert.equal(off.pmsLlamadas.length, 0);
+});
+
+test('P2-1 (2a revision): si el aviso durante la llamada falla, la alerta sale al cerrar', async () => {
+  const m = montar();
+  const pmsAlerta = m.de;
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_11'))).procesando;
+  const ws = FakeWs.ultima;
+  m.fallarAlerta();
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'pedir_persona', call_id: 'fc_p2',
+    arguments: JSON.stringify({ tipo: 'persona', motivo: 'quiere hablar con José' }) }] } });
+  await tick();
+  ws.close();
+  await tick();
+  const fin = pmsAlerta('fin')[0];
+  assert.equal(fin.alerta, 'persona');
+  assert.equal(fin.alerta_motivo, 'quiere hablar con José');
 });
