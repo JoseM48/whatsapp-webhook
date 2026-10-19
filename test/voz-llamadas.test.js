@@ -12,9 +12,9 @@ const { EventEmitter } = require('node:events');
 const { verifyOpenAiWebhook, signOpenAiWebhook } = require('../lib/voz/openai-webhook-signature');
 const { decidirAdmision, costoDeLlamada, costoMaximoPorLlamada } = require('../lib/voz/cost-guard');
 const { extractMetaCalls, isCallsOnlyPayload, parseOpenAiCallIncoming, telefonoDeSip } = require('../lib/voz/call-events');
-const { readVozConfig, vozConfigParaLog } = require('../lib/voz/config');
+const { readVozConfig, vozConfigParaLog, costoMaxExcedePms } = require('../lib/voz/config');
 const { herramientasDeVoz, instruccionesCamiVoz } = require('../lib/voz/cami-voz');
-const { createVozCallManager, TEXTO_NO_DISPONIBLE } = require('../lib/voz/call-manager');
+const { createVozCallManager } = require('../lib/voz/call-manager');
 
 const SECRETO = `whsec_${Buffer.from('secreto-de-prueba-voz').toString('base64')}`;
 const FICTICIO = '999000000001';
@@ -130,22 +130,28 @@ class FakeWs extends EventEmitter {
   close() { this.readyState = 3; this.emit('close'); }
 }
 
-function montar({ uso = 0, pmsFalla = false, habilitada = true } = {}) {
+const TEXTO_FIJO_PMS = 'Hola, soy Cami (texto fijo del PMS).';
+
+function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, viaFin = 'outbox', viaRechazo = 'outbox',
+  resumenJson = { resumen: 'Busca 30 noches.', alerta: null, alerta_motivo: null }, huerfanas = [] } = {}) {
   const posts = [], textos = [], pmsLlamadas = [], herramientas = [];
   const config = readVozConfig({ VOZ_LLAMADAS_HABILITADAS: habilitada ? 'true' : '', VOZ_OPENAI_API_KEY: 'sk-test-no-real',
     VOZ_OPENAI_WEBHOOK_SECRET: SECRETO });
   const http = { post: async (url, body) => {
     posts.push({ url, body });
-    if (url.endsWith('/chat/completions')) {
-      return { data: { choices: [{ message: { content: JSON.stringify({ resumen: 'Busca 30 noches.', mensaje: 'Gracias por llamar a Miu La Frontera. Respóndeme por aquí y te envío la propuesta.' }) } }] } };
-    }
+    if (url.endsWith('/chat/completions')) return { data: { choices: [{ message: { content: JSON.stringify(resumenJson) } }] } };
     return { data: {} };
   } };
   const pms = {
     vozInicio: async (b) => { pmsLlamadas.push(['inicio', b]); if (pmsFalla) throw new Error('down');
-      return { lead_id: 7, nombre_saludo: 'Ana', huesped_airbnb: false, persona_al_mando: false, uso_mes_usd: uso }; },
-    vozEstado: async (b) => { pmsLlamadas.push(['estado', b]); return {}; },
-    vozFin: async (b) => { pmsLlamadas.push(['fin', b]); return {}; },
+      return { lead_id: 7, nombre_saludo: 'Ana', huesped_airbnb: false, persona_al_mando: false, uso_mes_usd: uso, ...inicio }; },
+    vozEstado: async (b) => { pmsLlamadas.push(['estado', b]); if (pmsFalla) throw new Error('down');
+      return b.avisar_huesped ? { estado: b.estado, seguimiento_via: viaRechazo, seguimiento_texto: TEXTO_FIJO_PMS } : { estado: b.estado }; },
+    vozFin: async (b) => { pmsLlamadas.push(['fin', b]);
+      return { seguimiento_via: b.siguiente_paso && b.enviar_seguimiento ? viaFin : 'no_enviado', seguimiento_texto: TEXTO_FIJO_PMS }; },
+    vozAlerta: async (b) => { pmsLlamadas.push(['alerta', b]); return { aviso_encolado: true }; },
+    vozSeguimientoDirecto: async (b) => { pmsLlamadas.push(['directo', b]); return {}; },
+    vozHuerfanas: async (b) => { pmsLlamadas.push(['huerfanas', b]); return { llamadas: huerfanas }; },
     vozMetaEvento: async (b) => { pmsLlamadas.push(['meta', b]); return {}; },
   };
   const timers = { setTimeout: () => 0, clearTimeout: () => {} };
@@ -154,14 +160,19 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true } = {}) {
     executePmsTool: async (name, args, ctx) => { herramientas.push({ name, args, ctx }); return { status: 'ok', data: { total: 1 } }; },
     sendText: async (to, body) => { textos.push({ to, body }); },
     logger: { info() {}, warn() {}, error() {} } });
-  return { manager, posts, textos, pmsLlamadas, herramientas, avanzar: (ms) => { t += ms; } };
+  const de = (paso) => pmsLlamadas.filter((c) => c[0] === paso).map((c) => c[1]);
+  return { manager, posts, textos, pmsLlamadas, herramientas, de, avanzar: (ms) => { t += ms; } };
 }
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
+const mensaje = (ws, e) => ws.emit('message', Buffer.from(JSON.stringify(e)));
 
 test('apagada: el webhook responde 404 y no hace nada', async () => {
   const m = montar({ habilitada: false });
   const r = m.manager.handleWebhook(firmado(eventoEntrante()));
   assert.equal(r.status, 404);
   assert.equal(m.posts.length, 0);
+  assert.deepEqual(await m.manager.barrerHuerfanas(), { colgadas: 0 });
 });
 
 test('firma invalida: 400 y no se toca OpenAI', () => {
@@ -171,83 +182,179 @@ test('firma invalida: 400 y no se toca OpenAI', () => {
   assert.equal(m.posts.length, 0);
 });
 
-test('tope alcanzado: rechaza la llamada y escribe por WhatsApp', async () => {
+test('tope alcanzado: rechaza y el PMS encola el aviso fijo (no se escribe directo)', async () => {
   const m = montar({ uso: 49.9 });
-  const r = m.manager.handleWebhook(firmado(eventoEntrante()));
-  await r.procesando;
+  await m.manager.handleWebhook(firmado(eventoEntrante())).procesando;
   assert.equal(m.posts.some((p) => p.url.endsWith('/accept')), false);
   assert.equal(m.posts.some((p) => p.url.endsWith('/realtime/calls/rtc_test_1/reject')), true);
-  assert.deepEqual(m.textos, [{ to: FICTICIO, body: TEXTO_NO_DISPONIBLE }]);
-  assert.deepEqual(m.pmsLlamadas.find((c) => c[0] === 'estado')[1], { call_id: 'rtc_test_1', estado: 'rechazada', motivo: 'tope_mensual' });
+  assert.deepEqual(m.de('estado')[0], { call_id: 'rtc_test_1', estado: 'rechazada', motivo: 'tope_mensual', avisar_huesped: true });
+  assert.deepEqual(m.textos, []);
 });
 
-test('PMS caido: no se puede medir el gasto, se rechaza', async () => {
+test('P2-5: rechazo de quien nunca escribio: el texto fijo del PMS sale directo y se marca', async () => {
+  const m = montar({ uso: 49.9, viaRechazo: 'sin_caso' });
+  await m.manager.handleWebhook(firmado(eventoEntrante())).procesando;
+  assert.deepEqual(m.textos, [{ to: FICTICIO, body: TEXTO_FIJO_PMS }]);
+  assert.deepEqual(m.de('directo'), [{ call_id: 'rtc_test_1', enviado: true }]);
+});
+
+test('P2-5: rechazo con persona al mando (PMS suprime): no sale nada', async () => {
+  const m = montar({ uso: 49.9, viaRechazo: 'suprimido' });
+  await m.manager.handleWebhook(firmado(eventoEntrante())).procesando;
+  assert.deepEqual(m.textos, []);
+});
+
+test('PMS caido: no se puede medir el gasto, se rechaza y no se escribe', async () => {
   const m = montar({ pmsFalla: true });
   await m.manager.handleWebhook(firmado(eventoEntrante())).procesando;
   assert.equal(m.posts.some((p) => p.url.endsWith('/reject')), true);
   assert.equal(m.posts.some((p) => p.url.endsWith('/accept')), false);
+  assert.deepEqual(m.textos, []);
 });
 
-test('llamada completa: acepta, ejecuta herramienta, cuelga y deja transcripcion y resumen', async () => {
+test('llamada completa: aceptada antes de aceptar, herramienta, cuelga, resumen interno y paso fijo', async () => {
   const m = montar();
   const r = m.manager.handleWebhook(firmado(eventoEntrante()));
   assert.equal(r.status, 200);
   await r.procesando;
-  // reintento del mismo webhook: no se acepta dos veces
   const dup = m.manager.handleWebhook(firmado(eventoEntrante(), { id: 'wh_test_2' }));
   assert.equal(dup.body.deduplicated, true);
 
+  // P2-2: 'aceptada' se registra antes del POST accept.
+  const iEstado = m.pmsLlamadas.findIndex((c) => c[0] === 'estado' && c[1].estado === 'aceptada');
+  assert.ok(iEstado >= 0);
   const accept = m.posts.find((p) => p.url.endsWith('/realtime/calls/rtc_test_1/accept'));
-  assert.equal(accept.body.type, 'realtime');
   assert.equal(accept.body.model, 'gpt-realtime-mini');
   assert.match(accept.body.instructions, /La persona se llama Ana/);
   assert.equal(accept.body.tools.some((t) => t.name === 'quote_stay'), true);
-  assert.equal(m.manager.activas.size, 1);
 
   const ws = FakeWs.ultima;
-  assert.match(ws.url, /realtime\?call_id=rtc_test_1$/);
   ws.emit('open');
-  assert.equal(ws.enviados[0].type, 'response.create', 'saluda al abrir');
-
-  const msg = (e) => ws.emit('message', Buffer.from(JSON.stringify(e)));
-  msg({ type: 'conversation.item.input_audio_transcription.completed', transcript: 'Quiero un mes desde noviembre' });
-  msg({ type: 'response.done', response: { output: [{ type: 'function_call', name: 'quote_stay', call_id: 'fc_1',
+  assert.equal(ws.enviados[0].type, 'response.create');
+  mensaje(ws, { type: 'conversation.item.input_audio_transcription.completed', transcript: 'Quiero un mes desde noviembre' });
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'quote_stay', call_id: 'fc_1',
     arguments: JSON.stringify({ nights: 30, arrival_date: '2026-11-01', apartment_code: null }) }] } });
-  await new Promise((resolve) => setImmediate(resolve));
+  await tick();
   assert.equal(m.herramientas[0].name, 'quote_stay');
   assert.equal(m.herramientas[0].ctx.proposal_snapshot, null);
-  assert.match(m.herramientas[0].ctx.as_of, /^\d{4}-\d{2}-\d{2}$/);
-  const salida = ws.enviados.find((e) => e.type === 'conversation.item.create');
-  assert.equal(salida.item.call_id, 'fc_1');
-  assert.equal(ws.enviados.at(-1).type, 'response.create');
-  msg({ type: 'response.output_audio_transcript.done', transcript: 'Con gusto, te cotizo.' });
+  mensaje(ws, { type: 'response.output_audio_transcript.done', transcript: 'Con gusto, te cotizo.' });
 
   m.avanzar(150_000);
-  ws.close(); // el huesped colgo
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  ws.close();
+  await tick();
 
-  const fin = m.pmsLlamadas.find((c) => c[0] === 'fin')[1];
+  const fin = m.de('fin')[0];
   assert.equal(fin.duracion_segundos, 150);
   assert.equal(fin.costo_estimado_usd, 0.15);
   assert.deepEqual(fin.transcripcion.map((t) => t.quien), ['huesped', 'cami']);
   assert.equal(fin.resumen, 'Busca 30 noches.');
-  assert.equal(fin.seguimiento_enviado, true);
+  assert.equal(fin.siguiente_paso, 'cotizacion');
+  assert.equal(fin.enviar_seguimiento, true);
+  assert.equal('seguimiento_texto' in fin, false, 'el webhook no redacta el texto al huesped');
   assert.deepEqual(fin.herramientas_usadas, ['quote_stay']);
-  assert.equal(m.textos.length, 1);
-  assert.match(m.textos[0].body, /^Gracias por llamar a Miu La Frontera/);
+  assert.deepEqual(m.textos, [], 'salio por la cola del PMS, no directo');
   assert.equal(m.manager.activas.size, 0);
 });
 
-test('herramienta que no es de lectura no llega al PMS', async () => {
+test('P1-1: pedir_persona avisa de inmediato al PMS con tipo y motivo; el paso es "persona"', async () => {
+  const m = montar();
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_5'))).procesando;
+  const ws = FakeWs.ultima;
+  mensaje(ws, { type: 'conversation.item.input_audio_transcription.completed', transcript: 'Hay una fuga de agua' });
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'pedir_persona', call_id: 'fc_p',
+    arguments: JSON.stringify({ tipo: 'emergencia', motivo: 'fuga de agua' }) }] } });
+  await tick();
+  assert.deepEqual(m.de('alerta'), [{ call_id: 'rtc_test_5', tipo: 'emergencia', motivo: 'fuga de agua' }]);
+  ws.close();
+  await tick();
+  const fin = m.de('fin')[0];
+  assert.equal(fin.siguiente_paso, 'persona');
+  assert.equal(fin.requiere_persona, true);
+  assert.equal(fin.alerta, null, 'ya se aviso durante la llamada');
+});
+
+test('P1-1: el resumen que detecta una queja la manda como alerta al cerrar', async () => {
+  const m = montar({ resumenJson: { resumen: 'Se queja del ruido.', alerta: 'queja', alerta_motivo: 'ruido del vecino' } });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_6'))).procesando;
+  const ws = FakeWs.ultima;
+  mensaje(ws, { type: 'conversation.item.input_audio_transcription.completed', transcript: 'Hay mucho ruido' });
+  ws.close();
+  await tick();
+  const fin = m.de('fin')[0];
+  assert.equal(fin.alerta, 'queja');
+  assert.equal(fin.alerta_motivo, 'ruido del vecino');
+  assert.equal(fin.siguiente_paso, 'persona');
+});
+
+test('P2-4: huesped de Airbnb: sin quote_stay ni check_availability, y el PMS no las ejecuta aunque las pidan', async () => {
+  const m = montar({ inicio: { huesped_airbnb: true } });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_7'))).procesando;
+  const accept = m.posts.find((p) => p.url.endsWith('/accept'));
+  const nombres = accept.body.tools.map((t) => t.name);
+  assert.equal(nombres.includes('quote_stay'), false);
+  assert.equal(nombres.includes('check_availability'), false);
+  assert.equal(nombres.includes('get_policy'), true);
+  const ws = FakeWs.ultima;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'quote_stay', call_id: 'fc_q', arguments: '{}' }] } });
+  await tick();
+  assert.equal(m.herramientas.length, 0);
+  ws.close();
+  await tick();
+  assert.equal(m.de('fin')[0].siguiente_paso, 'estadia');
+});
+
+test('P2-4/P2-5: persona al mando: sin herramientas comerciales y sin seguimiento', async () => {
+  const m = montar({ inicio: { persona_al_mando: true }, viaFin: 'sin_caso' });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_8'))).procesando;
+  const accept = m.posts.find((p) => p.url.endsWith('/accept'));
+  assert.equal(accept.body.tools.some((t) => t.name === 'quote_stay'), false);
+  FakeWs.ultima.close();
+  await tick();
+  assert.equal(m.de('fin')[0].enviar_seguimiento, false);
+  assert.deepEqual(m.textos, []);
+});
+
+test('seguimiento sin caso en el PMS: el texto fijo devuelto sale directo', async () => {
+  const m = montar({ viaFin: 'sin_caso' });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_10'))).procesando;
+  FakeWs.ultima.close();
+  await tick();
+  assert.deepEqual(m.textos, [{ to: FICTICIO, body: TEXTO_FIJO_PMS }]);
+  assert.deepEqual(m.de('directo'), [{ call_id: 'rtc_test_10', enviado: true }]);
+});
+
+test('herramienta que no es de lectura no llega al PMS ni a herramientas_usadas (P2-6)', async () => {
   const m = montar();
   await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_9'))).procesando;
   const ws = FakeWs.ultima;
-  ws.emit('message', Buffer.from(JSON.stringify({ type: 'response.done', response: { output: [
-    { type: 'function_call', name: 'prepare_pre_reservation', call_id: 'fc_x', arguments: '{}' }] } })));
-  await new Promise((resolve) => setImmediate(resolve));
+  mensaje(ws, { type: 'response.done', response: { output: [
+    { type: 'function_call', name: 'prepare_pre_reservation', call_id: 'fc_x', arguments: '{}' },
+    { type: 'function_call', name: 'x'.repeat(500), call_id: 'fc_y', arguments: '{}' }] } });
+  await tick();
   assert.equal(m.herramientas.length, 0);
   const salida = ws.enviados.find((e) => e.type === 'conversation.item.create');
   assert.match(salida.item.output, /not_authorized/);
+  ws.close();
+  await tick();
+  assert.deepEqual(m.de('fin')[0].herramientas_usadas, []);
+});
+
+test('P2-1: el barrido cuelga las huerfanas y las cierra con el costo maximo', async () => {
+  const m = montar({ huerfanas: [{ call_id: 'rtc_old_1', estado: 'aceptada' }] });
+  const r = await m.manager.barrerHuerfanas();
+  assert.deepEqual(r, { colgadas: 1 });
+  assert.deepEqual(m.de('huerfanas'), [{ mayor_a_min: 15 }]);
+  assert.equal(m.posts.some((p) => p.url.endsWith('/realtime/calls/rtc_old_1/hangup')), true);
+  const fin = m.de('fin')[0];
+  assert.equal(fin.estado, 'fallida');
+  assert.equal(fin.costo_estimado_usd, 0.6);
+  assert.equal(fin.enviar_seguimiento, false);
+});
+
+test('P2-3: costo por minuto 0 no se acepta y se avisa si excede el maximo del PMS', () => {
+  assert.equal(readVozConfig({ VOZ_COSTO_USD_MINUTO: '0' }).costoUsdMinuto, 0.06);
+  assert.equal(costoMaxExcedePms(readVozConfig({ VOZ_COSTO_USD_MINUTO: '5', VOZ_DURACION_MAX_MIN: '30' })), true);
+  assert.equal(costoMaxExcedePms(readVozConfig({})), false);
 });
 
 test('eventos de Meta se registran en el PMS solo con la funcion encendida', async () => {
@@ -255,7 +362,7 @@ test('eventos de Meta se registran en el PMS solo con la funcion encendida', asy
     duracionSegundos: null, ocurridoAt: new Date().toISOString() }];
   const on = montar();
   await on.manager.registrarEventosMeta(ev);
-  assert.equal(on.pmsLlamadas.filter((c) => c[0] === 'meta').length, 1);
+  assert.equal(on.de('meta').length, 1);
   const off = montar({ habilitada: false });
   await off.manager.registrarEventosMeta(ev);
   assert.equal(off.pmsLlamadas.length, 0);

@@ -385,6 +385,10 @@ const pilotAi = new PilotAi({
 // salvo VOZ_LLAMADAS_HABILITADAS=true. Ver lib/voz/call-manager.js.
 const vozConfig = readVozConfig();
 console.log('[voz] config', vozConfigParaLog(vozConfig));
+if (vozConfigParaLog(vozConfig).costo_max_llamada_excede_pms) {
+  console.error('[voz] config_invalida: VOZ_DURACION_MAX_MIN x VOZ_COSTO_USD_MINUTO supera el maximo que acepta el PMS; '
+    + 'el PMS rechazara el registro y no se aceptaran llamadas');
+}
 const vozCalls = createVozCallManager({
   config: vozConfig,
   http: axios,
@@ -393,6 +397,13 @@ const vozCalls = createVozCallManager({
   executePmsTool: (name, args, context) => pmsPilotClient.conversationalTool(name, args, context),
   sendText: (to, body) => sendPilotWhatsAppText(to, body),
 });
+// Llamadas que quedaron abiertas tras un reinicio: al arrancar y cada 10 min.
+if (vozConfig.habilitada) {
+  const barrerVoz = () => vozCalls.barrerHuerfanas().catch((error) =>
+    console.error('[voz] barrido_fallo', { code: error?.code || 'unknown' }));
+  setTimeout(barrerVoz, 30_000).unref();
+  setInterval(barrerVoz, 10 * 60_000).unref();
+}
 
 async function sendPilotWhatsAppText(to, body) {
   const phone = normalizePhone(to);
