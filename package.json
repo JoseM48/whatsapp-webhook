@@ -21,6 +21,7 @@
     "express": "^5.2.1",
     "googleapis": "^173.0.0",
     "openai": "^4.52.0",
-    "puppeteer": "^25.3.0"
+    "puppeteer": "^25.3.0",
+    "ws": "^8.21.1"
   }
 }

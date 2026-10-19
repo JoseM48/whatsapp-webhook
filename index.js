@@ -59,6 +59,10 @@ const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
 const { parseFlowResponse, flowResponseToText } = require('./lib/pilot/flow-response');
 const { toFile } = require('openai');
+const WebSocket = require('ws');
+const { readVozConfig, vozConfigParaLog } = require('./lib/voz/config');
+const { createVozCallManager } = require('./lib/voz/call-manager');
+const { extractMetaCalls, isCallsOnlyPayload } = require('./lib/voz/call-events');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -375,6 +379,19 @@ const pilotAi = new PilotAi({
   apiKey: process.env.ANTHROPIC_API_KEY,
   model: PILOT_ANTHROPIC_MODEL,
   safetySalt: process.env.PILOT_SAFETY_SALT || PMS_LITE_WEBHOOK_SECRET
+});
+
+// LLAMADAS DE WHATSAPP CON CAMI POR VOZ (GO José Manuel 2026-10-19). Apagado
+// salvo VOZ_LLAMADAS_HABILITADAS=true. Ver lib/voz/call-manager.js.
+const vozConfig = readVozConfig();
+console.log('[voz] config', vozConfigParaLog(vozConfig));
+const vozCalls = createVozCallManager({
+  config: vozConfig,
+  http: axios,
+  WebSocketImpl: WebSocket,
+  pms: pmsPilotClient,
+  executePmsTool: (name, args, context) => pmsPilotClient.conversationalTool(name, args, context),
+  sendText: (to, body) => sendPilotWhatsAppText(to, body),
 });
 
 async function sendPilotWhatsAppText(to, body) {
@@ -1131,6 +1148,13 @@ function extractHowTo(row) {
 // Webhook verification (GET /webhook)
 // ===============================
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'dev-verify-token';
+// Webhook de OpenAI (realtime.call.incoming). Firma Standard Webhooks con
+// VOZ_OPENAI_WEBHOOK_SECRET; responde 404 mientras la funcion este apagada.
+app.post('/voz/openai/webhook', (req, res) => {
+  const r = vozCalls.handleWebhook({ rawBody: req.rawBody, headers: req.headers, body: req.body });
+  res.status(r.status).json(r.body);
+});
+
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
@@ -1488,6 +1512,15 @@ app.post('/webhook', async (req, res) => {
       console.warn('[webhook] meta_signature_rejected', { code: metaAuth.error });
       return res.status(metaAuth.status).json({ error: metaAuth.error });
     }
+
+    // Campo `calls` (llamadas de WhatsApp): solo se registra; el audio va por
+    // SIP directo a OpenAI. Un cuerpo que solo trae llamadas termina aqui.
+    const metaCalls = extractMetaCalls(req.body);
+    if (metaCalls.length) {
+      vozCalls.registrarEventosMeta(metaCalls).catch((error) =>
+        console.error('[voz] meta_call_event_failed', { code: error?.code || 'unknown' }));
+    }
+    if (isCallsOnlyPayload(req.body)) return res.sendStatus(200);
 
     const metaStatuses = extractMetaStatuses(req.body);
     if (metaStatuses.length) {
