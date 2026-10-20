@@ -396,6 +396,11 @@ const vozCalls = createVozCallManager({
   pms: pmsPilotClient,
   executePmsTool: (name, args, context) => pmsPilotClient.conversationalTool(name, args, context),
   sendText: (to, body) => sendPilotWhatsAppText(to, body),
+  // Fotos durante la llamada a quien no tiene conversacion en el PMS (texto y
+  // fotos fijos del catalogo aprobado); con conversacion van por el outbox y
+  // se entregan de inmediato con el mismo poller de siempre.
+  sendImage: (to, link, caption) => sendM0ApartmentPhoto(to, link, caption),
+  entregarAhora: () => m0ClosedPilot.pollPendingInternalOutbox(),
 });
 // Llamadas que quedaron abiertas tras un reinicio: al arrancar y cada 10 min.
 if (vozConfig.habilitada) {

@@ -13,7 +13,7 @@ const { verifyOpenAiWebhook, signOpenAiWebhook } = require('../lib/voz/openai-we
 const { decidirAdmision, costoDeLlamada, costoMaximoPorLlamada } = require('../lib/voz/cost-guard');
 const { extractMetaCalls, isCallsOnlyPayload, parseOpenAiCallIncoming, telefonoDeSip } = require('../lib/voz/call-events');
 const { readVozConfig, vozConfigParaLog, costoMaxExcedePms } = require('../lib/voz/config');
-const { herramientasDeVoz, instruccionesCamiVoz } = require('../lib/voz/cami-voz');
+const { herramientasDeVoz, instruccionesCamiVoz, normalizarArgsVoz, bloqueInventario } = require('../lib/voz/cami-voz');
 const { createVozCallManager } = require('../lib/voz/call-manager');
 
 const SECRETO = `whsec_${Buffer.from('secreto-de-prueba-voz').toString('base64')}`;
@@ -118,7 +118,7 @@ test('instrucciones: IA, sin cobro por telefono y regla de Airbnb', () => {
   assert.match(t, /Nunca reservas, apartas, cobras/);
   assert.match(t, /huésped de una reserva de Airbnb/);
   const nombres = herramientasDeVoz().map((h) => h.name);
-  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona'].includes(n)).sort(),
+  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat'].includes(n)).sort(),
     ['check_availability', 'get_policy', 'get_public_apartment_attributes', 'quote_stay', 'search_commercial_knowledge']);
   assert.equal(nombres.includes('prepare_pre_reservation'), false);
 });
@@ -133,8 +133,10 @@ class FakeWs extends EventEmitter {
 const TEXTO_FIJO_PMS = 'Hola, soy Cami (texto fijo del PMS).';
 
 function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, viaFin = 'outbox', viaRechazo = 'outbox',
-  resumenJson = { resumen: 'Busca 30 noches.', alerta: null, alerta_motivo: null }, huerfanas = [] } = {}) {
-  const posts = [], textos = [], pmsLlamadas = [], herramientas = [];
+  resumenJson = { resumen: 'Busca 30 noches.', alerta: null, alerta_motivo: null }, huerfanas = [],
+  fotosResp = (b) => ({ via: 'outbox', codigos: b.apartamentos, texto: 'TEXTO FOTOS', fotos_encoladas: 3 }),
+  disponibles = ['LF-510', 'LF-904', 'LF-1208'] } = {}) {
+  const posts = [], textos = [], pmsLlamadas = [], herramientas = [], imagenes = [], entregas = [];
   const estado = { alertaFalla: false };
   const config = readVozConfig({ VOZ_LLAMADAS_HABILITADAS: habilitada ? 'true' : '', VOZ_OPENAI_API_KEY: 'sk-test-no-real',
     VOZ_OPENAI_WEBHOOK_SECRET: SECRETO });
@@ -153,16 +155,21 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
     vozAlerta: async (b) => { pmsLlamadas.push(['alerta', b]); if (estado.alertaFalla) throw new Error('down'); return { aviso_encolado: true }; },
     vozSeguimientoDirecto: async (b) => { pmsLlamadas.push(['directo', b]); return {}; },
     vozHuerfanas: async (b) => { pmsLlamadas.push(['huerfanas', b]); return { llamadas: huerfanas }; },
+    vozFotos: async (b) => { pmsLlamadas.push(['fotos', b]); return fotosResp(b); },
     vozMetaEvento: async (b) => { pmsLlamadas.push(['meta', b]); return {}; },
   };
   const timers = { setTimeout: () => 0, clearTimeout: () => {} };
   let t = Date.now();
   const manager = createVozCallManager({ config, http, WebSocketImpl: FakeWs, pms, timers, now: () => t,
-    executePmsTool: async (name, args, ctx) => { herramientas.push({ name, args, ctx }); return { status: 'ok', data: { total: 1 } }; },
+    executePmsTool: async (name, args, ctx) => { herramientas.push({ name, args, ctx });
+      return name === 'check_availability' ? { status: 'ok', data: { available: disponibles.map((c) => ({ apartment_code: c })) } }
+        : { status: 'ok', data: { total: 1 } }; },
     sendText: async (to, body) => { textos.push({ to, body }); },
+    sendImage: async (to, link, caption) => { imagenes.push({ to, link, caption }); },
+    entregarAhora: async () => { entregas.push(1); },
     logger: { info() {}, warn() {}, error() {} } });
   const de = (paso) => pmsLlamadas.filter((c) => c[0] === paso).map((c) => c[1]);
-  return { manager, posts, textos, pmsLlamadas, herramientas, de, avanzar: (ms) => { t += ms; },
+  return { manager, posts, textos, pmsLlamadas, herramientas, imagenes, entregas, de, avanzar: (ms) => { t += ms; },
     fallarAlerta: () => { estado.alertaFalla = true; } };
 }
 
@@ -385,4 +392,96 @@ test('P2-1 (2a revision): si el aviso durante la llamada falla, la alerta sale a
   const fin = pmsAlerta('fin')[0];
   assert.equal(fin.alerta, 'persona');
   assert.equal(fin.alerta_motivo, 'quiere hablar con José');
+});
+
+// ---------------------------------------------------------------- 2026-10-19: primera llamada real
+test('argumentos de la voz: sin codigo busca en todos; salida -> noches; basura -> null', () => {
+  assert.deepEqual(normalizarArgsVoz('check_availability', { arrival_date: '2026-11-15', departure_date: '2026-12-15', guests: 2,
+    apartment_code: 'cualquiera' }), { arrival_date: '2026-11-15', nights: 30, apartment_code: null, guests: 2 });
+  assert.deepEqual(normalizarArgsVoz('quote_stay', { arrival_date: '2026-11-15', nights: 30, apartment_code: 'el 510' }),
+    { arrival_date: '2026-11-15', nights: 30, apartment_code: 'LF-510' });
+  assert.equal(normalizarArgsVoz('check_availability', { arrival_date: '15 de noviembre', nights: 30 }).arrival_date, null);
+  assert.equal(normalizarArgsVoz('check_availability', { arrival_date: '2026-02-30', nights: 3 }).arrival_date, null);
+  assert.equal(normalizarArgsVoz('check_availability', { arrival_date: '2026-11-15', apartment_code: '' }).apartment_code, null);
+  const ca = herramientasDeVoz().find((t) => t.name === 'check_availability');
+  assert.deepEqual(ca.parameters.required, ['arrival_date']);
+  assert.equal(JSON.stringify(ca.parameters).includes('null'), false, 'sin tipos nulos en el esquema de voz');
+});
+
+test('instrucciones: inventario publicado, nunca pedir codigo, opciones y fotos', () => {
+  const inv = { unidades: [{ codigo: 'LF-510', titulo: 'Apartaestudio con balcón', resumen: null, capacidad: 2, area_m2: 31,
+    camas: ['cama queen'], balcon: true, destacados: [] }], edificio: ['Piscina en la terraza.'] };
+  const t = instruccionesCamiVoz({ hoy: '2026-10-19', inventario: inv });
+  assert.match(t, /LF-510: Apartaestudio con balcón; hasta 2 personas; unos 31 m²; cama queen; con balcón/);
+  assert.match(t, /NUNCA pidas código, tipo ni tamaño de apartamento/);
+  assert.match(t, /enviar_opciones_al_chat/);
+  assert.match(t, /seguir por ahí escribiendo o con notas de voz, o volver a llamarte/);
+  assert.match(bloqueInventario(null), /No describas tipos de apartamento/);
+  const airbnb = instruccionesCamiVoz({ hoy: '2026-10-19', huespedAirbnb: true, inventario: inv });
+  assert.equal(/enviar_opciones_al_chat/.test(airbnb), false);
+});
+
+async function llamadaConDisponibilidad(m, callId) {
+  await m.manager.handleWebhook(firmado(eventoEntrante(callId))).procesando;
+  const ws = FakeWs.ultima;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'check_availability', call_id: 'fc_ca',
+    arguments: JSON.stringify({ arrival_date: '2026-11-15', departure_date: '2026-12-15', guests: 2 }) }] } });
+  await tick();
+  return ws;
+}
+
+test('check_availability por voz llega al PMS sin codigo y con noches; las fotos van por el PMS y se entregan ya', async () => {
+  const m = montar({ inicio: { inventario: { unidades: [{ codigo: 'LF-510', titulo: 'Apartaestudio' }], edificio: [] } } });
+  const ws = await llamadaConDisponibilidad(m, 'rtc_f1');
+  assert.match(m.posts.find((p) => p.url.endsWith('/accept')).body.instructions, /LF-510: Apartaestudio/);
+  assert.deepEqual(m.herramientas[0].args, { arrival_date: '2026-11-15', nights: 30, apartment_code: null, guests: 2 });
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'enviar_opciones_al_chat', call_id: 'fc_f',
+    arguments: JSON.stringify({ apartment_codes: ['LF-510', '904', 'LF-210'] }) }] } });
+  await tick();
+  assert.deepEqual(m.de('fotos')[0], { call_id: 'rtc_f1', apartamentos: ['LF-510', 'LF-904'], check_in: '2026-11-15',
+    check_out: '2026-12-15', guests: 2 });
+  assert.equal(m.entregas.length, 1);
+  const salida = ws.enviados.filter((e) => e.type === 'conversation.item.create').pop();
+  assert.match(salida.item.output, /"enviadas":\["LF-510","LF-904"\]/);
+  ws.close();
+  await tick();
+  assert.equal(m.de('fin')[0].siguiente_paso, 'fotos');
+  assert.deepEqual(m.textos, []);
+});
+
+test('fotos sin check_availability previo o de unidades no disponibles: no se envia nada', async () => {
+  const m = montar();
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_f2'))).procesando;
+  const ws = FakeWs.ultima;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'enviar_opciones_al_chat', call_id: 'fc_x',
+    arguments: JSON.stringify({ apartment_codes: ['LF-510'] }) }] } });
+  await tick();
+  assert.match(ws.enviados.filter((e) => e.type === 'conversation.item.create').pop().item.output, /primero_check_availability/);
+  const m2 = montar({ disponibles: ['LF-904'] });
+  const ws2 = await llamadaConDisponibilidad(m2, 'rtc_f3');
+  mensaje(ws2, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'enviar_opciones_al_chat', call_id: 'fc_y',
+    arguments: JSON.stringify({ apartment_codes: ['LF-510'] }) }] } });
+  await tick();
+  assert.equal(m2.de('fotos').length, 0);
+  assert.equal(m.de('fotos').length, 0);
+});
+
+test('quien nunca escribio: el texto fijo y las fotos del catalogo salen directo', async () => {
+  const m = montar({ fotosResp: () => ({ via: 'sin_caso', codigos: ['LF-510'], texto: 'TEXTO FIJO FOTOS',
+    fotos: [{ clave: 'LF-510/01-portada', pie: 'LF-510 · 1/6' }, { clave: 'LF-510/no-existe', pie: 'x' }] }) });
+  const ws = await llamadaConDisponibilidad(m, 'rtc_f4');
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'enviar_opciones_al_chat', call_id: 'fc_z',
+    arguments: JSON.stringify({ apartment_codes: ['LF-510'] }) }] } });
+  await tick();
+  assert.deepEqual(m.textos, [{ to: FICTICIO, body: 'TEXTO FIJO FOTOS' }]);
+  assert.equal(m.imagenes.length, 1, 'solo claves del catalogo aprobado');
+  assert.match(m.imagenes[0].link, /\/media\/photos\/LF-510\/01-portada\.jpg/);
+  assert.equal(m.imagenes[0].caption, 'LF-510 · 1/6');
+});
+
+test('huesped de Airbnb: sin herramienta de fotos', async () => {
+  const m = montar({ inicio: { huesped_airbnb: true } });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_f5'))).procesando;
+  const nombres = m.posts.find((p) => p.url.endsWith('/accept')).body.tools.map((t) => t.name);
+  assert.equal(nombres.includes('enviar_opciones_al_chat'), false);
 });
