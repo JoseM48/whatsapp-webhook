@@ -158,7 +158,8 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
     vozFotos: async (b) => { pmsLlamadas.push(['fotos', b]); return fotosResp(b); },
     vozMetaEvento: async (b) => { pmsLlamadas.push(['meta', b]); return {}; },
   };
-  const timers = { setTimeout: () => 0, clearTimeout: () => {} };
+  const pendientes = [];
+  const timers = { setTimeout: (fn, ms) => { pendientes.push({ fn, ms }); return pendientes.length; }, clearTimeout: () => {} };
   let t = Date.now();
   const manager = createVozCallManager({ config, http, WebSocketImpl: FakeWs, pms, timers, now: () => t,
     executePmsTool: async (name, args, ctx) => { herramientas.push({ name, args, ctx });
@@ -169,7 +170,9 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
     entregarAhora: async () => { entregas.push(1); },
     logger: { info() {}, warn() {}, error() {} } });
   const de = (paso) => pmsLlamadas.filter((c) => c[0] === paso).map((c) => c[1]);
-  return { manager, posts, textos, pmsLlamadas, herramientas, imagenes, entregas, de, avanzar: (ms) => { t += ms; },
+  // Corre los temporizadores programados con exactamente `ms` (p. ej. el saludo).
+  const correr = (ms) => { for (const p of pendientes.filter((x) => x.ms === ms)) p.fn(); };
+  return { manager, posts, textos, pmsLlamadas, herramientas, imagenes, entregas, de, correr, avanzar: (ms) => { t += ms; },
     fallarAlerta: () => { estado.alertaFalla = true; } };
 }
 
@@ -239,13 +242,18 @@ test('llamada completa: aceptada antes de aceptar, herramienta, cuelga, resumen 
 
   const ws = FakeWs.ultima;
   ws.emit('open');
+  assert.equal(ws.enviados.length, 0, 'A: el saludo espera a que fluya el audio');
+  m.correr(1500);
   assert.equal(ws.enviados[0].type, 'response.create');
   mensaje(ws, { type: 'conversation.item.input_audio_transcription.completed', transcript: 'Quiero un mes desde noviembre' });
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'check_availability', call_id: 'fc_0',
+    arguments: JSON.stringify({ nights: 30, arrival_date: '2026-11-01', guests: 2 }) }] } });
+  await tick();
   mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'quote_stay', call_id: 'fc_1',
     arguments: JSON.stringify({ nights: 30, arrival_date: '2026-11-01', apartment_code: null }) }] } });
   await tick();
-  assert.equal(m.herramientas[0].name, 'quote_stay');
-  assert.equal(m.herramientas[0].ctx.proposal_snapshot, null);
+  assert.equal(m.herramientas[1].name, 'quote_stay');
+  assert.equal(m.herramientas[1].ctx.proposal_snapshot, null);
   mensaje(ws, { type: 'response.output_audio_transcript.done', transcript: 'Con gusto, te cotizo.' });
 
   m.avanzar(150_000);
@@ -260,7 +268,7 @@ test('llamada completa: aceptada antes de aceptar, herramienta, cuelga, resumen 
   assert.equal(fin.siguiente_paso, 'cotizacion');
   assert.equal(fin.enviar_seguimiento, true);
   assert.equal('seguimiento_texto' in fin, false, 'el webhook no redacta el texto al huesped');
-  assert.deepEqual(fin.herramientas_usadas, ['quote_stay']);
+  assert.deepEqual(fin.herramientas_usadas, ['check_availability', 'quote_stay']);
   assert.deepEqual(m.textos, [], 'salio por la cola del PMS, no directo');
   assert.equal(m.manager.activas.size, 0);
 });
@@ -442,7 +450,9 @@ test('check_availability por voz llega al PMS sin codigo y con noches; las fotos
     check_out: '2026-12-15', guests: 2 });
   assert.equal(m.entregas.length, 1);
   const salida = ws.enviados.filter((e) => e.type === 'conversation.item.create').pop();
-  assert.match(salida.item.output, /"enviadas":\["LF-510","LF-904"\]/);
+  const res = JSON.parse(salida.item.output);
+  assert.deepEqual(res.data.enviadas_ahora, [{ posicion: 1, decir: 'el 510' }, { posicion: 2, decir: 'el 904' }]);
+  assert.equal(res.data.total_enviadas_ahora, 2);
   ws.close();
   await tick();
   assert.equal(m.de('fin')[0].siguiente_paso, 'fotos');
@@ -505,15 +515,18 @@ test('P2-1: pedir otra vez las mismas fotos no las reenvia (ni por el PMS ni dir
   assert.equal(m.de('fotos').length, 1);
   assert.equal(m.textos.length, 2);
   assert.equal(m.imagenes.length, 1);
-  assert.match(ultimaSalida(ws), /ya_enviadas_nada_nuevo/);
+  const res = JSON.parse(ultimaSalida(ws));
+  assert.equal(res.data.total_enviadas_ahora, 0);
+  assert.deepEqual(res.data.no_enviadas, [{ decir: 'el 510', motivo: 'ya_enviada_en_esta_llamada' }]);
+  assert.match(res.instruccion, /no digas que enviaste fotos/);
 });
 
 test('P2-2: si el PMS no tiene nada nuevo que mandar, el modelo lo sabe y no es error', async () => {
-  const m = montar({ fotosResp: () => ({ via: 'rechazado', motivo: 'fotos_ya_enviadas_24h', codigos: [], texto: null }) });
+  const m = montar({ fotosResp: () => ({ via: 'rechazado', motivo: 'ya_enviadas_en_esta_llamada', codigos: [], texto: null }) });
   const ws = await llamadaConDisponibilidad(m, 'rtc_r3');
   pedirFotos(ws, ['LF-510']);
   await tick();
-  assert.match(ultimaSalida(ws), /"status":"ok".*ya_enviadas_nada_nuevo/);
+  assert.match(ultimaSalida(ws), /"status":"ok".*"total_enviadas_ahora":0/);
   ws.close();
   await tick();
   assert.notEqual(m.de('fin')[0].siguiente_paso, 'fotos');
@@ -568,8 +581,72 @@ test('enviar_opciones_al_chat devuelve el orden y como decirlo, acumulado en la 
   pedirFotos(ws, ['LF-1208', 'LF-510']);
   await tick();
   const out = JSON.parse(ultimaSalida(ws));
-  assert.deepEqual(out.data.orden, [{ posicion: 1, codigo: 'LF-1208', decir: 'el 1208' }, { posicion: 2, codigo: 'LF-510', decir: 'el 510' }]);
+  assert.deepEqual(out.data.enviadas_ahora, [{ posicion: 1, decir: 'el 1208' }, { posicion: 2, decir: 'el 510' }]);
   pedirFotos(ws, ['LF-904'], 'fc_n2');
   await tick();
-  assert.deepEqual(JSON.parse(ultimaSalida(ws)).data.orden.map((o) => o.decir), ['el 1208', 'el 510', 'el 904']);
+  const out2 = JSON.parse(ultimaSalida(ws));
+  assert.deepEqual(out2.data.enviadas_ahora, [{ posicion: 3, decir: 'el 904' }]);
+  assert.deepEqual(out2.data.todas_en_esta_llamada.map((o) => o.decir), ['el 1208', 'el 510', 'el 904']);
+});
+
+// ---------------------------------------------------------------- tercera llamada real (A, B, C, E)
+test('A: si la persona habla antes del saludo, no se fuerza el saludo', async () => {
+  const m = montar();
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_a1'))).procesando;
+  const ws = FakeWs.ultima;
+  ws.emit('open');
+  mensaje(ws, { type: 'input_audio_buffer.speech_started' });
+  await tick();
+  m.correr(1500);
+  assert.equal(ws.enviados.filter((e) => e.type === 'response.create').length, 0);
+  assert.equal(readVozConfig({ VOZ_SALUDO_DEMORA_MS: '900' }).saludoDemoraMs, 900);
+});
+
+test('B: quote_stay se rechaza por codigo sin disponibilidad de esas fechas en esta llamada', async () => {
+  const m = montar();
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_b1'))).procesando;
+  const ws = FakeWs.ultima;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'quote_stay', call_id: 'fc_q1',
+    arguments: JSON.stringify({ arrival_date: '2026-11-15', departure_date: '2026-12-15' }) }] } });
+  await tick();
+  assert.equal(m.herramientas.length, 0);
+  assert.match(ultimaSalida(ws), /primero_check_availability/);
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'check_availability', call_id: 'fc_c1',
+    arguments: JSON.stringify({ arrival_date: '2026-11-15', departure_date: '2026-12-15', guests: 2 }) }] } });
+  await tick();
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'quote_stay', call_id: 'fc_q2',
+    arguments: JSON.stringify({ arrival_date: '2026-12-01', nights: 10 }) }] } });
+  await tick();
+  assert.match(ultimaSalida(ws), /primero_check_availability/, 'otras fechas: otra vez disponibilidad');
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'quote_stay', call_id: 'fc_q3',
+    arguments: JSON.stringify({ arrival_date: '2026-11-15', nights: 30 }) }] } });
+  await tick();
+  assert.deepEqual(m.herramientas.map((h) => h.name), ['check_availability', 'quote_stay']);
+});
+
+test('C/E: la herramienta dice exactamente lo que salio, incluidas zonas comunes y lo que no salio', async () => {
+  const m = montar({ fotosResp: (b) => ({ via: 'outbox', codigos: [b.apartamentos[0]], zonas_comunes: true,
+    no_enviadas: b.apartamentos.slice(1).map((codigo) => ({ codigo, motivo: 'limite_3' })), texto: 'T', fotos_encoladas: 9 }) });
+  const ws = await llamadaConDisponibilidad(m, 'rtc_c1');
+  pedirFotos(ws, ['LF-510', 'LF-904']);
+  await tick();
+  const res = JSON.parse(ultimaSalida(ws));
+  assert.deepEqual(res.data.enviadas_ahora, [{ posicion: 1, decir: 'el 510' }]);
+  assert.deepEqual(res.data.no_enviadas, [{ decir: 'el 904', motivo: 'limite_3' }]);
+  assert.equal(res.data.zonas_comunes_enviadas, true);
+  assert.match(res.instruccion, /UNA opción ahora y fotos de las zonas comunes/);
+});
+
+test('E: envio directo con zonas comunes al final, sin contarlas como opcion', async () => {
+  const m = montar({ fotosResp: () => ({ via: 'sin_caso', codigos: ['LF-510'], texto: 'T',
+    apartamentos: [{ codigo: 'LF-510', ficha: 'Apartamento LF-510', fotos: [{ clave: 'LF-510/01-portada', pie: 'LF-510 · Vista general' }] },
+      { codigo: 'EDIFICIO', ficha: 'Zonas comunes', fotos: [{ clave: 'EDIFICIO/01-fachada', pie: 'Zonas comunes · Fachada' }] }] }) });
+  const ws = await llamadaConDisponibilidad(m, 'rtc_e1');
+  pedirFotos(ws, ['LF-510']);
+  await tick();
+  assert.deepEqual(m.textos.map((t) => t.body), ['T', 'Apartamento LF-510', 'Zonas comunes']);
+  assert.deepEqual(m.imagenes.map((i) => i.caption), ['LF-510 · Vista general', 'Zonas comunes · Fachada']);
+  const res = JSON.parse(ultimaSalida(ws));
+  assert.deepEqual(res.data.enviadas_ahora, [{ posicion: 1, decir: 'el 510' }]);
+  assert.equal(res.data.zonas_comunes_enviadas, true);
 });
