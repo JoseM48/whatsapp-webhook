@@ -412,7 +412,7 @@ test('instrucciones: inventario publicado, nunca pedir codigo, opciones y fotos'
   const inv = { unidades: [{ codigo: 'LF-510', titulo: 'Apartaestudio con balcón', resumen: null, capacidad: 2, area_m2: 31,
     camas: ['cama queen'], balcon: true, destacados: [] }], edificio: ['Piscina en la terraza.'] };
   const t = instruccionesCamiVoz({ hoy: '2026-10-19', inventario: inv });
-  assert.match(t, /LF-510: Apartaestudio con balcón; hasta 2 personas; unos 31 m²; cama queen; con balcón/);
+  assert.match(t, /el 510 \(código LF-510\): Apartaestudio con balcón; hasta 2 personas; unos 31 m²; cama queen; con balcón/);
   assert.match(t, /NUNCA pidas código, tipo ni tamaño de apartamento/);
   assert.match(t, /enviar_opciones_al_chat/);
   assert.match(t, /seguir por ahí escribiendo o con notas de voz, o volver a llamarte/);
@@ -433,7 +433,7 @@ async function llamadaConDisponibilidad(m, callId) {
 test('check_availability por voz llega al PMS sin codigo y con noches; las fotos van por el PMS y se entregan ya', async () => {
   const m = montar({ inicio: { inventario: { unidades: [{ codigo: 'LF-510', titulo: 'Apartaestudio' }], edificio: [] } } });
   const ws = await llamadaConDisponibilidad(m, 'rtc_f1');
-  assert.match(m.posts.find((p) => p.url.endsWith('/accept')).body.instructions, /LF-510: Apartaestudio/);
+  assert.match(m.posts.find((p) => p.url.endsWith('/accept')).body.instructions, /el 510 \(código LF-510\): Apartaestudio/);
   assert.deepEqual(m.herramientas[0].args, { arrival_date: '2026-11-15', nights: 30, apartment_code: null, guests: 2 });
   mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'enviar_opciones_al_chat', call_id: 'fc_f',
     arguments: JSON.stringify({ apartment_codes: ['LF-510', '904', 'LF-210'] }) }] } });
@@ -468,15 +468,16 @@ test('fotos sin check_availability previo o de unidades no disponibles: no se en
 
 test('quien nunca escribio: el texto fijo y las fotos del catalogo salen directo', async () => {
   const m = montar({ fotosResp: () => ({ via: 'sin_caso', codigos: ['LF-510'], texto: 'TEXTO FIJO FOTOS',
-    fotos: [{ clave: 'LF-510/01-portada', pie: 'LF-510 · 1/6' }, { clave: 'LF-510/no-existe', pie: 'x' }] }) });
+    apartamentos: [{ codigo: 'LF-510', ficha: 'Apartamento LF-510', fotos: [{ clave: 'LF-510/01-portada', pie: 'LF-510 · Vista general' },
+      { clave: 'LF-510/no-existe', pie: 'x' }] }] }) });
   const ws = await llamadaConDisponibilidad(m, 'rtc_f4');
   mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'enviar_opciones_al_chat', call_id: 'fc_z',
     arguments: JSON.stringify({ apartment_codes: ['LF-510'] }) }] } });
   await tick();
-  assert.deepEqual(m.textos, [{ to: FICTICIO, body: 'TEXTO FIJO FOTOS' }]);
+  assert.deepEqual(m.textos, [{ to: FICTICIO, body: 'TEXTO FIJO FOTOS' }, { to: FICTICIO, body: 'Apartamento LF-510' }]);
   assert.equal(m.imagenes.length, 1, 'solo claves del catalogo aprobado');
   assert.match(m.imagenes[0].link, /\/media\/photos\/LF-510\/01-portada\.jpg/);
-  assert.equal(m.imagenes[0].caption, 'LF-510 · 1/6');
+  assert.equal(m.imagenes[0].caption, 'LF-510 · Vista general');
 });
 
 test('huesped de Airbnb: sin herramienta de fotos', async () => {
@@ -495,14 +496,14 @@ const ultimaSalida = (ws) => ws.enviados.filter((e) => e.type === 'conversation.
 
 test('P2-1: pedir otra vez las mismas fotos no las reenvia (ni por el PMS ni directo)', async () => {
   const m = montar({ fotosResp: (b) => ({ via: 'sin_caso', codigos: b.apartamentos, texto: 'TEXTO FIJO',
-    fotos: [{ clave: 'LF-510/01-portada', pie: 'LF-510 · 1/6' }] }) });
+    apartamentos: [{ codigo: 'LF-510', ficha: 'Apartamento LF-510', fotos: [{ clave: 'LF-510/01-portada', pie: 'LF-510 · Vista general' }] }] }) });
   const ws = await llamadaConDisponibilidad(m, 'rtc_r1');
   pedirFotos(ws, ['LF-510']);
   await tick();
   pedirFotos(ws, ['LF-510'], 'fc_r2');
   await tick();
   assert.equal(m.de('fotos').length, 1);
-  assert.equal(m.textos.length, 1);
+  assert.equal(m.textos.length, 2);
   assert.equal(m.imagenes.length, 1);
   assert.match(ultimaSalida(ws), /ya_enviadas_nada_nuevo/);
 });
@@ -538,4 +539,37 @@ test('P2-4: con otras fechas la lista se reemplaza', async () => {
   pedirFotos(ws, ['LF-904']);
   await tick();
   assert.deepEqual(m.de('fotos')[0], { call_id: 'rtc_r5', apartamentos: ['LF-904'], check_in: '2026-12-01', check_out: '2026-12-31', guests: 2 });
+});
+
+// ---------------------------------------------------------------- naturalidad (José Manuel, 2026-10-19)
+test('saludo paisa: calido, corto, dice asistente virtual y que se transcribe', () => {
+  const { PRESENTACION } = require('../lib/voz/cami-voz');
+  assert.equal(PRESENTACION, '¡Hola! Qué bueno que llamas a Miu La Frontera. Te habla Cami, la asistente virtual. '
+    + 'Te cuento que la llamada se transcribe para seguirte ayudando por el chat. ¿En qué te puedo ayudar?');
+});
+
+test('instrucciones: disponibilidad primero, sin prometer cotizacion, sin LF, sin relleno, despedida y marca', () => {
+  const t = instruccionesCamiVoz({ hoy: '2026-10-19', inventario: { unidades: [{ codigo: 'LF-1109', titulo: 'Estudio en Mío La Frontera' }] } });
+  assert.match(t, /usa PRIMERO check_availability/);
+  assert.match(t, /NO prometas enviar una cotización o propuesta escrita/);
+  assert.match(t, /di "el 510", "el 1109": nunca digas "LF"/);
+  assert.match(t, /No pidas confirmaciones innecesarias/);
+  assert.match(t, /UNA sola frase corta/);
+  assert.match(t, /usa el orden que devolvió enviar_opciones_al_chat/);
+  assert.match(t, /responder ahí escribiendo o con una nota de voz/);
+  assert.match(t, /se pronuncia "miu". Nunca digas "Mío"/);
+  assert.match(t, /el 1109 \(código LF-1109\): Estudio en Miu La Frontera/);
+  assert.equal(/Mío La Frontera/.test(t), false);
+});
+
+test('enviar_opciones_al_chat devuelve el orden y como decirlo, acumulado en la llamada', async () => {
+  const m = montar();
+  const ws = await llamadaConDisponibilidad(m, 'rtc_n1');
+  pedirFotos(ws, ['LF-1208', 'LF-510']);
+  await tick();
+  const out = JSON.parse(ultimaSalida(ws));
+  assert.deepEqual(out.data.orden, [{ posicion: 1, codigo: 'LF-1208', decir: 'el 1208' }, { posicion: 2, codigo: 'LF-510', decir: 'el 510' }]);
+  pedirFotos(ws, ['LF-904'], 'fc_n2');
+  await tick();
+  assert.deepEqual(JSON.parse(ultimaSalida(ws)).data.orden.map((o) => o.decir), ['el 1208', 'el 510', 'el 904']);
 });
