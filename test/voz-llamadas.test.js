@@ -485,3 +485,57 @@ test('huesped de Airbnb: sin herramienta de fotos', async () => {
   const nombres = m.posts.find((p) => p.url.endsWith('/accept')).body.tools.map((t) => t.name);
   assert.equal(nombres.includes('enviar_opciones_al_chat'), false);
 });
+
+// ---------------------------------------------------------------- revision de las fotos (P2-1, P2-2, P2-4)
+function pedirFotos(ws, codigos, id = 'fc_r') {
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'enviar_opciones_al_chat', call_id: id,
+    arguments: JSON.stringify({ apartment_codes: codigos }) }] } });
+}
+const ultimaSalida = (ws) => ws.enviados.filter((e) => e.type === 'conversation.item.create').pop().item.output;
+
+test('P2-1: pedir otra vez las mismas fotos no las reenvia (ni por el PMS ni directo)', async () => {
+  const m = montar({ fotosResp: (b) => ({ via: 'sin_caso', codigos: b.apartamentos, texto: 'TEXTO FIJO',
+    fotos: [{ clave: 'LF-510/01-portada', pie: 'LF-510 · 1/6' }] }) });
+  const ws = await llamadaConDisponibilidad(m, 'rtc_r1');
+  pedirFotos(ws, ['LF-510']);
+  await tick();
+  pedirFotos(ws, ['LF-510'], 'fc_r2');
+  await tick();
+  assert.equal(m.de('fotos').length, 1);
+  assert.equal(m.textos.length, 1);
+  assert.equal(m.imagenes.length, 1);
+  assert.match(ultimaSalida(ws), /ya_enviadas_nada_nuevo/);
+});
+
+test('P2-2: si el PMS no tiene nada nuevo que mandar, el modelo lo sabe y no es error', async () => {
+  const m = montar({ fotosResp: () => ({ via: 'rechazado', motivo: 'fotos_ya_enviadas_24h', codigos: [], texto: null }) });
+  const ws = await llamadaConDisponibilidad(m, 'rtc_r3');
+  pedirFotos(ws, ['LF-510']);
+  await tick();
+  assert.match(ultimaSalida(ws), /"status":"ok".*ya_enviadas_nada_nuevo/);
+  ws.close();
+  await tick();
+  assert.notEqual(m.de('fin')[0].siguiente_paso, 'fotos');
+});
+
+test('P2-4: una consulta posterior de una sola unidad con las mismas fechas no achica las opciones', async () => {
+  const m = montar();
+  const ws = await llamadaConDisponibilidad(m, 'rtc_r4');
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'check_availability', call_id: 'fc_ca2',
+    arguments: JSON.stringify({ arrival_date: '2026-11-15', departure_date: '2026-12-15', guests: 2, apartment_code: 'LF-904' }) }] } });
+  await tick();
+  pedirFotos(ws, ['LF-510', 'LF-1208']);
+  await tick();
+  assert.deepEqual(m.de('fotos')[0].apartamentos, ['LF-510', 'LF-1208']);
+});
+
+test('P2-4: con otras fechas la lista se reemplaza', async () => {
+  const m = montar({ disponibles: ['LF-904'] });
+  const ws = await llamadaConDisponibilidad(m, 'rtc_r5');
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'check_availability', call_id: 'fc_ca3',
+    arguments: JSON.stringify({ arrival_date: '2026-12-01', nights: 30, guests: 2 }) }] } });
+  await tick();
+  pedirFotos(ws, ['LF-904']);
+  await tick();
+  assert.deepEqual(m.de('fotos')[0], { call_id: 'rtc_r5', apartamentos: ['LF-904'], check_in: '2026-12-01', check_out: '2026-12-31', guests: 2 });
+});
