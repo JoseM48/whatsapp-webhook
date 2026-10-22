@@ -112,6 +112,6 @@ test('el reclamo declara que este webhook sabe enviar documentos (cabecera fuera
   assert.equal(calls[0].url, 'https://pms.test/api/supervised-pilot/closed-pilot/outbound/claim');
   assert.deepEqual(calls[0].body, { outbox_id: 5 });
   // 2026-10-13: tambien imagenes (fotos del canal de Desarrollos).
-  assert.equal(calls[0].options.headers['X-M0-Accepts'], 'document, image, buttons, equipo_image');
+  assert.equal(calls[0].options.headers['X-M0-Accepts'], 'document, image, buttons, equipo_image, internal_buttons');
   assert.ok(calls[0].options.headers['X-PMS-Signature']);
 });
