@@ -1729,7 +1729,7 @@ app.post('/webhook', async (req, res) => {
           const closed = await m0CommercialResponder.captureAndAcknowledge({
             from: normalizePhone(incoming.from), text: raw, messageId: incoming.messageId,
             timestamp: incoming.timestamp, name: incoming.name, referral: incoming.referral,
-            landingRef: incoming.landingRef, adjunto
+            landingRef: incoming.landingRef, adjunto, ubicacion: incoming.ubicacion || null
           });
           console.info('[m0-commercial] inbound_captured', {
             deduplicated: closed.capture_result?.deduplicated === true,
