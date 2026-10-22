@@ -159,6 +159,7 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
     vozMetaEvento: async (b) => { pmsLlamadas.push(['meta', b]); return {}; },
   };
   const pendientes = [];
+  const logs = [];
   const timers = { setTimeout: (fn, ms) => { pendientes.push({ fn, ms }); return pendientes.length; }, clearTimeout: () => {} };
   let t = Date.now();
   const manager = createVozCallManager({ config, http, WebSocketImpl: FakeWs, pms, timers, now: () => t,
@@ -168,11 +169,12 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
     sendText: async (to, body) => { textos.push({ to, body }); },
     sendImage: async (to, link, caption) => { imagenes.push({ to, link, caption }); },
     entregarAhora: async () => { entregas.push(1); },
-    logger: { info() {}, warn() {}, error() {} } });
+    logger: { info(msg, datos) { logs.push([msg, datos]); }, warn() {}, error() {} } });
   const de = (paso) => pmsLlamadas.filter((c) => c[0] === paso).map((c) => c[1]);
   // Corre los temporizadores programados con exactamente `ms` (p. ej. el saludo).
-  const correr = (ms) => { for (const p of pendientes.filter((x) => x.ms === ms)) p.fn(); };
-  return { manager, posts, textos, pmsLlamadas, herramientas, imagenes, entregas, de, correr, avanzar: (ms) => { t += ms; },
+  // Cada temporizador corre una sola vez (como uno real).
+  const correr = (ms) => { for (const p of pendientes.filter((x) => x.ms === ms && !x.hecho)) { p.hecho = true; p.fn(); } };
+  return { logs, pendientes, manager, posts, textos, pmsLlamadas, herramientas, imagenes, entregas, de, correr, avanzar: (ms) => { t += ms; },
     fallarAlerta: () => { estado.alertaFalla = true; } };
 }
 
@@ -590,7 +592,7 @@ test('enviar_opciones_al_chat devuelve el orden y como decirlo, acumulado en la 
 });
 
 // ---------------------------------------------------------------- tercera llamada real (A, B, C, E)
-test('A: si la persona habla antes del saludo, no se fuerza el saludo', async () => {
+test('A: si la persona habla antes del saludo, no se fuerza el saludo a los 1500 ms', async () => {
   const m = montar();
   await m.manager.handleWebhook(firmado(eventoEntrante('rtc_a1'))).procesando;
   const ws = FakeWs.ultima;
@@ -649,4 +651,174 @@ test('E: envio directo con zonas comunes al final, sin contarlas como opcion', a
   const res = JSON.parse(ultimaSalida(ws));
   assert.deepEqual(res.data.enviadas_ahora, [{ posicion: 1, decir: 'el 510' }]);
   assert.equal(res.data.zonas_comunes_enviadas, true);
+});
+
+// ---------------------------------------------------------------- saludo de respaldo (2026-10-22)
+// Llamada real 15:43 UTC: un "¿aló?" cancelo el saludo y Cami quedo ~13 s en silencio.
+async function llamadaAbierta(id) {
+  const m = montar();
+  await m.manager.handleWebhook(firmado(eventoEntrante(id))).procesando;
+  const ws = FakeWs.ultima;
+  ws.emit('open');
+  return { m, ws };
+}
+const saludos = (ws) => ws.enviados.filter((e) => e.type === 'response.create' && e.response?.instructions);
+const hitos = (m) => m.logs.filter(([msg]) => msg === '[voz] tiempo').map(([, d]) => d.hito);
+
+test('respaldo: "¿aló?" sin respuesta ni transcripcion -> se saluda igual a los 3 s, una sola vez', async () => {
+  const { m, ws } = await llamadaAbierta('rtc_r1');
+  m.avanzar(800);
+  mensaje(ws, { type: 'input_audio_buffer.speech_started' });
+  m.avanzar(400);
+  mensaje(ws, { type: 'input_audio_buffer.speech_stopped' });
+  await tick();
+  m.correr(1500);
+  assert.equal(saludos(ws).length, 0, 'el saludo normal quedo cancelado');
+  m.avanzar(2600);
+  m.correr(3000);
+  assert.equal(saludos(ws).length, 1, 'saludo forzado');
+  m.correr(3000); m.correr(1000); m.correr(1500);
+  assert.equal(saludos(ws).length, 1, 'nunca dos saludos');
+  assert.deepEqual(hitos(m).slice(0, 5), ['ws_open', 'saludo_programado', 'primer_habla', 'saludo_cancelado', 'saludo_forzado']);
+});
+
+test('respaldo: si Cami ya sono (audio), no se fuerza el saludo', async () => {
+  const { m, ws } = await llamadaAbierta('rtc_r2');
+  mensaje(ws, { type: 'input_audio_buffer.speech_started' });
+  mensaje(ws, { type: 'input_audio_buffer.speech_stopped' });
+  mensaje(ws, { type: 'response.created', response: { id: 'resp_1' } });
+  mensaje(ws, { type: 'output_audio_buffer.started' });
+  await tick();
+  m.avanzar(3000);
+  m.correr(1500); m.correr(3000);
+  assert.equal(saludos(ws).length, 0);
+  assert.ok(hitos(m).includes('saludo_respaldo_innecesario'));
+});
+
+test('respaldo P1: respuesta automatica cancelada por el VAD sin audio -> se saluda igual', async () => {
+  const { m, ws } = await llamadaAbierta('rtc_r2b');
+  mensaje(ws, { type: 'input_audio_buffer.speech_started' });
+  mensaje(ws, { type: 'input_audio_buffer.speech_stopped' });
+  mensaje(ws, { type: 'response.created', response: { id: 'resp_1' } });
+  await tick();
+  m.avanzar(2000);
+  m.correr(3000);
+  assert.equal(saludos(ws).length, 0, 'respuesta en curso: espera');
+  mensaje(ws, { type: 'response.done', response: { id: 'resp_1', status: 'cancelled', output: [] } });
+  await tick();
+  m.avanzar(1000); m.correr(1000);
+  assert.equal(saludos(ws).length, 1);
+  // El response.created del saludo forzado no produce otro saludo.
+  mensaje(ws, { type: 'response.created', response: { id: 'resp_2' } });
+  await tick();
+  m.avanzar(3000); m.correr(1000); m.correr(3000);
+  assert.equal(saludos(ws).length, 1);
+});
+
+test('respaldo: respuesta en curso al tope -> no se manda otro response.create', async () => {
+  const { m, ws } = await llamadaAbierta('rtc_r2c');
+  mensaje(ws, { type: 'input_audio_buffer.speech_started' });
+  mensaje(ws, { type: 'input_audio_buffer.speech_stopped' });
+  mensaje(ws, { type: 'response.created', response: { id: 'resp_1' } });
+  await tick();
+  m.avanzar(3000); m.correr(3000);
+  for (let i = 0; i < 3; i += 1) { m.avanzar(1000); m.correr(1000); }
+  assert.equal(saludos(ws).length, 0);
+  assert.ok(hitos(m).includes('saludo_respaldo_omitido'));
+});
+
+test('respaldo: con transcripcion del huesped no se fuerza; una transcripcion vacia (ruido) no cuenta', async () => {
+  const a = await llamadaAbierta('rtc_r3');
+  mensaje(a.ws, { type: 'input_audio_buffer.speech_started' });
+  mensaje(a.ws, { type: 'input_audio_buffer.speech_stopped' });
+  mensaje(a.ws, { type: 'conversation.item.input_audio_transcription.completed', transcript: '¿Aló?' });
+  await tick();
+  a.m.avanzar(3000); a.m.correr(3000);
+  assert.equal(saludos(a.ws).length, 0);
+
+  const b = await llamadaAbierta('rtc_r4');
+  mensaje(b.ws, { type: 'input_audio_buffer.speech_started' });
+  mensaje(b.ws, { type: 'input_audio_buffer.speech_stopped' });
+  mensaje(b.ws, { type: 'conversation.item.input_audio_transcription.completed', transcript: '  ' });
+  await tick();
+  b.m.avanzar(3000); b.m.correr(3000);
+  assert.equal(saludos(b.ws).length, 1);
+});
+
+test('respaldo: si la persona sigue hablando espera; saluda 1 s despues de que calla', async () => {
+  const { m, ws } = await llamadaAbierta('rtc_r5');
+  mensaje(ws, { type: 'input_audio_buffer.speech_started' });
+  await tick();
+  m.avanzar(3000); m.correr(3000);
+  assert.equal(saludos(ws).length, 0, 'sigue hablando: espera');
+  mensaje(ws, { type: 'input_audio_buffer.speech_stopped' });
+  await tick();
+  m.avanzar(500); m.correr(1000);
+  assert.equal(saludos(ws).length, 0, 'acaba de callar: la respuesta automatica puede venir');
+  m.avanzar(500); m.correr(500);
+  assert.equal(saludos(ws).length, 1);
+});
+
+test('respaldo: ruido continuo (nunca calla) -> se saluda al tope de 6 s', async () => {
+  const { m, ws } = await llamadaAbierta('rtc_r6');
+  mensaje(ws, { type: 'input_audio_buffer.speech_started' });
+  await tick();
+  m.avanzar(3000); m.correr(3000);
+  for (let i = 0; i < 2; i += 1) { m.avanzar(1000); m.correr(1000); }
+  assert.equal(saludos(ws).length, 0);
+  m.avanzar(1000); m.correr(1000);
+  assert.equal(saludos(ws).length, 1);
+  assert.equal(m.logs.find(([msg, d]) => msg === '[voz] tiempo' && d.hito === 'saludo_forzado')[1].tope, true);
+});
+
+test('respaldo: el saludo normal ya salio -> un "¿aló?" posterior no programa otro', async () => {
+  const { m, ws } = await llamadaAbierta('rtc_r7');
+  m.correr(1500);
+  assert.equal(saludos(ws).length, 1);
+  mensaje(ws, { type: 'input_audio_buffer.speech_started' });
+  await tick();
+  m.avanzar(6000); m.correr(3000); m.correr(1000);
+  assert.equal(saludos(ws).length, 1);
+});
+
+test('respaldo: si la llamada se cierra antes, no hace nada', async () => {
+  const { m, ws } = await llamadaAbierta('rtc_r8');
+  mensaje(ws, { type: 'input_audio_buffer.speech_started' });
+  await tick();
+  ws.close();
+  await tick();
+  m.avanzar(3000); m.correr(3000);
+  assert.equal(saludos(ws).length, 0);
+});
+
+test('tiempos: hitos sin texto ni audio, y resumen en llamada_terminada', async () => {
+  const { m, ws } = await llamadaAbierta('rtc_r9');
+  m.avanzar(1500); m.correr(1500);
+  mensaje(ws, { type: 'response.created', response: { id: 'resp_1' } });
+  mensaje(ws, { type: 'output_audio_buffer.started' });
+  mensaje(ws, { type: 'response.output_audio.delta', delta: 'AAAA' });
+  mensaje(ws, { type: 'input_audio_buffer.speech_started' });
+  mensaje(ws, { type: 'conversation.item.input_audio_transcription.completed', transcript: 'Texto privado del huesped' });
+  await tick();
+  ws.close();
+  await tick();
+  const h = hitos(m);
+  for (const x of ['ws_open', 'saludo_programado', 'saludo_enviado', 'primera_respuesta', 'primer_audio', 'primer_habla', 'primera_transcripcion', 'fin']) {
+    assert.ok(h.includes(x), x);
+  }
+  assert.equal(h.filter((x) => x === 'primer_audio').length, 1);
+  assert.equal(h.includes('saludo_cancelado'), false);
+  const enviado = m.logs.find(([msg, d]) => msg === '[voz] tiempo' && d.hito === 'saludo_enviado')[1];
+  assert.equal(enviado.ms_desde_ws_open, 1500);
+  const fin = m.logs.find(([msg]) => msg === '[voz] llamada_terminada')[1];
+  assert.equal(typeof fin.tiempos_ms.primera_respuesta, 'number');
+  const todo = JSON.stringify(m.logs);
+  assert.equal(todo.includes('Texto privado'), false);
+  assert.equal(todo.includes('AAAA'), false);
+});
+
+test('config: VOZ_SALUDO_RESPALDO_MS por defecto 3000 y acotado', () => {
+  assert.equal(readVozConfig({}).saludoRespaldoMs, 3000);
+  assert.equal(readVozConfig({ VOZ_SALUDO_RESPALDO_MS: '2000' }).saludoRespaldoMs, 2000);
+  assert.equal(readVozConfig({ VOZ_SALUDO_RESPALDO_MS: '50' }).saludoRespaldoMs, 3000);
 });
