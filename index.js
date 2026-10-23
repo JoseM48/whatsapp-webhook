@@ -546,6 +546,23 @@ async function sendPilotWhatsAppButtons(to, { bodyText, buttons }) {
   return response.data?.messages?.[0]?.id || null;
 }
 
+// REACCION ✅ AL AVISO LEIDO (José Manuel, 2026-10-23, instruccion 54): WhatsApp
+// no deja borrar un mensaje enviado; si deja reaccionar a uno del chat (Cloud
+// API, type 'reaction' con el message_id del mensaje y el emoji). Se usa para
+// marcar con ✅ el aviso que José Manuel ya dio por leido.
+async function sendPilotWhatsAppReaction(to, { messageId, emoji }) {
+  const phone = normalizePhone(to);
+  if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  const response = await axios.post(WHATSAPP_API_URL, {
+    messaging_product: 'whatsapp', recipient_type: 'individual', to: phone, type: 'reaction',
+    reaction: { message_id: messageId, emoji }
+  }, {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    timeout: 15000
+  });
+  return response.data?.messages?.[0]?.id || null;
+}
+
 async function sendPilotWhatsAppTemplate(to, templateName, parameters, documentProviderReference = null) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
@@ -630,6 +647,7 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
   sendTemplate: sendM0ClosedInternalTemplate,
   sendFlow: sendPilotWhatsAppFlow,
   sendButtons: sendPilotWhatsAppButtons,
+  sendReaction: sendPilotWhatsAppReaction,
   sendPhoto: sendM0ApartmentPhoto,
   sendDocument: sendM0GuestDocument,
   // Incremento D3.3: misma instancia de PilotAi ya usada por interpret()/
