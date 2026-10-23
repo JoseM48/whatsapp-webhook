@@ -64,7 +64,8 @@ test('la voz no llama a la persona por el nombre de la marca ("Con gusto, Mío",
   const { instruccionesCamiVoz, esNombreDeMarca, PALABRAS_MARCA } = require('../lib/voz/cami-voz');
   assert.deepEqual([...PALABRAS_MARCA].sort(), ['frontera', 'lofts', 'mio', 'miu', 'versadaa']);
   for (const n of ['Mío', 'Mío La Frontera', 'Miu', 'Versadaa']) assert.equal(esNombreDeMarca(n), true, n);
-  for (const n of ['Ana', 'Mónica', 'Miguel']) assert.equal(esNombreDeMarca(n), false, n);
+  for (const n of ['Ana', 'Mónica', 'Miguel', 'Ana Frontera', 'Carlos Mío']) assert.equal(esNombreDeMarca(n), false, n);
+  assert.equal(esNombreDeMarca('La Frontera'), true);
   assert.equal(/La persona se llama Mío/.test(instruccionesCamiVoz({ hoy: '2026-10-23', nombre: 'Mío' })), false);
   assert.match(instruccionesCamiVoz({ hoy: '2026-10-23', nombre: 'Ana' }), /La persona se llama Ana/);
 });
