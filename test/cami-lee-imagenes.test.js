@@ -6,7 +6,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarEntrega, textoConLecturas,
+const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarEntrega, registrarTextoEnRafaga, textoConLecturas,
   sanearLectura, MARCADOR_IMAGEN } = require('../lib/pilot/inbound-image-reader');
 const { createM0ClosedPilotDispatcher } = require('../lib/pilot/m0-closed-pilot');
 const { createVozCallManager } = require('../lib/voz/call-manager');
@@ -38,8 +38,8 @@ test('imagen de venta: el modelo multimodal la lee y el turno lleva lo que pide 
   const client = clienteFalso([{ categoria: 'solicitud', lectura: 'Busca del 1 al 30 de noviembre para 2 personas; vio en Airbnb el anuncio "Loft Poblado" a $3.500.000 al mes.' }]);
   const reader = new InboundImageReader({ client, model: 'claude-sonnet-5', logger: log });
   const burst = createImageBurst();
-  const turno = await prepararTurnoImagen({ reader, burst, phone: TEL, raw: MARCADOR_IMAGEN, timestamp: '2026-10-23T15:00:00Z',
-    adjunto: ADJ, caption: 'Este me gustó', begin: { leer_imagen: true }, logger: log });
+  const entrada = iniciarLectura({ reader, burst, phone: TEL, raw: MARCADOR_IMAGEN, adjunto: ADJ, begin: { leer_imagen: true } });
+  const turno = await prepararTurnoImagen({ burst, phone: TEL, raw: MARCADOR_IMAGEN, caption: 'Este me gustó', entrada, logger: log });
   // Mismo modelo del webhook, imagen en base64 y salida estructurada.
   assert.equal(client.llamadas.length, 1);
   assert.equal(client.llamadas[0].model, 'claude-sonnet-5');
@@ -49,7 +49,8 @@ test('imagen de venta: el modelo multimodal la lee y el turno lleva lo que pide 
   assert.match(turno.text, /Texto que escribió con la imagen: Este me gustó/);
   assert.match(turno.text, /\[Lo que se lee en la imagen que envió el cliente\] Busca del 1 al 30 de noviembre para 2 personas/);
   assert.deepEqual(turno.lecturaImagen, { categoria: 'solicitud' });
-  assert.equal(turno.superablePorImagen, true);
+  assert.equal(typeof turno.superadoPorRafaga, 'function');
+  assert.equal(await turno.superadoPorRafaga(), false, 'sin mensaje posterior, su respuesta sale');
   // El log nunca lleva el texto leido.
   assert.ok(log.lineas.every((l) => !/noviembre|Loft|3\.500/.test(l)), log.lineas.join('\n'));
 });
@@ -58,42 +59,43 @@ test('documento de identidad: no se procesa su contenido, no se guarda ningun nu
   const log = logger();
   const client = clienteFalso([{ categoria: 'documento_identidad', lectura: 'Cédula 1032456789 de JUAN PEREZ' }]);
   const reader = new InboundImageReader({ client, model: 'claude-sonnet-5', logger: log });
-  const leida = await reader.leer(ADJ);
-  assert.deepEqual(leida, { categoria: 'documento_identidad', lectura: null });
+  assert.deepEqual(await reader.leer(ADJ), { categoria: 'documento_identidad', lectura: null });
   const burst = createImageBurst();
-  const turno = await prepararTurnoImagen({ reader, burst, phone: TEL, raw: MARCADOR_IMAGEN, timestamp: '2026-10-23T15:00:00Z',
-    adjunto: ADJ, begin: { leer_imagen: true }, logger: log });
-  // El turno sigue con el marcador: el PMS responde como siempre (archivo guardado).
+  // Una lectura de venta anterior pendiente NO se mezcla con el documento.
+  const previa = burst.registrarImagen(TEL, Promise.resolve({ categoria: 'solicitud', lectura: 'Del 1 al 15 de noviembre' }));
+  const entrada = burst.registrarImagen(TEL, reader.leer(ADJ));
+  const turno = await prepararTurnoImagen({ burst, phone: TEL, raw: MARCADOR_IMAGEN, entrada, logger: log });
   assert.equal(turno.text, MARCADOR_IMAGEN);
   assert.deepEqual(turno.lecturaImagen, { categoria: 'documento_identidad' });
+  assert.equal(turno.superadoPorRafaga, null, 'el turno del documento nunca se descarta');
+  // ...y el documento no deja sin respuesta a la imagen de venta anterior.
+  assert.equal(await burst.haySiguienteQueLleva(TEL, previa), false);
   assert.ok(log.lineas.every((l) => !/1032456789|JUAN|PEREZ/i.test(l)));
-  assert.deepEqual(await burst.lecturasPendientes(TEL, '2026-10-23T15:00:00Z'), []);
-  // Un documento nunca se mezcla con lecturas de venta pendientes de la rafaga.
-  const burst2 = createImageBurst();
-  burst2.registrar(TEL, '2026-10-23T14:59:58Z', Promise.resolve({ categoria: 'solicitud', lectura: 'Del 1 al 15 de noviembre' }));
-  const t2 = await prepararTurnoImagen({ reader, burst: burst2, phone: TEL, raw: MARCADOR_IMAGEN, timestamp: '2026-10-23T15:00:00Z',
-    adjunto: ADJ, begin: { leer_imagen: true }, logger: log });
-  assert.equal(t2.text, MARCADOR_IMAGEN);
-  // El instructivo del modelo exige lectura null y prohibe copiar datos.
   assert.match(client.llamadas[0].system, /documento_identidad[\s\S]*"lectura" MUST be null/);
-  // Aunque el modelo copie numeros en una lectura de venta, se tachan.
-  assert.equal(/\d{7,}/.test(sanearLectura('Llamar al 3001234567, cc 1032456789')), false);
-  assert.equal(sanearLectura('Precio $3.300.000 al mes'), 'Precio $3.300.000 al mes');
 });
 
-test('comprobante de pago: categoria sola, sin texto; el turno sigue con el marcador (Cartera decide como hoy)', async () => {
+test('saneo: se tachan telefonos, documentos y correos; se conservan fechas y precios', () => {
+  for (const t of ['Llamar al 300 123 4567', 'cel 300-123-4567', '+57 3001234567', 'cc 1032456789', 'escribir a ana@correo.co']) {
+    assert.doesNotMatch(sanearLectura(t), /\d{3}.?\d{3}.?\d{4}|\d{7,}|@/, t);
+  }
+  for (const t of ['15-11-2026', '15.11.2026', '2026-11-15 - 2026-12-15', '12.500.000', '2.800.000 - 3.300.000', 'Precio $3.300.000 al mes']) {
+    assert.equal(sanearLectura(t), t);
+  }
+});
+
+test('comprobante de pago: categoria sola, sin texto; el turno sigue con el marcador y nunca se descarta (Cartera como hoy)', async () => {
   const client = clienteFalso([{ categoria: 'comprobante_pago', lectura: 'Transferencia de $500.000 desde cuenta 123456789' }]);
   const reader = new InboundImageReader({ client, model: 'm', logger: logger() });
-  const turno = await prepararTurnoImagen({ reader, burst: createImageBurst(), phone: TEL, raw: MARCADOR_IMAGEN,
-    timestamp: '2026-10-23T15:00:00Z', adjunto: ADJ, begin: { leer_imagen: true } });
+  const burst = createImageBurst();
+  const entrada = iniciarLectura({ reader, burst, phone: TEL, raw: MARCADOR_IMAGEN, adjunto: ADJ, begin: { leer_imagen: true } });
+  const turno = await prepararTurnoImagen({ burst, phone: TEL, raw: MARCADOR_IMAGEN, entrada });
   assert.equal(turno.text, MARCADOR_IMAGEN);
   assert.deepEqual(turno.lecturaImagen, { categoria: 'comprobante_pago' });
+  assert.equal(turno.superadoPorRafaga, null);
   // Caso en pago (pending_payment, etc.): el PMS no pide leer -> ni siquiera se llama al modelo.
   const c2 = clienteFalso([{ categoria: 'solicitud', lectura: 'x' }]);
-  const t2 = await prepararTurnoImagen({ reader: new InboundImageReader({ client: c2, model: 'm', logger: logger() }),
-    burst: createImageBurst(), phone: TEL, raw: MARCADOR_IMAGEN, timestamp: '2026-10-23T15:00:00Z', adjunto: ADJ,
-    begin: { leer_imagen: false, state: 'pending_payment' } });
-  assert.deepEqual(t2, { text: MARCADOR_IMAGEN, lecturaImagen: null, superablePorImagen: false });
+  const r2 = new InboundImageReader({ client: c2, model: 'm', logger: logger() });
+  assert.equal(iniciarLectura({ reader: r2, burst, phone: TEL, raw: MARCADOR_IMAGEN, adjunto: ADJ, begin: { state: 'pending_payment' } }), null);
   assert.equal(c2.llamadas.length, 0);
 });
 
@@ -102,13 +104,15 @@ test('flag apagado (el PMS no pide leer): comportamiento actual, sin llamada al 
   const reader = new InboundImageReader({ client, model: 'm', logger: logger() });
   const burst = createImageBurst();
   for (const begin of [null, {}, { leer_imagen: false }]) {
-    assert.equal(iniciarLectura({ reader, burst, phone: TEL, raw: MARCADOR_IMAGEN, timestamp: '2026-10-23T15:00:00Z', adjunto: ADJ, begin }), null);
-    const t = await prepararTurnoImagen({ reader, burst, phone: TEL, raw: MARCADOR_IMAGEN, timestamp: '2026-10-23T15:00:00Z', adjunto: ADJ, begin });
-    assert.deepEqual(t, { text: MARCADOR_IMAGEN, lecturaImagen: null, superablePorImagen: false });
+    const entrada = iniciarLectura({ reader, burst, phone: TEL, raw: MARCADOR_IMAGEN, adjunto: ADJ, begin });
+    assert.equal(entrada, null);
+    const t = await prepararTurnoImagen({ burst, phone: TEL, raw: MARCADOR_IMAGEN, entrada });
+    assert.deepEqual(t, { text: MARCADOR_IMAGEN, lecturaImagen: null, superadoPorRafaga: null, incluidas: [] });
   }
-  // Un texto normal sin imagenes en la rafaga tampoco cambia.
-  const t = await prepararTurnoImagen({ reader, burst, phone: TEL, raw: 'Hola, ¿tienen para noviembre?', timestamp: '2026-10-23T15:00:05Z', begin: {} });
-  assert.equal(t.text, 'Hola, ¿tienen para noviembre?');
+  // Un texto normal sin imagenes en la rafaga tampoco cambia (ni se registra).
+  const et = registrarTextoEnRafaga({ burst, phone: TEL, raw: 'Hola, ¿tienen para noviembre?', begin: {}, claimed: true });
+  assert.equal(et, null);
+  assert.equal((await prepararTurnoImagen({ burst, phone: TEL, raw: 'Hola', entradaTexto: et })).text, 'Hola');
   assert.equal(client.llamadas.length, 0);
   // Sin credencial / imagen no leible: no se llama al modelo.
   assert.equal((await new InboundImageReader({ client: null, model: 'm' }).leer(ADJ)).categoria, 'no_leida');
@@ -120,39 +124,46 @@ test('flag apagado (el PMS no pide leer): comportamiento actual, sin llamada al 
     { categoria: 'no_leida', lectura: null, motivo: 'fallo' });
 });
 
-test('rafaga: varias imagenes seguidas -> el ultimo turno trae todas las lecturas (lectura en paralelo)', async () => {
+test('rafaga: varias imagenes seguidas (mismo segundo) -> el ultimo turno trae todas las lecturas, en paralelo', async () => {
   const lecturas = ['Del 1 al 30 de noviembre', 'Somos 3 personas', 'Anuncio "Loft 1109" en Booking'];
   const client = clienteFalso((body, i) => ({ categoria: 'solicitud', lectura: lecturas[i] }));
   const reader = new InboundImageReader({ client, model: 'm', logger: logger() });
   const burst = createImageBurst();
-  const ats = ['2026-10-23T15:00:00Z', '2026-10-23T15:00:01Z', '2026-10-23T15:00:02Z'];
-  // Como index.js: todas las lecturas arrancan al capturar el lote.
-  const enCurso = ats.map((at) => iniciarLectura({ reader, burst, phone: TEL, raw: MARCADOR_IMAGEN, timestamp: at, adjunto: ADJ, begin: { leer_imagen: true } }));
+  // Como index.js: todas las lecturas arrancan al capturar el lote, en orden de llegada.
+  const entradas = [0, 1, 2].map(() => iniciarLectura({ reader, burst, phone: TEL, raw: MARCADOR_IMAGEN, adjunto: ADJ, begin: { leer_imagen: true } }));
   const turnos = [];
-  for (const [i, at] of ats.entries()) {
-    turnos.push(await prepararTurnoImagen({ reader, burst, phone: TEL, raw: MARCADOR_IMAGEN, timestamp: at, adjunto: ADJ,
-      begin: { leer_imagen: true }, lecturaEnCurso: enCurso[i] }));
-    // Los turnos 1 y 2 quedan superados en la entrega: no cuentan como respondidos.
-    registrarEntrega(burst, TEL, at, i < 2 ? [{ id: i, status: 'superseded', sent: false }, { id: 90 + i, status: 'submitted', sent: true }]
+  for (const [i, entrada] of entradas.entries()) {
+    const t = await prepararTurnoImagen({ burst, phone: TEL, raw: MARCADOR_IMAGEN, entrada });
+    turnos.push(t);
+    // Los turnos 1 y 2 tienen un mensaje posterior que los lleva: quedan superados.
+    assert.equal(await t.superadoPorRafaga(), i < 2);
+    registrarEntrega(burst, t.incluidas, i < 2 ? [{ id: i, status: 'superseded', sent: false }, { id: 90 + i, status: 'submitted', sent: true }]
       : [{ id: i, status: 'submitted', sent: true }]);
   }
   assert.equal(client.llamadas.length, 3);
   assert.match(turnos[2].text, /\[Lo que se lee en las 3 imágenes que envió el cliente seguidas\]\n1\) Del 1 al 30 de noviembre\n2\) Somos 3 personas\n3\) Anuncio/);
-  assert.ok(turnos.every((t) => t.superablePorImagen === true));
   // Ya respondidas: un texto despues no las repite.
-  const despues = await prepararTurnoImagen({ reader, burst, phone: TEL, raw: 'Gracias', timestamp: '2026-10-23T15:01:00Z', begin: {} });
-  assert.equal(despues.text, 'Gracias');
+  const et = registrarTextoEnRafaga({ burst, phone: TEL, raw: 'Gracias por todo, ¿cuánto sería?', begin: {}, claimed: true });
+  assert.equal((await prepararTurnoImagen({ burst, phone: TEL, raw: 'Gracias por todo, ¿cuánto sería?', entradaTexto: et })).text,
+    'Gracias por todo, ¿cuánto sería?');
 });
 
-test('rafaga + texto o nota de voz: el texto que llega despues de imagenes sin responder las incluye', async () => {
+test('rafaga + texto o nota de voz: el texto que llega despues de imagenes sin responder las incluye y supera su respuesta', async () => {
   const burst = createImageBurst();
-  burst.registrar(TEL, '2026-10-23T15:00:00Z', Promise.resolve({ categoria: 'solicitud', lectura: 'Del 1 al 30 de noviembre, 2 personas' }));
-  burst.registrar(TEL, '2026-10-23T15:00:01Z', Promise.resolve({ categoria: 'documento_identidad', lectura: null }));
-  const t = await prepararTurnoImagen({ reader: new InboundImageReader({}), burst, phone: TEL, raw: '¿Tienen disponible?',
-    timestamp: '2026-10-23T15:00:03Z', begin: {} });
+  const img = burst.registrarImagen(TEL, Promise.resolve({ categoria: 'solicitud', lectura: 'Del 1 al 30 de noviembre, 2 personas' }));
+  const doc = burst.registrarImagen(TEL, Promise.resolve({ categoria: 'documento_identidad', lectura: null }));
+  assert.equal(await burst.haySiguienteQueLleva(TEL, img), false, 'un documento no lleva lecturas');
+  // "gracias" (sin contenido nuevo) no lleva lecturas: el PMS lo absorbe.
+  assert.equal(registrarTextoEnRafaga({ burst, phone: TEL, raw: 'gracias', begin: { sin_contenido_nuevo: true }, claimed: true }), null);
+  const et = registrarTextoEnRafaga({ burst, phone: TEL, raw: '¿Tienen disponible?', begin: {}, claimed: true });
+  assert.ok(et);
+  assert.equal(await burst.haySiguienteQueLleva(TEL, img), true);
+  const t = await prepararTurnoImagen({ burst, phone: TEL, raw: '¿Tienen disponible?', entradaTexto: et });
   assert.equal(t.text, '¿Tienen disponible?\n[Lo que se lee en la imagen que envió el cliente] Del 1 al 30 de noviembre, 2 personas');
   assert.equal(t.lecturaImagen, null);
-  assert.equal(t.superablePorImagen, false);
+  assert.equal(t.superadoPorRafaga, null);
+  assert.ok(t.incluidas.includes(img));
+  assert.ok(doc);
   assert.equal(textoConLecturas([]), '');
 });
 
@@ -190,21 +201,47 @@ test('rafaga de 6 imagenes de un lead en venta (lead 246) -> UNA sola respuesta,
   const ats = [0, 1, 2, 3, 4, 5].map((s) => `2026-10-23T15:00:0${s}Z`);
   const turnos = Object.fromEntries(ats.map((at, i) => [`w.img${i}`, { at, packet: paquete('PROPUESTA PRESENTADA', `Respuesta ${i}`) }]));
   const { dispatcher, enviados, completados, procesados } = montar(turnos);
+  const burst = createImageBurst();
+  const entradas = Object.keys(turnos).map(() => burst.registrarImagen(TEL, Promise.resolve({ categoria: 'solicitud', lectura: 'x' })));
   for (const [m, t] of Object.entries(turnos)) await dispatcher.beginCommercial({ phone: TEL, messageId: m, occurredAt: t.at, deliver: false });
-  for (const m of Object.keys(turnos)) {
+  for (const [i, m] of Object.keys(turnos).entries()) {
     await dispatcher.completeCommercial({ externalMessageId: m, interpretation: {}, ai: {},
-      lecturaImagen: { categoria: 'solicitud' }, superablePorImagen: true });
+      lecturaImagen: { categoria: 'solicitud' }, superadoPorRafaga: () => burst.haySiguienteQueLleva(TEL, entradas[i]) });
   }
   assert.deepEqual(enviados, ['Respuesta 5']);
   assert.equal(completados.filter((c) => c.status === 'superseded').length, 5);
   // Al PMS solo viaja la categoria, nunca el texto leido.
   assert.deepEqual(procesados[0].lectura_imagen, { categoria: 'solicitud' });
-  // Sin la marca de imagen (flag apagado), cada turno distinto sale como siempre.
+  // Sin lectura (flag apagado), cada turno distinto sale como siempre.
   const otro = montar(turnos);
   for (const [m, t] of Object.entries(turnos)) await otro.dispatcher.beginCommercial({ phone: TEL, messageId: m, occurredAt: t.at, deliver: false });
   for (const m of Object.keys(turnos)) await otro.dispatcher.completeCommercial({ externalMessageId: m, interpretation: {}, ai: {} });
   assert.equal(otro.enviados.length, 6);
   assert.equal('lectura_imagen' in otro.procesados[0], false);
+});
+
+test('revision: una propuesta de imagen NO se descarta si lo siguiente es un documento de identidad o un comprobante', async () => {
+  const turnos = {
+    'w.pantallazo': { at: '2026-10-23T15:00:00Z', packet: paquete('PROPUESTA PRESENTADA', 'LF-510: COP 3.300.000 del 1 al 30 de noviembre') },
+    'w.cedula': { at: '2026-10-23T15:00:01Z', packet: paquete('ARCHIVO RECIBIDO', 'Recibí tu imagen. Quedó guardada.') } };
+  const { dispatcher, enviados } = montar(turnos);
+  const burst = createImageBurst();
+  const e1 = burst.registrarImagen(TEL, Promise.resolve({ categoria: 'solicitud', lectura: 'Del 1 al 30 de noviembre' }));
+  burst.registrarImagen(TEL, Promise.resolve({ categoria: 'documento_identidad', lectura: null }));
+  for (const [m, t] of Object.entries(turnos)) await dispatcher.beginCommercial({ phone: TEL, messageId: m, occurredAt: t.at, deliver: false });
+  await dispatcher.completeCommercial({ externalMessageId: 'w.pantallazo', interpretation: {}, ai: {},
+    lecturaImagen: { categoria: 'solicitud' }, superadoPorRafaga: () => burst.haySiguienteQueLleva(TEL, e1) });
+  await dispatcher.completeCommercial({ externalMessageId: 'w.cedula', interpretation: {}, ai: {}, lecturaImagen: { categoria: 'documento_identidad' } });
+  assert.deepEqual(enviados, ['LF-510: COP 3.300.000 del 1 al 30 de noviembre', 'Recibí tu imagen. Quedó guardada.']);
+});
+
+test('revision: un texto fijo aprobado nunca se descarta por la rafaga de imagenes', async () => {
+  const turnos = { 'w.a': { at: '2026-10-23T15:00:00Z', packet: { ...paquete('PRE-CONFIRMACIÓN', 'Texto aprobado'), fixed_text: true } },
+    'w.b': { at: '2026-10-23T15:00:01Z', packet: paquete('PROPUESTA PRESENTADA', 'Otra') } };
+  const { dispatcher, enviados } = montar(turnos);
+  for (const [m, t] of Object.entries(turnos)) await dispatcher.beginCommercial({ phone: TEL, messageId: m, occurredAt: t.at, deliver: false });
+  await dispatcher.completeCommercial({ externalMessageId: 'w.a', interpretation: {}, ai: {}, superadoPorRafaga: async () => true });
+  assert.deepEqual(enviados, ['Texto aprobado']);
 });
 
 // --- Paridad (dominio 25): llamada ----------------------------------------

@@ -57,7 +57,7 @@ const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-rece
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
-const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarEntrega } = require('./lib/pilot/inbound-image-reader');
+const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarTextoEnRafaga, registrarEntrega } = require('./lib/pilot/inbound-image-reader');
 const { parseFlowResponse, flowResponseToText } = require('./lib/pilot/flow-response');
 const { toFile } = require('openai');
 const WebSocket = require('ws');
@@ -1765,17 +1765,20 @@ app.post('/webhook', async (req, res) => {
             }).catch(() => {});
           }
           // CAMI LEE IMÁGENES: la lectura arranca ya (en paralelo para toda la
-          // rafaga); el turno la espera en prepararTurnoImagen.
-          const lecturaEnCurso = iniciarLectura({ reader: inboundImageReader, burst: imageBurst,
-            phone: normalizePhone(incoming.from), raw, timestamp: incoming.timestamp, adjunto, begin: closed.begin?.result });
-          pendingCommercial.push({ incoming, raw, closed, adjunto, lecturaEnCurso });
+          // rafaga) y queda en orden de llegada junto con los textos que la
+          // llevaran; el turno la espera en prepararTurnoImagen.
+          const entradaImagen = iniciarLectura({ reader: inboundImageReader, burst: imageBurst,
+            phone: normalizePhone(incoming.from), raw, adjunto, begin: closed.begin?.result });
+          const entradaTexto = entradaImagen ? null : registrarTextoEnRafaga({ burst: imageBurst,
+            phone: normalizePhone(incoming.from), raw, begin: closed.begin?.result, claimed: closed.processing_claimed });
+          pendingCommercial.push({ incoming, raw, closed, entradaImagen, entradaTexto });
         }
         res.sendStatus(200);
         setImmediate(async () => {
           const today = new Intl.DateTimeFormat('en-CA', {
             timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit'
           }).format(new Date());
-          for (const { incoming, raw, closed, adjunto, lecturaEnCurso } of pendingCommercial) {
+          for (const { incoming, raw, closed, entradaImagen, entradaTexto } of pendingCommercial) {
             const acknowledgementDeliveries = await m0CommercialResponder
               .deliverAcknowledgement(closed.acknowledgement_outboxes);
             console.info('[m0-commercial] acknowledgement_completed', {
@@ -1785,23 +1788,25 @@ app.post('/webhook', async (req, res) => {
             // CAMI LEE IMÁGENES (2026-10-23): texto del turno con lo leido en las
             // imagenes de venta de la rafaga. Ante cualquier fallo, el turno de
             // siempre. Nunca se registra en logs el texto leido.
+            const sinCambioImagen = { text: raw, lecturaImagen: null, superadoPorRafaga: null, incluidas: [] };
             const turno = closed.processing_claimed
-              ? await prepararTurnoImagen({ reader: inboundImageReader, burst: imageBurst, phone: guestPhone, raw,
-                timestamp: incoming.timestamp, adjunto, caption: incoming.media?.caption || null, begin: closed.begin?.result,
-                lecturaEnCurso, avisarLlamada: (tel, lectura) => vozCalls.avisarImagenEnChat(tel, lectura) })
+              ? await prepararTurnoImagen({ burst: imageBurst, phone: guestPhone, raw, caption: incoming.media?.caption || null,
+                entrada: entradaImagen, entradaTexto, avisarLlamada: (tel, lectura) => vozCalls.avisarImagenEnChat(tel, lectura) })
                 .catch((error) => {
                   console.error('[m0-imagen] turno_fallido', { code: error?.code || error?.name || 'error' });
-                  return { text: raw, lecturaImagen: null, superablePorImagen: false };
+                  return sinCambioImagen;
                 })
-              : { text: raw, lecturaImagen: null, superablePorImagen: false };
+              : sinCambioImagen;
             if (turno.lecturaImagen || turno.text !== raw) console.info('[m0-imagen] turno', {
-              categoria: turno.lecturaImagen?.categoria || null, con_lecturas: turno.text !== raw, superable: turno.superablePorImagen });
+              categoria: turno.lecturaImagen?.categoria || null, con_lecturas: turno.text !== raw,
+              imagenes: turno.incluidas.length, superable: Boolean(turno.superadoPorRafaga) });
             const processed = await m0CommercialResponder.processCaptured({
               from: guestPhone, text: turno.text, messageId: incoming.messageId, today,
               context: closed.context, processingClaimed: closed.processing_claimed,
-              lecturaImagen: turno.lecturaImagen, superablePorImagen: turno.superablePorImagen
+              lecturaImagen: turno.lecturaImagen, superadoPorRafaga: turno.superadoPorRafaga,
+              sinNombreDeImagen: Boolean(entradaImagen) && turno.text !== raw
             });
-            registrarEntrega(imageBurst, guestPhone, incoming.timestamp, processed.completed?.deliveries);
+            registrarEntrega(imageBurst, turno.incluidas, processed.completed?.deliveries);
             console.info('[m0-commercial] processing_completed', {
               ok: processed.ok, skipped: processed.skipped || null, fallback: processed.fallback === true,
               action: processed.completed?.result?.action || null,

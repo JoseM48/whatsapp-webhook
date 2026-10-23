@@ -91,8 +91,8 @@ test('paridad de imágenes: chat lee, nota de voz hereda la lectura, la llamada 
   assert.equal(typeof m.avisarImagenEnChat, 'function');
   // Nota de voz transcrita con una imagen de venta pendiente en la ráfaga.
   const burst = lector.createImageBurst();
-  burst.registrar('573000000001', '2026-10-23T15:00:00Z', Promise.resolve({ categoria: 'solicitud', lectura: 'Del 2 al 9 de diciembre' }));
-  const t = await lector.prepararTurnoImagen({ reader: new lector.InboundImageReader({}), burst, phone: '573000000001',
-    raw: 'mira lo que te mandé', timestamp: '2026-10-23T15:00:04Z', begin: {} });
+  burst.registrarImagen('573000000001', Promise.resolve({ categoria: 'solicitud', lectura: 'Del 2 al 9 de diciembre' }));
+  const entradaTexto = lector.registrarTextoEnRafaga({ burst, phone: '573000000001', raw: 'mira lo que te mandé', begin: {}, claimed: true });
+  const t = await lector.prepararTurnoImagen({ burst, phone: '573000000001', raw: 'mira lo que te mandé', entradaTexto });
   assert.match(t.text, /Del 2 al 9 de diciembre/);
 });
