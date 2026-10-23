@@ -104,6 +104,30 @@ test('paridad de imágenes: chat lee, nota de voz hereda la lectura, la llamada 
 //    la atiende antes que el flujo de huésped; nunca llega al motor comercial.
 //  - llamada: /voz/llamada/inicio trae propietaria_onboarding; Cami de voz no
 //    recibe herramientas comerciales, la reconoce y la remite al chat.
+// ALIADOS (José Manuel, 2026-10-23; PMS migración 907; dominio 25). Capacidad
+// que no es una herramienta: un número registrado como aliado no recibe
+// cotizaciones en ningún canal y tiene su entrevista de descubrimiento.
+//  - chat y nota de voz: el despachador de la red del PMS (ingreso-red /
+//    aliados-whatsapp) atiende al aliado antes que el flujo de huésped
+//    (menú, entrevista de onboarding por foco).
+//  - llamada: /voz/llamada/inicio trae aliado_voz con la guía (preguntas como
+//    datos); Cami de voz no recibe herramientas comerciales y conduce la
+//    entrevista. EXCEPCIÓN PROPIA DEL CANAL: la entrevista de descubrimiento
+//    con guía (voz_guias_entrevista) por ahora es solo de la llamada; en el
+//    chat la reunión la conduce Teo a mano con la misma guía (documento).
+test('aliado: la llamada no cotiza y conduce la entrevista con la guía (dominio 25, 2026-10-23)', () => {
+  const { instruccionesCamiVoz, aliadoDesdeInicio, HERRAMIENTAS_COMERCIALES } = require('../lib/voz/cami-voz');
+  const aliado = aliadoDesdeInicio({ perfil: 'aliado', no_cotizar: true, nombre_saludo: 'Carmen', entrevista_id: 1, duracion_max_min: 40,
+    guia: { clave: 'descubrimiento_aliado', version: 1, titulo: 'Descubrimiento', secciones: [{ clave: 'negocio_hoy', titulo: 'Su negocio hoy', preguntas: ['¿Qué clientes atiende?'] }] } });
+  assert.ok(aliado);
+  const voz = herramientasDeVoz({ sinComerciales: true }).map((t) => t.name);
+  assert.deepEqual(voz.filter((n) => HERRAMIENTAS_COMERCIALES.has(n)), []);
+  const t = instruccionesCamiVoz({ hoy: '2026-10-24', aliado, duracionMaxMin: 40 });
+  assert.match(t, /NO cotices/);
+  assert.match(t, /Su negocio hoy/);
+  assert.doesNotMatch(t, /CÓMO ATENDER UNA BÚSQUEDA/);
+});
+
 test('propietaria en onboarding: la llamada no cotiza, igual que el chat (dominio 25)', () => {
   const { instruccionesCamiVoz, HERRAMIENTAS_COMERCIALES } = require('../lib/voz/cami-voz');
   const voz = herramientasDeVoz({ sinComerciales: true }).map((t) => t.name);

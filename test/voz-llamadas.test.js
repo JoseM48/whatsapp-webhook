@@ -911,3 +911,108 @@ test('lista de espera por voz: sin fechas no llama al PMS; si el PMS no anota, l
   assert.match(res.data.instruccion_modelo, /chat de WhatsApp/);
   ws.close();
 });
+
+// ---------------------------------------------------------------- aliados
+// PERFIL DE ALIADO (José Manuel, 2026-10-23; PMS migración 907): entrevista de
+// descubrimiento por llamada, sin cotizar, con la guía como datos del PMS.
+const GUIA_PRUEBA = { clave: 'tengocamello_contadora', version: 1, titulo: 'Reunión con una contadora', objetivo: 'Conocer su negocio.',
+  apertura: 'Agradécele que llamó.', cierre: 'Acuerda un siguiente paso.', reglas: ['No prometas nada.'],
+  secciones: [{ clave: 'negocio_hoy', titulo: 'Su negocio hoy', minutos: 10, preguntas: ['¿A qué tipo de clientes atiende?'] },
+    { clave: 'tiempo', titulo: 'Dónde se le va el tiempo', minutos: 10, preguntas: ['¿Qué tareas repite?'] }] };
+const ALIADO_VOZ = { perfil: 'aliado', no_cotizar: true, aliado_id: 2, nombre_saludo: 'Carmen', entrevista_id: 5, agendada_at: '2026-10-24T16:00:00.000Z',
+  duracion_max_min: 40, guia: GUIA_PRUEBA };
+const RESUMEN_ALIADO = { resumen_general: 'Contadora con 40 clientes.', secciones: [{ clave: 'negocio_hoy', titulo: 'Su negocio hoy', puntos: ['40 clientes'], cubierta: true }],
+  siguiente_paso: 'José le escribe', fecha_siguiente_paso: null, pendientes: [], alerta: null, alerta_motivo: null };
+
+test('aliado (2026-10-23): no cotiza, la saluda por su nombre, conduce la guía y la llamada dura lo de la política', async () => {
+  // Su conversación de ventas está tomada por una persona: no impide la entrevista.
+  const m = montar({ inicio: { lead_id: 249, nombre_saludo: 'Carmen', persona_al_mando: true, aliado_voz: ALIADO_VOZ }, resumenJson: RESUMEN_ALIADO });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_ali_1'))).procesando;
+  const accept = m.posts.find((p) => p.url.endsWith('/accept'));
+  const nombres = accept.body.tools.map((t) => t.name);
+  for (const n of ['check_availability', 'quote_stay', 'enviar_opciones_al_chat', 'anotar_lista_espera']) assert.equal(nombres.includes(n), false, n);
+  assert.ok(nombres.includes('terminar_llamada') && nombres.includes('pedir_persona'));
+  const ins = accept.body.instructions;
+  assert.match(ins, /persona ALIADA de Miu/);
+  assert.match(ins, /se llama Carmen/);
+  assert.match(ins, /NO cotices/);
+  assert.match(ins, /1\. Su negocio hoy \(unos 10 min\)/);
+  assert.match(ins, /¿A qué tipo de clientes atiende\?/);
+  assert.match(ins, /como máximo 40 minutos/);
+  assert.doesNotMatch(ins, /CÓMO ATENDER UNA BÚSQUEDA|INVENTARIO|persona del equipo está atendiendo/);
+  // Límites: 40 min, aviso a los 35 y al minuto final.
+  const ms = m.pendientes.map((p) => p.ms);
+  assert.ok(ms.includes(40 * 60_000) && ms.includes(35 * 60_000) && ms.includes(39 * 60_000));
+  // Saludo propio con el nombre.
+  FakeWs.ultima.emit('open');
+  m.correr(1500);
+  const saludo = FakeWs.ultima.enviados.find((e) => e.type === 'response.create');
+  assert.match(saludo.response.instructions, /¡Hola, Carmen! Qué alegría que llamas/);
+  assert.match(saludo.response.instructions, /se transcribe/);
+  // Una herramienta comercial pedida igual no llega al PMS.
+  mensaje(FakeWs.ultima, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'quote_stay', call_id: 'fc_q', arguments: '{"arrival_date":"2026-11-01","nights":30}' }] } });
+  await tick();
+  assert.equal(m.herramientas.length, 0);
+  mensaje(FakeWs.ultima, { type: 'conversation.item.input_audio_transcription.completed', transcript: 'Tengo 40 clientes' });
+  mensaje(FakeWs.ultima, { type: 'response.output_audio_transcript.done', transcript: '¡Qué bien!' });
+  await tick();
+  m.avanzar(30 * 60_000);
+  FakeWs.ultima.close();
+  await tick();
+  const fin = m.de('fin')[0];
+  assert.equal(fin.enviar_seguimiento, false);
+  assert.equal(fin.siguiente_paso, null);
+  assert.equal(fin.resumen, 'Contadora con 40 clientes.');
+  assert.deepEqual(fin.resumen_estructurado.secciones[0].puntos, ['40 clientes']);
+  assert.equal('alerta' in fin.resumen_estructurado, false);
+  assert.equal(fin.duracion_segundos, 1800);
+  assert.deepEqual(m.textos, []);
+  // El resumen usa las claves de la guía y admite una entrevista larga.
+  const resumenPost = m.posts.find((p) => p.url.endsWith('/chat/completions'));
+  assert.match(resumenPost.body.messages[0].content, /negocio_hoy: Su negocio hoy/);
+  assert.equal(resumenPost.body.max_tokens, 2000);
+});
+
+test('aliado: la duración se acota al techo de 55 min y nunca baja de la de ventas', async () => {
+  const m = montar({ inicio: { aliado_voz: { ...ALIADO_VOZ, duracion_max_min: 300 } } });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_ali_2'))).procesando;
+  assert.ok(m.pendientes.some((p) => p.ms === 55 * 60_000));
+  const m2 = montar({ inicio: { aliado_voz: { ...ALIADO_VOZ, duracion_max_min: 3 } } });
+  await m2.manager.handleWebhook(firmado(eventoEntrante('rtc_ali_3'))).procesando;
+  assert.ok(m2.pendientes.some((p) => p.ms === 10 * 60_000));
+});
+
+test('aliado: el tope mensual se calcula con su duración (40 min x 0,06 = 2,4 USD)', async () => {
+  const m = montar({ uso: 47.7, inicio: { aliado_voz: ALIADO_VOZ } });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_ali_4'))).procesando;
+  assert.equal(m.posts.some((p) => p.url.endsWith('/reject')), true, 'con 47,7 usados no caben 2,4');
+  const m2 = montar({ uso: 47.5, inicio: { aliado_voz: ALIADO_VOZ } });
+  await m2.manager.handleWebhook(firmado(eventoEntrante('rtc_ali_5'))).procesando;
+  assert.equal(m2.posts.some((p) => p.url.endsWith('/accept')), true);
+});
+
+test('aliado_voz mal formado (sin secciones o sin no_cotizar) se ignora: perfil de siempre', async () => {
+  const m = montar({ inicio: { aliado_voz: { ...ALIADO_VOZ, guia: { ...GUIA_PRUEBA, secciones: [] } } } });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_ali_6'))).procesando;
+  const accept = m.posts.find((p) => p.url.endsWith('/accept'));
+  assert.ok(accept.body.tools.some((t) => t.name === 'check_availability'));
+  assert.ok(m.pendientes.some((p) => p.ms === 10 * 60_000));
+  const m2 = montar({ inicio: { aliado_voz: { ...ALIADO_VOZ, no_cotizar: false } } });
+  await m2.manager.handleWebhook(firmado(eventoEntrante('rtc_ali_7'))).procesando;
+  assert.ok(m2.posts.find((p) => p.url.endsWith('/accept')).body.tools.some((t) => t.name === 'check_availability'));
+});
+
+test('admisión: las llamadas en curso cuentan su propio máximo (enCursoUsd)', () => {
+  const base = { topeUsdMes: 50, duracionMaxMin: 10, costoUsdMinuto: 0.06 };
+  assert.equal(decidirAdmision({ ...base, usoMesUsd: 46, enCurso: 1, enCursoUsd: 2.4 }).admitir, true); // 46 + 2,4 + 0,6 = 49
+  assert.equal(decidirAdmision({ ...base, usoMesUsd: 47.1, enCurso: 1, enCursoUsd: 2.4 }).admitir, false);
+  assert.equal(decidirAdmision({ ...base, usoMesUsd: 48.8, enCurso: 0, enCursoUsd: 0 }).admitir, true);
+});
+
+test('huérfana de aliado: se cierra con su propia duración y costo', async () => {
+  const m = montar({ huerfanas: [{ call_id: 'rtc_old_ali', estado: 'aceptada', duracion_max_min: 40 }] });
+  assert.deepEqual(await m.manager.barrerHuerfanas(), { colgadas: 1 });
+  const fin = m.de('fin')[0];
+  assert.equal(fin.duracion_segundos, 2400);
+  assert.equal(fin.costo_estimado_usd, 2.4);
+});
