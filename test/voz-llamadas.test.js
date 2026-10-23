@@ -920,7 +920,7 @@ const GUIA_PRUEBA = { clave: 'tengocamello_contadora', version: 1, titulo: 'Reun
   secciones: [{ clave: 'negocio_hoy', titulo: 'Su negocio hoy', minutos: 10, preguntas: ['¿A qué tipo de clientes atiende?'] },
     { clave: 'tiempo', titulo: 'Dónde se le va el tiempo', minutos: 10, preguntas: ['¿Qué tareas repite?'] }] };
 const ALIADO_VOZ = { perfil: 'aliado', no_cotizar: true, aliado_id: 2, nombre_saludo: 'Carmen', entrevista_id: 5, agendada_at: '2026-10-24T16:00:00.000Z',
-  duracion_max_min: 40, guia: GUIA_PRUEBA };
+  duracion_max_min: 28, guia: GUIA_PRUEBA };
 const RESUMEN_ALIADO = { resumen_general: 'Contadora con 40 clientes.', secciones: [{ clave: 'negocio_hoy', titulo: 'Su negocio hoy', puntos: ['40 clientes'], cubierta: true }],
   siguiente_paso: 'José le escribe', fecha_siguiente_paso: null, pendientes: [], alerta: null, alerta_motivo: null };
 
@@ -938,11 +938,11 @@ test('aliado (2026-10-23): no cotiza, la saluda por su nombre, conduce la guía 
   assert.match(ins, /NO cotices/);
   assert.match(ins, /1\. Su negocio hoy \(unos 10 min\)/);
   assert.match(ins, /¿A qué tipo de clientes atiende\?/);
-  assert.match(ins, /como máximo 40 minutos/);
+  assert.match(ins, /como máximo 28 minutos/);
   assert.doesNotMatch(ins, /CÓMO ATENDER UNA BÚSQUEDA|INVENTARIO|persona del equipo está atendiendo/);
-  // Límites: 40 min, aviso a los 35 y al minuto final.
+  // Límites: 28 min, aviso de cierre en el minuto 25 y al minuto final.
   const ms = m.pendientes.map((p) => p.ms);
-  assert.ok(ms.includes(40 * 60_000) && ms.includes(35 * 60_000) && ms.includes(39 * 60_000));
+  assert.ok(ms.includes(28 * 60_000) && ms.includes(25 * 60_000) && ms.includes(27 * 60_000));
   // Saludo propio con el nombre.
   FakeWs.ultima.emit('open');
   m.correr(1500);
@@ -956,7 +956,7 @@ test('aliado (2026-10-23): no cotiza, la saluda por su nombre, conduce la guía 
   mensaje(FakeWs.ultima, { type: 'conversation.item.input_audio_transcription.completed', transcript: 'Tengo 40 clientes' });
   mensaje(FakeWs.ultima, { type: 'response.output_audio_transcript.done', transcript: '¡Qué bien!' });
   await tick();
-  m.avanzar(30 * 60_000);
+  m.avanzar(20 * 60_000);
   FakeWs.ultima.close();
   await tick();
   const fin = m.de('fin')[0];
@@ -965,7 +965,7 @@ test('aliado (2026-10-23): no cotiza, la saluda por su nombre, conduce la guía 
   assert.equal(fin.resumen, 'Contadora con 40 clientes.');
   assert.deepEqual(fin.resumen_estructurado.secciones[0].puntos, ['40 clientes']);
   assert.equal('alerta' in fin.resumen_estructurado, false);
-  assert.equal(fin.duracion_segundos, 1800);
+  assert.equal(fin.duracion_segundos, 1200);
   assert.deepEqual(m.textos, []);
   // El resumen usa las claves de la guía y admite una entrevista larga.
   const resumenPost = m.posts.find((p) => p.url.endsWith('/chat/completions'));
@@ -992,20 +992,21 @@ test('aliado: la transcripción admite hasta 1000 turnos (ventas sigue en 400)',
   assert.equal(m.de('fin')[0].transcripcion.length, 1000);
 });
 
-test('aliado: la duración se acota al techo de 55 min y nunca baja de la de ventas', async () => {
+test('aliado: la duración se acota al techo de 28 min y nunca baja de la de ventas', async () => {
   const m = montar({ inicio: { aliado_voz: { ...ALIADO_VOZ, duracion_max_min: 300 } } });
   await m.manager.handleWebhook(firmado(eventoEntrante('rtc_ali_2'))).procesando;
-  assert.ok(m.pendientes.some((p) => p.ms === 55 * 60_000));
+  assert.ok(m.pendientes.some((p) => p.ms === 28 * 60_000));
+  assert.equal(m.pendientes.some((p) => p.ms > 28 * 60_000), false);
   const m2 = montar({ inicio: { aliado_voz: { ...ALIADO_VOZ, duracion_max_min: 3 } } });
   await m2.manager.handleWebhook(firmado(eventoEntrante('rtc_ali_3'))).procesando;
   assert.ok(m2.pendientes.some((p) => p.ms === 10 * 60_000));
 });
 
-test('aliado: el tope mensual se calcula con su duración (40 min x 0,06 = 2,4 USD)', async () => {
-  const m = montar({ uso: 47.7, inicio: { aliado_voz: ALIADO_VOZ } });
+test('aliado: el tope mensual se calcula con su duración (28 min x 0,06 = 1,68 USD)', async () => {
+  const m = montar({ uso: 48.4, inicio: { aliado_voz: ALIADO_VOZ } });
   await m.manager.handleWebhook(firmado(eventoEntrante('rtc_ali_4'))).procesando;
-  assert.equal(m.posts.some((p) => p.url.endsWith('/reject')), true, 'con 47,7 usados no caben 2,4');
-  const m2 = montar({ uso: 47.5, inicio: { aliado_voz: ALIADO_VOZ } });
+  assert.equal(m.posts.some((p) => p.url.endsWith('/reject')), true, 'con 48,4 usados no caben 1,68');
+  const m2 = montar({ uso: 48.3, inicio: { aliado_voz: ALIADO_VOZ } });
   await m2.manager.handleWebhook(firmado(eventoEntrante('rtc_ali_5'))).procesando;
   assert.equal(m2.posts.some((p) => p.url.endsWith('/accept')), true);
 });
@@ -1029,9 +1030,9 @@ test('admisión: las llamadas en curso cuentan su propio máximo (enCursoUsd)', 
 });
 
 test('huérfana de aliado: se cierra con su propia duración y costo', async () => {
-  const m = montar({ huerfanas: [{ call_id: 'rtc_old_ali', estado: 'aceptada', duracion_max_min: 40 }] });
+  const m = montar({ huerfanas: [{ call_id: 'rtc_old_ali', estado: 'aceptada', duracion_max_min: 28 }] });
   assert.deepEqual(await m.manager.barrerHuerfanas(), { colgadas: 1 });
   const fin = m.de('fin')[0];
-  assert.equal(fin.duracion_segundos, 2400);
-  assert.equal(fin.costo_estimado_usd, 2.4);
+  assert.equal(fin.duracion_segundos, 1680);
+  assert.equal(fin.costo_estimado_usd, 1.68);
 });
