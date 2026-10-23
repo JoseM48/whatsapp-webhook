@@ -931,7 +931,7 @@ test('aliado (2026-10-23): no cotiza, la saluda por su nombre, conduce la guía 
   const accept = m.posts.find((p) => p.url.endsWith('/accept'));
   const nombres = accept.body.tools.map((t) => t.name);
   for (const n of ['check_availability', 'quote_stay', 'enviar_opciones_al_chat', 'anotar_lista_espera']) assert.equal(nombres.includes(n), false, n);
-  assert.ok(nombres.includes('terminar_llamada') && nombres.includes('pedir_persona'));
+  assert.deepEqual(nombres.sort(), ['pedir_persona', 'terminar_llamada']);
   const ins = accept.body.instructions;
   assert.match(ins, /persona ALIADA de Miu/);
   assert.match(ins, /se llama Carmen/);
@@ -970,7 +970,26 @@ test('aliado (2026-10-23): no cotiza, la saluda por su nombre, conduce la guía 
   // El resumen usa las claves de la guía y admite una entrevista larga.
   const resumenPost = m.posts.find((p) => p.url.endsWith('/chat/completions'));
   assert.match(resumenPost.body.messages[0].content, /negocio_hoy: Su negocio hoy/);
-  assert.equal(resumenPost.body.max_tokens, 2000);
+  assert.equal(resumenPost.body.max_tokens, 4000);
+  assert.match(resumenPost.body.messages[0].content, /Fecha de la llamada/);
+});
+
+test('aliado: llamada anterior cortada a mitad, Cami retoma sin repetir', async () => {
+  const m = montar({ inicio: { aliado_voz: { ...ALIADO_VOZ, llamada_previa: { secciones_conversadas: ['Su negocio hoy'], resumen_general: 'Tiene 40 clientes.' } } } });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_ali_prev'))).procesando;
+  const ins = m.posts.find((p) => p.url.endsWith('/accept')).body.instructions;
+  assert.match(ins, /LLAMADA ANTERIOR .*ya conversaron de: Su negocio hoy/);
+  assert.match(ins, /Retoma desde donde quedaron/);
+});
+
+test('aliado: la transcripción admite hasta 1000 turnos (ventas sigue en 400)', async () => {
+  const m = montar({ inicio: { aliado_voz: ALIADO_VOZ } });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_ali_turnos'))).procesando;
+  for (let i = 0; i < 1005; i += 1) mensaje(FakeWs.ultima, { type: 'conversation.item.input_audio_transcription.completed', transcript: `t${i}` });
+  await tick();
+  FakeWs.ultima.close();
+  await tick();
+  assert.equal(m.de('fin')[0].transcripcion.length, 1000);
 });
 
 test('aliado: la duración se acota al techo de 55 min y nunca baja de la de ventas', async () => {
