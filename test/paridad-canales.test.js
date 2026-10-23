@@ -96,3 +96,19 @@ test('paridad de imágenes: chat lee, nota de voz hereda la lectura, la llamada 
   const t = await lector.prepararTurnoImagen({ burst, phone: '573000000001', raw: 'mira lo que te mandé', entradaTexto });
   assert.match(t.text, /Del 2 al 9 de diciembre/);
 });
+
+// ONBOARDING DE PROPIETARIAS (José Manuel, 2026-10-23; dominio 25). Capacidad
+// que no es una herramienta: un número marcado por el PMS como propietaria en
+// onboarding no recibe cotizaciones en NINGÚN canal.
+//  - chat y nota de voz: el despachador de la red del PMS (ingreso-red, paso 0)
+//    la atiende antes que el flujo de huésped; nunca llega al motor comercial.
+//  - llamada: /voz/llamada/inicio trae propietaria_onboarding; Cami de voz no
+//    recibe herramientas comerciales, la reconoce y la remite al chat.
+test('propietaria en onboarding: la llamada no cotiza, igual que el chat (dominio 25)', () => {
+  const { instruccionesCamiVoz, HERRAMIENTAS_COMERCIALES } = require('../lib/voz/cami-voz');
+  const voz = herramientasDeVoz({ sinComerciales: true }).map((t) => t.name);
+  assert.deepEqual(voz.filter((n) => HERRAMIENTAS_COMERCIALES.has(n)), []);
+  const t = instruccionesCamiVoz({ hoy: '2026-10-23', propietariaOnboarding: true });
+  assert.match(t, /NO cotices/);
+  assert.doesNotMatch(t, /CÓMO ATENDER UNA BÚSQUEDA/);
+});

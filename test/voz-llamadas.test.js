@@ -337,6 +337,23 @@ test('P2-4/P2-5: persona al mando: sin herramientas comerciales y sin seguimient
   assert.deepEqual(m.textos, []);
 });
 
+test('propietaria en onboarding (2026-10-23): la reconoce, no cotiza ni ofrece y no hay seguimiento automatico', async () => {
+  const m = montar({ inicio: { lead_id: null, nombre_saludo: null, propietaria_onboarding: { no_cotizar: true, nombre_saludo: 'Margarita', estado: 'en_curso' } }, viaFin: 'sin_caso' });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_prop'))).procesando;
+  const accept = m.posts.find((p) => p.url.endsWith('/accept'));
+  const nombres = accept.body.tools.map((t) => t.name);
+  for (const n of ['check_availability', 'quote_stay', 'enviar_opciones_al_chat', 'anotar_lista_espera']) assert.equal(nombres.includes(n), false, n);
+  assert.equal(nombres.includes('pedir_persona'), true);
+  assert.match(accept.body.instructions, /PROPIETARIA de un apartamento de Miu Canal/);
+  assert.match(accept.body.instructions, /siguen por el chat de WhatsApp/);
+  assert.match(accept.body.instructions, /La persona se llama Margarita/);
+  assert.doesNotMatch(accept.body.instructions, /CÓMO ATENDER UNA BÚSQUEDA/);
+  FakeWs.ultima.close();
+  await tick();
+  assert.equal(m.de('fin')[0].enviar_seguimiento, false);
+  assert.deepEqual(m.textos, []);
+});
+
 test('seguimiento sin caso en el PMS: el texto fijo devuelto sale directo', async () => {
   const m = montar({ viaFin: 'sin_caso' });
   await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_10'))).procesando;
