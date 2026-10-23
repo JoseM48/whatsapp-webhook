@@ -117,12 +117,12 @@ test('paridad de imágenes: chat lee, nota de voz hereda la lectura, la llamada 
 //    chat la reunión la conduce Teo a mano con la misma guía (documento).
 test('aliado: la llamada no cotiza y conduce la entrevista con la guía (dominio 25, 2026-10-23)', () => {
   const { instruccionesCamiVoz, aliadoDesdeInicio, HERRAMIENTAS_COMERCIALES } = require('../lib/voz/cami-voz');
-  const aliado = aliadoDesdeInicio({ perfil: 'aliado', no_cotizar: true, nombre_saludo: 'Carmen', entrevista_id: 1, duracion_max_min: 28,
+  const aliado = aliadoDesdeInicio({ perfil: 'aliado', no_cotizar: true, nombre_saludo: 'Carmen', entrevista_id: 1, duracion_max_min: 40,
     guia: { clave: 'descubrimiento_aliado', version: 1, titulo: 'Descubrimiento', secciones: [{ clave: 'negocio_hoy', titulo: 'Su negocio hoy', preguntas: ['¿Qué clientes atiende?'] }] } });
   assert.ok(aliado);
   const voz = herramientasDeVoz({ sinComerciales: true }).map((t) => t.name);
   assert.deepEqual(voz.filter((n) => HERRAMIENTAS_COMERCIALES.has(n)), []);
-  const t = instruccionesCamiVoz({ hoy: '2026-10-24', aliado, duracionMaxMin: 28 });
+  const t = instruccionesCamiVoz({ hoy: '2026-10-24', aliado, duracionMaxMin: 40 });
   assert.match(t, /NO cotices/);
   assert.match(t, /Su negocio hoy/);
   assert.doesNotMatch(t, /CÓMO ATENDER UNA BÚSQUEDA/);
