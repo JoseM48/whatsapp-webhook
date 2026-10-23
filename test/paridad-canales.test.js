@@ -69,3 +69,30 @@ test('la voz no llama a la persona por el nombre de la marca ("Con gusto, Mío",
   assert.equal(/La persona se llama Mío/.test(instruccionesCamiVoz({ hoy: '2026-10-23', nombre: 'Mío' })), false);
   assert.match(instruccionesCamiVoz({ hoy: '2026-10-23', nombre: 'Ana' }), /La persona se llama Ana/);
 });
+
+// CAMI LEE IMÁGENES (José Manuel, 2026-10-23; dominio 25). Capacidad que no es
+// una herramienta del modelo, así que se declara aquí:
+//  - chat: la imagen de un lead en venta se lee (inbound-image-reader.js) y su
+//    lectura entra al turno como texto del cliente.
+//  - nota de voz: transcrita, es un turno de texto: recibe las lecturas de las
+//    imágenes de la ráfaga que Cami aún no respondió (mismo prepararTurnoImagen).
+//  - llamada: no hay imágenes en el canal de voz (excepción propia del canal);
+//    si la persona manda una al chat mientras habla, Cami de voz recibe un
+//    AVISO DEL CHAT con lo leído (avisarImagenEnChat), con la misma guarda de
+//    privacidad (documento de identidad o comprobante: ningún dato).
+test('paridad de imágenes: chat lee, nota de voz hereda la lectura, la llamada recibe el aviso (2026-10-23)', async () => {
+  const lector = require('../lib/pilot/inbound-image-reader');
+  const voz = require('../lib/voz/cami-voz');
+  const { createVozCallManager } = require('../lib/voz/call-manager');
+  assert.equal(typeof lector.prepararTurnoImagen, 'function');
+  assert.equal(typeof voz.avisoImagenEnChat, 'function');
+  const m = createVozCallManager({ config: { habilitada: false, duracionMaxMin: 10 }, http: {}, WebSocketImpl: function () {}, pms: {},
+    executePmsTool: async () => null, sendText: async () => null, logger: { info() {}, warn() {}, error() {} } });
+  assert.equal(typeof m.avisarImagenEnChat, 'function');
+  // Nota de voz transcrita con una imagen de venta pendiente en la ráfaga.
+  const burst = lector.createImageBurst();
+  burst.registrar('573000000001', '2026-10-23T15:00:00Z', Promise.resolve({ categoria: 'solicitud', lectura: 'Del 2 al 9 de diciembre' }));
+  const t = await lector.prepararTurnoImagen({ reader: new lector.InboundImageReader({}), burst, phone: '573000000001',
+    raw: 'mira lo que te mandé', timestamp: '2026-10-23T15:00:04Z', begin: {} });
+  assert.match(t.text, /Del 2 al 9 de diciembre/);
+});

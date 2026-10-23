@@ -57,6 +57,7 @@ const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-rece
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
+const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarEntrega } = require('./lib/pilot/inbound-image-reader');
 const { parseFlowResponse, flowResponseToText } = require('./lib/pilot/flow-response');
 const { toFile } = require('openai');
 const WebSocket = require('ws');
@@ -380,6 +381,19 @@ const pilotAi = new PilotAi({
   model: PILOT_ANTHROPIC_MODEL,
   safetySalt: process.env.PILOT_SAFETY_SALT || PMS_LITE_WEBHOOK_SECRET
 });
+
+// CAMI LEE IMÁGENES (José Manuel, 2026-10-23; DECISIONES_LOG "Cami lee
+// imágenes"). Mismo cliente y modelo de Anthropic que PilotAi: ninguna
+// credencial nueva. El interruptor NO vive aqui: el PMS pide leer cada imagen
+// (`leer_imagen` al iniciar el turno) solo con la politica lectura_imagenes_v1
+// encendida y el caso en etapa de venta. Apagarlo = config.habilitada=false en
+// esa fila de commercial_policies, sin desplegar.
+const inboundImageReader = new InboundImageReader({
+  client: pilotAi.hasCredentials ? pilotAi.client : null,
+  model: PILOT_ANTHROPIC_MODEL,
+  timeoutMs: Number(process.env.M0_IMAGE_READING_TIMEOUT_MS || 15000)
+});
+const imageBurst = createImageBurst();
 
 // LLAMADAS DE WHATSAPP CON CAMI POR VOZ (GO José Manuel 2026-10-19). Apagado
 // salvo VOZ_LLAMADAS_HABILITADAS=true. Ver lib/voz/call-manager.js.
@@ -1750,23 +1764,44 @@ app.post('/webhook', async (req, res) => {
               tags: 'bust_in_silhouette'
             }).catch(() => {});
           }
-          pendingCommercial.push({ incoming, raw, closed });
+          // CAMI LEE IMÁGENES: la lectura arranca ya (en paralelo para toda la
+          // rafaga); el turno la espera en prepararTurnoImagen.
+          const lecturaEnCurso = iniciarLectura({ reader: inboundImageReader, burst: imageBurst,
+            phone: normalizePhone(incoming.from), raw, timestamp: incoming.timestamp, adjunto, begin: closed.begin?.result });
+          pendingCommercial.push({ incoming, raw, closed, adjunto, lecturaEnCurso });
         }
         res.sendStatus(200);
         setImmediate(async () => {
           const today = new Intl.DateTimeFormat('en-CA', {
             timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit'
           }).format(new Date());
-          for (const { incoming, raw, closed } of pendingCommercial) {
+          for (const { incoming, raw, closed, adjunto, lecturaEnCurso } of pendingCommercial) {
             const acknowledgementDeliveries = await m0CommercialResponder
               .deliverAcknowledgement(closed.acknowledgement_outboxes);
             console.info('[m0-commercial] acknowledgement_completed', {
               deliveries: acknowledgementDeliveries.map((item) => item.status)
             });
+            const guestPhone = normalizePhone(incoming.from);
+            // CAMI LEE IMÁGENES (2026-10-23): texto del turno con lo leido en las
+            // imagenes de venta de la rafaga. Ante cualquier fallo, el turno de
+            // siempre. Nunca se registra en logs el texto leido.
+            const turno = closed.processing_claimed
+              ? await prepararTurnoImagen({ reader: inboundImageReader, burst: imageBurst, phone: guestPhone, raw,
+                timestamp: incoming.timestamp, adjunto, caption: incoming.media?.caption || null, begin: closed.begin?.result,
+                lecturaEnCurso, avisarLlamada: (tel, lectura) => vozCalls.avisarImagenEnChat(tel, lectura) })
+                .catch((error) => {
+                  console.error('[m0-imagen] turno_fallido', { code: error?.code || error?.name || 'error' });
+                  return { text: raw, lecturaImagen: null, superablePorImagen: false };
+                })
+              : { text: raw, lecturaImagen: null, superablePorImagen: false };
+            if (turno.lecturaImagen || turno.text !== raw) console.info('[m0-imagen] turno', {
+              categoria: turno.lecturaImagen?.categoria || null, con_lecturas: turno.text !== raw, superable: turno.superablePorImagen });
             const processed = await m0CommercialResponder.processCaptured({
-              from: normalizePhone(incoming.from), text: raw, messageId: incoming.messageId, today,
-              context: closed.context, processingClaimed: closed.processing_claimed
+              from: guestPhone, text: turno.text, messageId: incoming.messageId, today,
+              context: closed.context, processingClaimed: closed.processing_claimed,
+              lecturaImagen: turno.lecturaImagen, superablePorImagen: turno.superablePorImagen
             });
+            registrarEntrega(imageBurst, guestPhone, incoming.timestamp, processed.completed?.deliveries);
             console.info('[m0-commercial] processing_completed', {
               ok: processed.ok, skipped: processed.skipped || null, fallback: processed.fallback === true,
               action: processed.completed?.result?.action || null,
