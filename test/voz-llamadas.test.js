@@ -118,7 +118,7 @@ test('instrucciones: IA, sin cobro por telefono y regla de Airbnb', () => {
   assert.match(t, /Nunca reservas, apartas, cobras/);
   assert.match(t, /huésped de una reserva de Airbnb/);
   const nombres = herramientasDeVoz().map((h) => h.name);
-  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat'].includes(n)).sort(),
+  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'anotar_lista_espera'].includes(n)).sort(),
     ['check_availability', 'get_policy', 'get_public_apartment_attributes', 'quote_stay', 'search_commercial_knowledge']);
   assert.equal(nombres.includes('prepare_pre_reservation'), false);
 });
@@ -135,7 +135,8 @@ const TEXTO_FIJO_PMS = 'Hola, soy Cami (texto fijo del PMS).';
 function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, viaFin = 'outbox', viaRechazo = 'outbox',
   resumenJson = { resumen: 'Busca 30 noches.', alerta: null, alerta_motivo: null }, huerfanas = [],
   fotosResp = (b) => ({ via: 'outbox', codigos: b.apartamentos, texto: 'TEXTO FOTOS', fotos_encoladas: 3 }),
-  disponibles = ['LF-510', 'LF-904', 'LF-1208'] } = {}) {
+  disponibles = ['LF-510', 'LF-904', 'LF-1208'], fueraHorizonte = null,
+  listaEsperaResp = (b) => ({ anotado: true, ya_anotado: false, check_in: b.check_in, mensaje_para_el_huesped: 'Listo, quedaste en la lista de espera.' }) } = {}) {
   const posts = [], textos = [], pmsLlamadas = [], herramientas = [], imagenes = [], entregas = [];
   const estado = { alertaFalla: false };
   const config = readVozConfig({ VOZ_LLAMADAS_HABILITADAS: habilitada ? 'true' : '', VOZ_OPENAI_API_KEY: 'sk-test-no-real',
@@ -157,6 +158,7 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
     vozHuerfanas: async (b) => { pmsLlamadas.push(['huerfanas', b]); return { llamadas: huerfanas }; },
     vozFotos: async (b) => { pmsLlamadas.push(['fotos', b]); return fotosResp(b); },
     vozMetaEvento: async (b) => { pmsLlamadas.push(['meta', b]); return {}; },
+    vozListaEspera: async (b) => { pmsLlamadas.push(['lista_espera', b]); return listaEsperaResp(b); },
   };
   const pendientes = [];
   const logs = [];
@@ -164,6 +166,7 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
   let t = Date.now();
   const manager = createVozCallManager({ config, http, WebSocketImpl: FakeWs, pms, timers, now: () => t,
     executePmsTool: async (name, args, ctx) => { herramientas.push({ name, args, ctx });
+      if (fueraHorizonte && (name === 'check_availability' || name === 'quote_stay')) return fueraHorizonte;
       return name === 'check_availability' ? { status: 'ok', data: { available: disponibles.map((c) => ({ apartment_code: c })) } }
         : { status: 'ok', data: { total: 1 } }; },
     sendText: async (to, body) => { textos.push({ to, body }); },
@@ -821,4 +824,73 @@ test('config: VOZ_SALUDO_RESPALDO_MS por defecto 3000 y acotado', () => {
   assert.equal(readVozConfig({}).saludoRespaldoMs, 3000);
   assert.equal(readVozConfig({ VOZ_SALUDO_RESPALDO_MS: '2000' }).saludoRespaldoMs, 2000);
   assert.equal(readVozConfig({ VOZ_SALUDO_RESPALDO_MS: '50' }).saludoRespaldoMs, 3000);
+});
+
+// ------------------------------------------- fuera del horizonte (2026-10-23)
+// Llamada real voz_llamadas 8: 1-10 de enero, 2 personas. Cami invento "a
+// partir del 1 de diciembre ya puedo revisar fechas".
+const FUERA = { status: 'unavailable', reason: 'outside_direct_quote_horizon', missing: [], source: null,
+  data: { max_direct_quote_until: '2026-11-30', precios_revisados_hasta: '2026-11-30', cotizacion_reservable: false,
+    tarifa_estimada: { estimada: true, reservable: false, modo: 'noche', por_noche_promedio: 169000 },
+    mensaje_para_el_huesped: 'Para esas fechas te puedo dar una tarifa estimada de referencia: $169.000 por noche…',
+    instruccion_modelo: 'No digas ni inventes una fecha desde la cual hay disponibilidad.' } };
+
+test('reglas de voz: fuera del horizonte usa el mensaje de la herramienta, tarifa estimada, lista de espera y nunca una fecha "desde"', () => {
+  const t = instruccionesCamiVoz({ hoy: '2026-10-23' });
+  assert.match(t, /FECHAS FUERA DEL HORIZONTE/);
+  assert.match(t, /mensaje_para_el_huesped/);
+  assert.match(t, /ESTIMADA/);
+  assert.match(t, /anotar_lista_espera/);
+  assert.match(t, /por el chat de WhatsApp/);
+  assert.match(t, /NUNCA afirmes una fecha "desde la cual"/);
+  assert.match(t, /precios_revisados_hasta \(o max_direct_quote_until\) NO es una fecha desde la cual/);
+  // Airbnb / persona al mando: sin herramienta de lista de espera.
+  assert.equal(herramientasDeVoz({ sinComerciales: true }).some((h) => h.name === 'anotar_lista_espera'), false);
+  assert.equal(herramientasDeVoz().some((h) => h.name === 'anotar_lista_espera'), true);
+});
+
+test('writer del chat: la fecha de precios revisados nunca es una fecha "desde"', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'lib', 'pilot', 'llm', 'writer.js'), 'utf8');
+  assert.match(src, /OUT OF HORIZON \(voice call 2026-10-23/);
+  assert.match(src, /never a date FROM which dates, availability or quotes open/);
+});
+
+test('fuera del horizonte: la voz anota en la lista de espera por el PMS con las fechas y personas de la consulta', async () => {
+  const m = montar({ fueraHorizonte: FUERA });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_h1'))).procesando;
+  const ws = FakeWs.ultima;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'check_availability', call_id: 'fc_h1',
+    arguments: JSON.stringify({ arrival_date: '2027-01-01', departure_date: '2027-01-10', guests: 2 }) }] } });
+  await tick();
+  // El modelo pide anotar sin repetir personas: se completan con las de la consulta.
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'anotar_lista_espera', call_id: 'fc_h2',
+    arguments: JSON.stringify({ arrival_date: '2027-01-01', nights: 9 }) }] } });
+  await tick();
+  assert.deepEqual(m.de('lista_espera'), [{ call_id: 'rtc_h1', check_in: '2027-01-01', nights: 9, guests: 2 }]);
+  const res = JSON.parse(ws.enviados.filter((e) => e.type === 'conversation.item.create').pop().item.output);
+  assert.equal(res.status, 'ok');
+  assert.equal(res.data.anotado, true);
+  ws.close();
+  await tick();
+  assert.ok(m.de('fin')[0].herramientas_usadas.includes('anotar_lista_espera'));
+});
+
+test('lista de espera por voz: sin fechas no llama al PMS; si el PMS no anota, la herramienta lo dice', async () => {
+  const m = montar({ listaEsperaResp: () => ({ anotado: false, motivo: 'sin_caso',
+    instruccion_modelo: 'No quedó anotado automáticamente: dile que el equipo le confirma la lista de espera por el chat de WhatsApp.' }) });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_h2'))).procesando;
+  const ws = FakeWs.ultima;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'anotar_lista_espera', call_id: 'fc_h3',
+    arguments: JSON.stringify({}) }] } });
+  await tick();
+  assert.equal(m.de('lista_espera').length, 0);
+  let res = JSON.parse(ws.enviados.filter((e) => e.type === 'conversation.item.create').pop().item.output);
+  assert.equal(res.status, 'needs_clarification');
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'anotar_lista_espera', call_id: 'fc_h4',
+    arguments: JSON.stringify({ arrival_date: '2027-01-01', nights: 9, guests: 2 }) }] } });
+  await tick();
+  res = JSON.parse(ws.enviados.filter((e) => e.type === 'conversation.item.create').pop().item.output);
+  assert.equal(res.status, 'not_authorized');
+  assert.match(res.data.instruccion_modelo, /chat de WhatsApp/);
+  ws.close();
 });
