@@ -263,3 +263,39 @@ test('paridad: si llega una imagen al chat durante una llamada, Cami de voz reci
   assert.match(avisoImagenEnChat({ categoria: 'comprobante_pago' }), /administración/);
   assert.match(instruccionesCamiVoz({ hoy: '2026-10-23' }), /AVISOS DEL CHAT/);
 });
+
+// --- Revision final (2026-10-23): privacidad ------------------------------
+test('privacidad: numeros largos con puntos o espacios se tachan; fechas y precios con $ se conservan', () => {
+  for (const t of ['cc 1.032.456.789', 'tarjeta 1234 5678 9012', 'cuenta 0123 4567 89', 'doc 1 032 456 789']) {
+    assert.match(sanearLectura(t), /\[número omitido\]/, t);
+    assert.doesNotMatch(sanearLectura(t), /\d{3,}/, t);
+  }
+  for (const t of ['Precio $3.000.000 al mes', '$ 12.500.000 total', '15.11.2026', '15 11 2026', '2026-11-15 - 2026-12-15',
+    'Del 1 al 30 de noviembre, 2 personas', '2.800.000 - 3.300.000']) {
+    assert.equal(sanearLectura(t), t, t);
+  }
+});
+
+test('privacidad: un nombre visto en una imagen nunca se toma como nombre del huesped (tampoco en el texto que arrastra lecturas)', async () => {
+  const { createM0CommercialResponder } = require('../lib/pilot/m0-commercial-responder');
+  const { turnoSinNombre } = require('../lib/pilot/inbound-image-reader');
+  const burst = createImageBurst();
+  burst.registrarImagen(TEL, Promise.resolve({ categoria: 'solicitud', lectura: 'Reserva de Laura Gómez del 1 al 30 de noviembre' }));
+  const raw = 'Hola, ¿tienen disponible?';
+  const et = registrarTextoEnRafaga({ burst, phone: TEL, raw, begin: {}, claimed: true });
+  const turno = await prepararTurnoImagen({ burst, phone: TEL, raw, entradaTexto: et });
+  assert.equal(turnoSinNombre(turno, raw), true, 'texto que arrastra lecturas');
+  assert.equal(turnoSinNombre({ text: 'Soy Ana' }, 'Soy Ana'), false, 'un texto propio sin lecturas si toma nombre');
+  const enviados = [];
+  const responder = createM0CommercialResponder({
+    capture: async () => ({}), pms: {}, logger: { info() {}, warn() {}, error() {} },
+    ai: { async interpret() { return { intent: 'lodging_search', guest_name: 'Laura Gómez' }; } },
+    closedPilot: { async completeCommercial(body) { enviados.push(body); return { deliveries: [] }; } }
+  });
+  await responder.processCaptured({ from: TEL, text: turno.text, messageId: 'w.1', today: '2026-10-23',
+    sinNombreDeImagen: turnoSinNombre(turno, raw) });
+  assert.equal('guest_name' in enviados[0].interpretation, false);
+  await responder.processCaptured({ from: TEL, text: 'Soy Laura Gómez', messageId: 'w.2', today: '2026-10-23',
+    sinNombreDeImagen: turnoSinNombre({ text: 'Soy Laura Gómez' }, 'Soy Laura Gómez') });
+  assert.equal(enviados[1].interpretation.guest_name, 'Laura Gómez');
+});

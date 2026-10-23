@@ -57,7 +57,7 @@ const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-rece
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
-const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarTextoEnRafaga, registrarEntrega } = require('./lib/pilot/inbound-image-reader');
+const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarTextoEnRafaga, registrarEntrega, turnoSinNombre } = require('./lib/pilot/inbound-image-reader');
 const { parseFlowResponse, flowResponseToText } = require('./lib/pilot/flow-response');
 const { toFile } = require('openai');
 const WebSocket = require('ws');
@@ -1804,7 +1804,7 @@ app.post('/webhook', async (req, res) => {
               from: guestPhone, text: turno.text, messageId: incoming.messageId, today,
               context: closed.context, processingClaimed: closed.processing_claimed,
               lecturaImagen: turno.lecturaImagen, superadoPorRafaga: turno.superadoPorRafaga,
-              sinNombreDeImagen: Boolean(entradaImagen) && turno.text !== raw
+              sinNombreDeImagen: turnoSinNombre(turno, raw)
             });
             registrarEntrega(imageBurst, turno.incluidas, processed.completed?.deliveries);
             console.info('[m0-commercial] processing_completed', {
