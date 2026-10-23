@@ -57,3 +57,14 @@ test('paridad de herramientas comerciales entre chat y voz (dominio 25, 2026-10-
     assert.ok(String(e.motivo || '').length > 20, `${n}: falta el motivo`);
   }
 });
+
+// Paridad del filtro de nombre: la lista de marca de la voz es la misma que el
+// PMS agrego a PALABRAS_NEGOCIO (src/shared/nombre-huesped.js, 2026-10-23).
+test('la voz no llama a la persona por el nombre de la marca ("Con gusto, Mío", 2026-10-23)', () => {
+  const { instruccionesCamiVoz, esNombreDeMarca, PALABRAS_MARCA } = require('../lib/voz/cami-voz');
+  assert.deepEqual([...PALABRAS_MARCA].sort(), ['frontera', 'lofts', 'mio', 'miu', 'versadaa']);
+  for (const n of ['Mío', 'Mío La Frontera', 'Miu', 'Versadaa']) assert.equal(esNombreDeMarca(n), true, n);
+  for (const n of ['Ana', 'Mónica', 'Miguel']) assert.equal(esNombreDeMarca(n), false, n);
+  assert.equal(/La persona se llama Mío/.test(instruccionesCamiVoz({ hoy: '2026-10-23', nombre: 'Mío' })), false);
+  assert.match(instruccionesCamiVoz({ hoy: '2026-10-23', nombre: 'Ana' }), /La persona se llama Ana/);
+});
