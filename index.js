@@ -1822,7 +1822,9 @@ app.post('/webhook', async (req, res) => {
               from: guestPhone, text: turno.text, messageId: incoming.messageId, today,
               context: closed.context, processingClaimed: closed.processing_claimed,
               lecturaImagen: turno.lecturaImagen, superadoPorRafaga: turno.superadoPorRafaga,
-              sinNombreDeImagen: turnoSinNombre(turno, raw)
+              sinNombreDeImagen: turnoSinNombre(turno, raw),
+              // USO ACEPTABLE (2026-10-24): la nota de voz transcrita es un turno de texto.
+              canal: incoming.messageType === 'audio' ? 'nota_voz' : 'chat'
             });
             registrarEntrega(imageBurst, turno.incluidas, processed.completed?.deliveries);
             console.info('[m0-commercial] processing_completed', {

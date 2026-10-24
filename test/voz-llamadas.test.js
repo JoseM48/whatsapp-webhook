@@ -118,7 +118,7 @@ test('instrucciones: IA, sin cobro por telefono y regla de Airbnb', () => {
   assert.match(t, /Nunca reservas, apartas, cobras/);
   assert.match(t, /huésped de una reserva de Airbnb/);
   const nombres = herramientasDeVoz().map((h) => h.name);
-  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'anotar_lista_espera'].includes(n)).sort(),
+  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'anotar_lista_espera', 'evaluar_uso_aceptable'].includes(n)).sort(),
     ['check_availability', 'get_policy', 'get_public_apartment_attributes', 'quote_stay', 'search_commercial_knowledge']);
   assert.equal(nombres.includes('prepare_pre_reservation'), false);
 });
@@ -159,6 +159,8 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
     vozFotos: async (b) => { pmsLlamadas.push(['fotos', b]); return fotosResp(b); },
     vozMetaEvento: async (b) => { pmsLlamadas.push(['meta', b]); return {}; },
     vozListaEspera: async (b) => { pmsLlamadas.push(['lista_espera', b]); return listaEsperaResp(b); },
+    vozUsoAceptable: async (b) => { pmsLlamadas.push(['uso_aceptable', b]); if (estado.usoFalla) throw new Error('down');
+      return { decision: b.decision, texto_para_decir: `TEXTO PMS ${b.decision}`, aviso_encolado: true }; },
   };
   const pendientes = [];
   const logs = [];
@@ -178,7 +180,7 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
   // Cada temporizador corre una sola vez (como uno real).
   const correr = (ms) => { for (const p of pendientes.filter((x) => x.ms === ms && !x.hecho)) { p.hecho = true; p.fn(); } };
   return { logs, pendientes, manager, posts, textos, pmsLlamadas, herramientas, imagenes, entregas, de, correr, avanzar: (ms) => { t += ms; },
-    fallarAlerta: () => { estado.alertaFalla = true; } };
+    fallarAlerta: () => { estado.alertaFalla = true; }, fallarUsoAceptable: () => { estado.usoFalla = true; } };
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
@@ -931,7 +933,7 @@ test('aliado (2026-10-23): no cotiza, la saluda por su nombre, conduce la guía 
   const accept = m.posts.find((p) => p.url.endsWith('/accept'));
   const nombres = accept.body.tools.map((t) => t.name);
   for (const n of ['check_availability', 'quote_stay', 'enviar_opciones_al_chat', 'anotar_lista_espera']) assert.equal(nombres.includes(n), false, n);
-  assert.deepEqual(nombres.sort(), ['pedir_persona', 'terminar_llamada']);
+  assert.deepEqual(nombres.sort(), ['evaluar_uso_aceptable', 'pedir_persona', 'terminar_llamada'], 'aliado: sin herramientas del PMS; el filtro de uso aceptable sí (2026-10-24)');
   const ins = accept.body.instructions;
   assert.match(ins, /persona ALIADA de Miu/);
   assert.match(ins, /se llama Carmen/);
@@ -1035,4 +1037,39 @@ test('huérfana de aliado: se cierra con su propia duración y costo', async () 
   const fin = m.de('fin')[0];
   assert.equal(fin.duracion_segundos, 2400);
   assert.equal(fin.costo_estimado_usd, 2.4);
+});
+
+// USO ACEPTABLE (José Manuel, 2026-10-24; PMS migración 930): un pedido
+// prohibido o restringido en la llamada se registra en el PMS (aviso a Teo) y
+// Cami recibe qué decir; nunca se ejecuta. Si el PMS no responde, igual se frena.
+test('uso aceptable en la llamada: registra en el PMS, devuelve el texto y no ejecuta; respaldo si el PMS cae', async () => {
+  const m = montar();
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_ua'))).procesando;
+  const ws = FakeWs.ultima;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'evaluar_uso_aceptable', call_id: 'fc_ua',
+    arguments: JSON.stringify({ decision: 'prohibido', categoria: 'armas_explosivos', resumen: 'Pide conseguir un arma' }) }] } });
+  await tick();
+  assert.deepEqual(m.de('uso_aceptable'), [{ call_id: 'rtc_test_ua', decision: 'prohibido', categoria: 'armas_explosivos', resumen: 'Pide conseguir un arma' }]);
+  const salida = ws.enviados.find((e) => e.type === 'conversation.item.create' && e.item?.call_id === 'fc_ua');
+  const r = JSON.parse(salida.item.output);
+  assert.equal(r.data.no_ejecutar, true);
+  assert.equal(r.data.texto_para_decir, 'TEXTO PMS prohibido');
+  assert.equal(m.herramientas.length, 0, 'no se llamó ninguna herramienta del PMS');
+  m.fallarUsoAceptable();
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'evaluar_uso_aceptable', call_id: 'fc_ua2',
+    arguments: JSON.stringify({ decision: 'restringido', categoria: 'empleo', resumen: 'Pide redactar un anuncio de empleo' }) }] } });
+  await tick();
+  const r2 = JSON.parse(ws.enviados.find((e) => e.item?.call_id === 'fc_ua2').item.output);
+  assert.equal(r2.data.decision, 'restringido');
+  assert.match(r2.data.texto_para_decir, /consultar primero con el equipo/);
+  ws.close();
+  await tick();
+});
+
+test('uso aceptable: la herramienta y la instrucción están en todos los perfiles de la llamada', () => {
+  for (const opciones of [{}, { sinComerciales: true }, { aliado: true }]) {
+    assert.ok(herramientasDeVoz(opciones).some((h) => h.name === 'evaluar_uso_aceptable'), JSON.stringify(opciones));
+  }
+  assert.match(instruccionesCamiVoz({ hoy: '2026-10-24' }), /USO ACEPTABLE/);
+  assert.match(instruccionesCamiVoz({ hoy: '2026-10-24', propietariaOnboarding: true }), /USO ACEPTABLE/);
 });
