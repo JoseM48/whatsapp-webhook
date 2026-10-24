@@ -40,6 +40,8 @@ const SOLO_VOZ = {
     motivo: 'Cami pregunta primero a Teo (2026-10-24): en el chat y las notas de voz la consulta la crea el motor del PMS al detectar el vacío de conocimiento (knowledge_unresolved); en la llamada no hay motor por turno y el modelo la registra con esta herramienta (mismo destino: consultas_teo del PMS).' },
   anotar_lista_espera: { tipo: 'propia_del_canal',
     motivo: 'En el chat la lista de espera la anota el motor del PMS al interpretar el "sí" del huésped; la voz llama al mismo mecanismo (anotarListaEsperaFueraHorizonte) por esta herramienta.' },
+  ofrecer_paquete_magia: { tipo: 'propia_del_canal',
+    motivo: 'Demo del Paquete Magia de TengoCamello (2026-10-24, PMS migración 950): en el chat y la nota de voz la arranca el texto disparador ("Quiero probar el Paquete Magia", enlace wa.me) en el despachador de la red del PMS; en la llamada, esta herramienta llama al mismo servicio (invitarDemo) y la demo sigue por el chat, porque vive en WhatsApp (avisos con opciones, enlaces y portal).' },
   evaluar_uso_aceptable: { tipo: 'propia_del_canal',
     motivo: 'USO ACEPTABLE (2026-10-24): en el chat y la nota de voz la clasificación es el campo estructurado acceptable_use de la interpretación y el PMS decide (registra, avisa a Teo y responde); en la llamada es esta herramienta, que llama al mismo servicio del PMS (registrarUsoAceptable).' },
 };
@@ -167,4 +169,24 @@ test('paridad del filtro de uso aceptable: chat, nota de voz y llamada (2026-10-
   const aliado = aliadoDesdeInicio({ perfil: 'aliado', no_cotizar: true, guia: { clave: 'g', secciones: [{ clave: 'negocio_hoy', titulo: 'Negocio', preguntas: ['¿Qué hace?'] }] } });
   assert.match(instruccionesCamiVoz({ hoy: '2026-10-24', aliado, duracionMaxMin: 40 }), /USO ACEPTABLE/);
   assert.match(instruccionesCamiVoz({ hoy: '2026-10-24' }), /USO ACEPTABLE/);
+});
+
+// DEMO DEL PAQUETE MAGIA (José Manuel, 2026-10-24; PMS migración 950; dominio
+// 25). Mismo comportamiento en los tres canales: quien está en la demo no
+// recibe cotizaciones de alojamiento.
+//  - chat y nota de voz: el despachador de la red del PMS (ingreso-red, paso 0b)
+//    atiende al dueño de la demo y a los clientes del negocio demo antes que el
+//    flujo de huésped.
+//  - llamada: /voz/llamada/inicio trae paquete_magia; Cami de voz no recibe
+//    herramientas comerciales y lo remite al chat (EXCEPCIÓN PROPIA DEL CANAL:
+//    la demo se vive por WhatsApp; la llamada solo la ofrece y la arranca).
+test('dueño de la demo del Paquete Magia: la llamada no cotiza, igual que el chat (dominio 25)', () => {
+  const { instruccionesCamiVoz, HERRAMIENTAS_COMERCIALES } = require('../lib/voz/cami-voz');
+  const voz = herramientasDeVoz({ sinComerciales: true, paqueteMagia: true }).map((t) => t.name);
+  assert.deepEqual(voz.filter((n) => HERRAMIENTAS_COMERCIALES.has(n)), []);
+  assert.equal(voz.includes('ofrecer_paquete_magia'), false);
+  assert.equal(herramientasDeVoz({ aliado: true }).some((t) => t.name === 'ofrecer_paquete_magia'), true);
+  const t = instruccionesCamiVoz({ hoy: '2026-10-24', paqueteMagia: true });
+  assert.match(t, /NO cotices/);
+  assert.doesNotMatch(t, /CÓMO ATENDER UNA BÚSQUEDA/);
 });

@@ -118,7 +118,7 @@ test('instrucciones: IA, sin cobro por telefono y regla de Airbnb', () => {
   assert.match(t, /Nunca reservas, apartas, cobras/);
   assert.match(t, /huésped de una reserva de Airbnb/);
   const nombres = herramientasDeVoz().map((h) => h.name);
-  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'anotar_lista_espera', 'consultar_al_equipo', 'evaluar_uso_aceptable'].includes(n)).sort(),
+  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'anotar_lista_espera', 'consultar_al_equipo', 'evaluar_uso_aceptable', 'ofrecer_paquete_magia'].includes(n)).sort(),
     ['check_availability', 'get_policy', 'get_public_apartment_attributes', 'quote_stay', 'search_commercial_knowledge']);
   assert.equal(nombres.includes('prepare_pre_reservation'), false);
 });
@@ -161,6 +161,8 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
     vozListaEspera: async (b) => { pmsLlamadas.push(['lista_espera', b]); return listaEsperaResp(b); },
     vozConsultaTeo: async (b) => { pmsLlamadas.push(['consulta_teo', b]); if (estado.consultaFalla) throw new Error('down');
       return { registrada: true, via: 'teo', consulta_id: 1, instruccion_modelo: 'Quedó registrada. Dile que lo confirmas.' }; },
+    vozPaqueteMagia: async (b) => { pmsLlamadas.push(['paquete_magia', b]); if (estado.magiaFalla) throw new Error('down');
+      return { iniciada: true, demo_id: 3, instruccion_modelo: 'Listo: le acabo de escribir por el chat.' }; },
     vozUsoAceptable: async (b) => { pmsLlamadas.push(['uso_aceptable', b]); if (estado.usoFalla) throw new Error('down');
       return { decision: b.decision, texto_para_decir: `TEXTO PMS ${b.decision}`, aviso_encolado: true }; },
   };
@@ -966,7 +968,7 @@ test('aliado (2026-10-23): no cotiza, la saluda por su nombre, conduce la guía 
   const accept = m.posts.find((p) => p.url.endsWith('/accept'));
   const nombres = accept.body.tools.map((t) => t.name);
   for (const n of ['check_availability', 'quote_stay', 'enviar_opciones_al_chat', 'anotar_lista_espera']) assert.equal(nombres.includes(n), false, n);
-  assert.deepEqual(nombres.sort(), ['consultar_al_equipo', 'evaluar_uso_aceptable', 'pedir_persona', 'terminar_llamada'], 'aliado: sin herramientas del PMS; consultar al equipo y filtro de uso aceptable sí (2026-10-24)');
+  assert.deepEqual(nombres.sort(), ['consultar_al_equipo', 'evaluar_uso_aceptable', 'ofrecer_paquete_magia', 'pedir_persona', 'terminar_llamada'], 'aliado: sin herramientas del PMS; consultar al equipo, filtro de uso aceptable y demo del Paquete Magia sí (2026-10-24)');
   const ins = accept.body.instructions;
   assert.match(ins, /persona ALIADA de Miu/);
   assert.match(ins, /se llama Carmen/);
@@ -1105,4 +1107,38 @@ test('uso aceptable: la herramienta y la instrucción están en todos los perfil
   }
   assert.match(instruccionesCamiVoz({ hoy: '2026-10-24' }), /USO ACEPTABLE/);
   assert.match(instruccionesCamiVoz({ hoy: '2026-10-24', propietariaOnboarding: true }), /USO ACEPTABLE/);
+});
+
+test('Paquete Magia (2026-10-24): Cami voz ofrece la demo, la arranca por el chat y, si el dueño de la demo llama, no cotiza', async () => {
+  const m = montar();
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_magia_wh'))).procesando;
+  const ws = FakeWs.ultima;
+  const accept = m.posts.find((p) => p.url.endsWith('/accept'));
+  assert.equal(accept.body.tools.some((t) => t.name === 'ofrecer_paquete_magia'), true);
+  assert.match(accept.body.instructions, /Paquete Magia de TengoCamello/);
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'ofrecer_paquete_magia', call_id: 'fc_pm', arguments: '{}' }] } });
+  await tick();
+  assert.deepEqual(m.de('paquete_magia'), [{ call_id: 'rtc_magia_wh' }]);
+  const out = JSON.parse(ws.enviados.find((e) => e.type === 'conversation.item.create' && e.item?.call_id === 'fc_pm').item.output);
+  assert.equal(out.status, 'ok');
+  assert.match(out.instruccion_modelo, /chat/);
+  // PMS caído: pide escribir el texto disparador, sin prometer nada.
+  m.estado.magiaFalla = true;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'ofrecer_paquete_magia', call_id: 'fc_pm2', arguments: '{}' }] } });
+  await tick();
+  const out2 = JSON.parse(ws.enviados.find((e) => e.type === 'conversation.item.create' && e.item?.call_id === 'fc_pm2').item.output);
+  assert.match(out2.instruccion_modelo, /Quiero probar el Paquete Magia/);
+  ws.close();
+  await tick();
+  // El dueño de una demo abierta llama: sin herramientas comerciales ni de la demo, y sin seguimiento.
+  const d = montar({ inicio: { lead_id: null, nombre_saludo: null, paquete_magia: { demo_id: 3, estado: 'activa', no_cotizar: true } }, viaFin: 'sin_caso' });
+  await d.manager.handleWebhook(firmado(eventoEntrante('rtc_magia_dueno'))).procesando;
+  const acc2 = d.posts.find((p) => p.url.endsWith('/accept'));
+  const nombres = acc2.body.tools.map((t) => t.name);
+  for (const n of ['check_availability', 'quote_stay', 'enviar_opciones_al_chat', 'anotar_lista_espera', 'ofrecer_paquete_magia']) assert.equal(nombres.includes(n), false, n);
+  assert.match(acc2.body.instructions, /DEMO DEL PAQUETE MAGIA/);
+  assert.doesNotMatch(acc2.body.instructions, /CÓMO ATENDER UNA BÚSQUEDA/);
+  FakeWs.ultima.close();
+  await tick();
+  assert.equal(d.de('fin')[0].enviar_seguimiento, false);
 });
