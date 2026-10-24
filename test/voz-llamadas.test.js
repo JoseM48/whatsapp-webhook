@@ -1115,7 +1115,7 @@ test('Paquete Magia (2026-10-24): Cami voz ofrece la demo, la arranca por el cha
   const ws = FakeWs.ultima;
   const accept = m.posts.find((p) => p.url.endsWith('/accept'));
   assert.equal(accept.body.tools.some((t) => t.name === 'ofrecer_paquete_magia'), true);
-  assert.match(accept.body.instructions, /Paquete Magia de TengoCamello/);
+  assert.match(accept.body.instructions, /NO ofrezcas por tu cuenta el Paquete Magia/);  // revisión P2-7: solo si la persona la pide
   mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'ofrecer_paquete_magia', call_id: 'fc_pm', arguments: '{}' }] } });
   await tick();
   assert.deepEqual(m.de('paquete_magia'), [{ call_id: 'rtc_magia_wh' }]);
