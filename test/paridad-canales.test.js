@@ -36,6 +36,8 @@ const SOLO_VOZ = {
     motivo: 'Durante la llamada las opciones y fotos se mandan al WhatsApp; en el chat el motor del PMS las presenta en el propio mensaje.' },
   pedir_persona: { tipo: 'propia_del_canal',
     motivo: 'Aviso inmediato a José Manuel durante la llamada; en el chat lo hace el motor del PMS con la interpretación (requests_human / queja / emergencia).' },
+  consultar_al_equipo: { tipo: 'propia_del_canal',
+    motivo: 'Cami pregunta primero a Teo (2026-10-24): en el chat y las notas de voz la consulta la crea el motor del PMS al detectar el vacío de conocimiento (knowledge_unresolved); en la llamada no hay motor por turno y el modelo la registra con esta herramienta (mismo destino: consultas_teo del PMS).' },
   anotar_lista_espera: { tipo: 'propia_del_canal',
     motivo: 'En el chat la lista de espera la anota el motor del PMS al interpretar el "sí" del huésped; la voz llama al mismo mecanismo (anotarListaEsperaFueraHorizonte) por esta herramienta.' },
 };

@@ -118,7 +118,7 @@ test('instrucciones: IA, sin cobro por telefono y regla de Airbnb', () => {
   assert.match(t, /Nunca reservas, apartas, cobras/);
   assert.match(t, /huésped de una reserva de Airbnb/);
   const nombres = herramientasDeVoz().map((h) => h.name);
-  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'anotar_lista_espera'].includes(n)).sort(),
+  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'anotar_lista_espera', 'consultar_al_equipo'].includes(n)).sort(),
     ['check_availability', 'get_policy', 'get_public_apartment_attributes', 'quote_stay', 'search_commercial_knowledge']);
   assert.equal(nombres.includes('prepare_pre_reservation'), false);
 });
@@ -159,6 +159,8 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
     vozFotos: async (b) => { pmsLlamadas.push(['fotos', b]); return fotosResp(b); },
     vozMetaEvento: async (b) => { pmsLlamadas.push(['meta', b]); return {}; },
     vozListaEspera: async (b) => { pmsLlamadas.push(['lista_espera', b]); return listaEsperaResp(b); },
+    vozConsultaTeo: async (b) => { pmsLlamadas.push(['consulta_teo', b]); if (estado.consultaFalla) throw new Error('down');
+      return { registrada: true, via: 'teo', consulta_id: 1, instruccion_modelo: 'Quedó registrada. Dile que lo confirmas.' }; },
   };
   const pendientes = [];
   const logs = [];
@@ -178,7 +180,7 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
   // Cada temporizador corre una sola vez (como uno real).
   const correr = (ms) => { for (const p of pendientes.filter((x) => x.ms === ms && !x.hecho)) { p.hecho = true; p.fn(); } };
   return { logs, pendientes, manager, posts, textos, pmsLlamadas, herramientas, imagenes, entregas, de, correr, avanzar: (ms) => { t += ms; },
-    fallarAlerta: () => { estado.alertaFalla = true; } };
+    fallarAlerta: () => { estado.alertaFalla = true; }, estado };
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
@@ -294,6 +296,37 @@ test('P1-1: pedir_persona avisa de inmediato al PMS con tipo y motivo; el paso e
   assert.equal(fin.requiere_persona, true);
   assert.equal(fin.alerta, 'emergencia', 'se repite al cerrar; el PMS no duplica el aviso');
   assert.equal(fin.alerta_motivo, 'fuga de agua');
+});
+
+test('Cami pregunta primero a Teo (2026-10-24): consultar_al_equipo registra la pregunta en el PMS y devuelve la instrucción', async () => {
+  const m = montar();
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_teo_wh'))).procesando;
+  const ws = FakeWs.ultima;
+  const accept = m.posts.find((p) => p.url.endsWith('/accept'));
+  assert.equal(accept.body.tools.some((t) => t.name === 'consultar_al_equipo'), true);
+  assert.match(accept.body.instructions, /usa consultar_al_equipo/);
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'consultar_al_equipo', call_id: 'fc_t',
+    arguments: JSON.stringify({ pregunta: '¿El gimnasio abre los domingos?', contexto: '30 noches en diciembre' }) }] } });
+  await tick();
+  assert.deepEqual(m.de('consulta_teo'), [{ call_id: 'rtc_teo_wh', pregunta: '¿El gimnasio abre los domingos?', contexto: '30 noches en diciembre' }]);
+  const salida = ws.enviados.find((e) => e.type === 'conversation.item.create' && e.item?.call_id === 'fc_t');
+  const out = JSON.parse(salida.item.output);
+  assert.equal(out.status, 'ok');
+  assert.match(out.instruccion_modelo, /Quedó registrada/);
+  // Pregunta vacía: no llama al PMS.
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'consultar_al_equipo', call_id: 'fc_t2',
+    arguments: JSON.stringify({ pregunta: ' ' }) }] } });
+  await tick();
+  assert.equal(m.de('consulta_teo').length, 1);
+  // PMS caído (revisión P2-3): no se promete sin rastro; va como aviso (pedir_persona).
+  m.estado.consultaFalla = true;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'consultar_al_equipo', call_id: 'fc_t3',
+    arguments: JSON.stringify({ pregunta: '¿Hay piscina?' }) }] } });
+  await tick();
+  assert.deepEqual(m.de('alerta').map((a) => a.tipo), ['persona']);
+  assert.match(m.de('alerta')[0].motivo, /Cami no supo responder: ¿Hay piscina\?/);
+  const out3 = JSON.parse(ws.enviados.find((e) => e.type === 'conversation.item.create' && e.item?.call_id === 'fc_t3').item.output);
+  assert.match(out3.instruccion_modelo, /aviso para José Manuel/);
 });
 
 test('P1-1: el resumen que detecta una queja la manda como alerta al cerrar', async () => {
@@ -931,7 +964,7 @@ test('aliado (2026-10-23): no cotiza, la saluda por su nombre, conduce la guía 
   const accept = m.posts.find((p) => p.url.endsWith('/accept'));
   const nombres = accept.body.tools.map((t) => t.name);
   for (const n of ['check_availability', 'quote_stay', 'enviar_opciones_al_chat', 'anotar_lista_espera']) assert.equal(nombres.includes(n), false, n);
-  assert.deepEqual(nombres.sort(), ['pedir_persona', 'terminar_llamada']);
+  assert.deepEqual(nombres.sort(), ['consultar_al_equipo', 'pedir_persona', 'terminar_llamada']);
   const ins = accept.body.instructions;
   assert.match(ins, /persona ALIADA de Miu/);
   assert.match(ins, /se llama Carmen/);
