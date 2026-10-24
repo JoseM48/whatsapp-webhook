@@ -40,6 +40,8 @@ const SOLO_VOZ = {
     motivo: 'Cami pregunta primero a Teo (2026-10-24): en el chat y las notas de voz la consulta la crea el motor del PMS al detectar el vacío de conocimiento (knowledge_unresolved); en la llamada no hay motor por turno y el modelo la registra con esta herramienta (mismo destino: consultas_teo del PMS).' },
   anotar_lista_espera: { tipo: 'propia_del_canal',
     motivo: 'En el chat la lista de espera la anota el motor del PMS al interpretar el "sí" del huésped; la voz llama al mismo mecanismo (anotarListaEsperaFueraHorizonte) por esta herramienta.' },
+  evaluar_uso_aceptable: { tipo: 'propia_del_canal',
+    motivo: 'USO ACEPTABLE (2026-10-24): en el chat y la nota de voz la clasificación es el campo estructurado acceptable_use de la interpretación y el PMS decide (registra, avisa a Teo y responde); en la llamada es esta herramienta, que llama al mismo servicio del PMS (registrarUsoAceptable).' },
 };
 
 const TIPOS = new Set(['propia_del_canal', 'pendiente de paridad']);
@@ -137,4 +139,32 @@ test('propietaria en onboarding: la llamada no cotiza, igual que el chat (domini
   const t = instruccionesCamiVoz({ hoy: '2026-10-23', propietariaOnboarding: true });
   assert.match(t, /NO cotices/);
   assert.doesNotMatch(t, /CÓMO ATENDER UNA BÚSQUEDA/);
+});
+
+// USO ACEPTABLE (José Manuel, 2026-10-24; PMS uso_aceptable_v1, migración 930;
+// dominio 25). Mismo comportamiento en los tres canales: el modelo clasifica el
+// pedido contra la política y, si es prohibido o restringido, Cami no ejecuta,
+// se registra el evento y se avisa a Teo.
+//  - chat: campo acceptable_use de la interpretación (ai.js y esquema V2).
+//  - nota de voz: transcrita es un turno de chat; llega marcada canal nota_voz.
+//  - llamada: herramienta evaluar_uso_aceptable en TODOS los perfiles (venta,
+//    sin comerciales, aliado) + la instrucción en las dos instrucciones de voz.
+test('paridad del filtro de uso aceptable: chat, nota de voz y llamada (2026-10-24)', () => {
+  const Module = require('node:module');
+  const original = Module._resolveFilename;
+  Module._resolveFilename = function r(req, ...rest) { return req === '@anthropic-ai/sdk' ? req : original.call(this, req, ...rest); };
+  require.cache['@anthropic-ai/sdk'] = require.cache['@anthropic-ai/sdk'] || { id: '@anthropic-ai/sdk', filename: '@anthropic-ai/sdk', loaded: true, exports: class {} };
+  try {
+    const { interpretationSchema } = require('../lib/pilot/ai');
+    const { interpretationSchemaV2 } = require('../lib/pilot/llm/interpretation-schema-v2');
+    assert.ok(interpretationSchema.required.includes('acceptable_use'));
+    assert.ok(interpretationSchemaV2.required.includes('acceptable_use'));
+  } finally { Module._resolveFilename = original; }
+  const { instruccionesCamiVoz, aliadoDesdeInicio } = require('../lib/voz/cami-voz');
+  for (const o of [{}, { sinComerciales: true }, { aliado: true }]) {
+    assert.ok(herramientasDeVoz(o).some((h) => h.name === 'evaluar_uso_aceptable'), JSON.stringify(o));
+  }
+  const aliado = aliadoDesdeInicio({ perfil: 'aliado', no_cotizar: true, guia: { clave: 'g', secciones: [{ clave: 'negocio_hoy', titulo: 'Negocio', preguntas: ['¿Qué hace?'] }] } });
+  assert.match(instruccionesCamiVoz({ hoy: '2026-10-24', aliado, duracionMaxMin: 40 }), /USO ACEPTABLE/);
+  assert.match(instruccionesCamiVoz({ hoy: '2026-10-24' }), /USO ACEPTABLE/);
 });
