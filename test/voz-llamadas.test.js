@@ -1142,3 +1142,27 @@ test('Paquete Magia (2026-10-24): Cami voz ofrece la demo, la arranca por el cha
   await tick();
   assert.equal(d.de('fin')[0].enviar_seguimiento, false);
 });
+
+test('LEAD 256 (paridad): search_commercial_knowledge recibe las noches que la llamada cotizo y el lead, no las del modelo', async () => {
+  const m = montar();
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_256'))).procesando;
+  const ws = FakeWs.ultima;
+  ws.emit('open');
+  // Antes de cotizar: sin noches (el PMS da la referencia aproximada o la del chat del lead).
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'search_commercial_knowledge', call_id: 'fc_a',
+    arguments: JSON.stringify({ topics: ['address_disclosure'], apartment_code: null }) }] } });
+  await tick();
+  assert.deepEqual(m.herramientas[0].ctx, { as_of: m.herramientas[0].ctx.as_of, proposal_snapshot: null, nights: null, lead_id: 7 });
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'check_availability', call_id: 'fc_b',
+    arguments: JSON.stringify({ nights: 30, arrival_date: '2026-11-30', guests: 1 }) }] } });
+  await tick();
+  // Las demas herramientas no cambian de contexto.
+  assert.equal('nights' in m.herramientas[1].ctx, false);
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'search_commercial_knowledge', call_id: 'fc_c',
+    arguments: JSON.stringify({ topics: ['address_disclosure'], apartment_code: null }) }] } });
+  await tick();
+  assert.equal(m.herramientas[2].ctx.nights, 30);
+  assert.equal(m.herramientas[2].ctx.lead_id, 7);
+  ws.close();
+  await tick();
+});

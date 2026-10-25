@@ -1798,7 +1798,7 @@ app.post('/webhook', async (req, res) => {
           }).format(new Date());
           for (const { incoming, raw, closed, entradaImagen, entradaTexto } of pendingCommercial) {
             const acknowledgementDeliveries = await m0CommercialResponder
-              .deliverAcknowledgement(closed.acknowledgement_outboxes);
+              .deliverAcknowledgement(closed.acknowledgement_outboxes, closed.begin?.result || null);
             console.info('[m0-commercial] acknowledgement_completed', {
               deliveries: acknowledgementDeliveries.map((item) => item.status)
             });
