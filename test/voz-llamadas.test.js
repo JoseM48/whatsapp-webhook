@@ -1163,6 +1163,14 @@ test('LEAD 256 (paridad): search_commercial_knowledge recibe las noches que la l
   await tick();
   assert.equal(m.herramientas[2].ctx.nights, 30);
   assert.equal(m.herramientas[2].ctx.lead_id, 7);
+  // Si luego consulta otra estadia (5 noches), cuenta la ultima, como en el chat.
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'check_availability', call_id: 'fc_d',
+    arguments: JSON.stringify({ nights: 5, arrival_date: '2026-11-30', guests: 1 }) }] } });
+  await tick();
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'search_commercial_knowledge', call_id: 'fc_e',
+    arguments: JSON.stringify({ topics: ['address_disclosure'], apartment_code: null }) }] } });
+  await tick();
+  assert.equal(m.herramientas[4].ctx.nights, 5);
   ws.close();
   await tick();
 });
