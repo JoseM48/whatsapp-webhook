@@ -42,6 +42,8 @@ const SOLO_VOZ = {
     motivo: 'En el chat la lista de espera la anota el motor del PMS al interpretar el "sí" del huésped; la voz llama al mismo mecanismo (anotarListaEsperaFueraHorizonte) por esta herramienta.' },
   ofrecer_paquete_magia: { tipo: 'propia_del_canal',
     motivo: 'Demo del Paquete Magia de TengoCamello (2026-10-24, PMS migración 950): en el chat y la nota de voz la arranca el texto disparador ("Quiero probar el Paquete Magia", enlace wa.me) en el despachador de la red del PMS; en la llamada, esta herramienta llama al mismo servicio (invitarDemo) y la demo sigue por el chat, porque vive en WhatsApp (avisos con opciones, enlaces y portal).' },
+  solicitar_late_checkout: { tipo: 'propia_del_canal',
+    motivo: 'SALIDA Y LATE CHECK-OUT (2026-10-26, PMS migración 998): en el chat y la nota de voz el flujo de huésped en estadía del PMS da la regla y crea el cobro (huesped-estadia/salida.service.js, solicitarLateCheckout); en la llamada, esta herramienta llama a la MISMA función y el cobro llega por el chat (no se cobra por teléfono).' },
   evaluar_uso_aceptable: { tipo: 'propia_del_canal',
     motivo: 'USO ACEPTABLE (2026-10-24): en el chat y la nota de voz la clasificación es el campo estructurado acceptable_use de la interpretación y el PMS decide (registra, avisa a Teo y responde); en la llamada es esta herramienta, que llama al mismo servicio del PMS (registrarUsoAceptable).' },
 };

@@ -118,7 +118,7 @@ test('instrucciones: IA, sin cobro por telefono y regla de Airbnb', () => {
   assert.match(t, /Nunca reservas, apartas, cobras/);
   assert.match(t, /huésped de una reserva de Airbnb/);
   const nombres = herramientasDeVoz().map((h) => h.name);
-  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'anotar_lista_espera', 'consultar_al_equipo', 'evaluar_uso_aceptable', 'ofrecer_paquete_magia'].includes(n)).sort(),
+  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'anotar_lista_espera', 'consultar_al_equipo', 'evaluar_uso_aceptable', 'ofrecer_paquete_magia', 'solicitar_late_checkout'].includes(n)).sort(),
     ['check_availability', 'get_policy', 'get_public_apartment_attributes', 'quote_stay', 'search_commercial_knowledge']);
   assert.equal(nombres.includes('prepare_pre_reservation'), false);
 });
@@ -136,7 +136,8 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
   resumenJson = { resumen: 'Busca 30 noches.', alerta: null, alerta_motivo: null }, huerfanas = [],
   fotosResp = (b) => ({ via: 'outbox', codigos: b.apartamentos, texto: 'TEXTO FOTOS', fotos_encoladas: 3 }),
   disponibles = ['LF-510', 'LF-904', 'LF-1208'], fueraHorizonte = null,
-  listaEsperaResp = (b) => ({ anotado: true, ya_anotado: false, check_in: b.check_in, mensaje_para_el_huesped: 'Listo, quedaste en la lista de espera.' }) } = {}) {
+  listaEsperaResp = (b) => ({ anotado: true, ya_anotado: false, check_in: b.check_in, mensaje_para_el_huesped: 'Listo, quedaste en la lista de espera.' }),
+  lateResp = () => ({ solicitado: true, estado: 'cobro_creado', enviado_al_chat: true, instruccion_modelo: 'Dile que le enviaste el cobro al chat.' }) } = {}) {
   const posts = [], textos = [], pmsLlamadas = [], herramientas = [], imagenes = [], entregas = [];
   const estado = { alertaFalla: false };
   const config = readVozConfig({ VOZ_LLAMADAS_HABILITADAS: habilitada ? 'true' : '', VOZ_OPENAI_API_KEY: 'sk-test-no-real',
@@ -163,6 +164,7 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
       return { registrada: true, via: 'teo', consulta_id: 1, instruccion_modelo: 'Quedó registrada. Dile que lo confirmas.' }; },
     vozPaqueteMagia: async (b) => { pmsLlamadas.push(['paquete_magia', b]); if (estado.magiaFalla) throw new Error('down');
       return { iniciada: true, demo_id: 3, instruccion_modelo: 'Listo: le acabo de escribir por el chat.' }; },
+    vozLateCheckout: async (b) => { pmsLlamadas.push(['late_checkout', b]); if (estado.lateFalla) throw new Error('down'); return lateResp(b); },
     vozUsoAceptable: async (b) => { pmsLlamadas.push(['uso_aceptable', b]); if (estado.usoFalla) throw new Error('down');
       return { decision: b.decision, texto_para_decir: `TEXTO PMS ${b.decision}`, aviso_encolado: true }; },
   };
@@ -1173,4 +1175,68 @@ test('LEAD 256 (paridad): search_commercial_knowledge recibe las noches que la l
   assert.equal(m.herramientas[4].ctx.nights, 5);
   ws.close();
   await tick();
+});
+
+// SALIDA Y LATE CHECK-OUT (José Manuel, 2026-10-26; PMS migración 998; paridad, dominio 25).
+const REGLA_PMS = 'La salida (check-out) es a más tardar a las 11:00 a. m. Si necesitas un poco más de tiempo, puedes tomar late check-out hasta las 12:00 m. por COP 50.000; se confirma solo cuando el pago queda registrado.';
+test('late check-out: la regla viene del PMS; la herramienta solo a quien tiene estadía y llega al PMS con la hora', async () => {
+  const m = montar({ inicio: { salida: { regla: REGLA_PMS, late_checkout_habilitado: true }, tiene_estadia: true } });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_late_wh'))).procesando;
+  const ws = FakeWs.ultima;
+  const accept = m.posts.find((p) => p.url.endsWith('/accept'));
+  assert.match(accept.body.instructions, /SALIDA Y LATE CHECK-OUT/);
+  assert.match(accept.body.instructions, /COP 50\.000/);
+  assert.match(accept.body.instructions, /usa solicitar_late_checkout/);
+  assert.equal(accept.body.tools.some((t) => t.name === 'solicitar_late_checkout'), true);
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'solicitar_late_checkout', call_id: 'fc_l',
+    arguments: JSON.stringify({ hasta: '12:00' }) }] } });
+  await tick();
+  assert.deepEqual(m.de('late_checkout'), [{ call_id: 'rtc_late_wh', hasta: '12:00' }]);
+  const out = JSON.parse(ws.enviados.find((e) => e.type === 'conversation.item.create' && e.item?.call_id === 'fc_l').item.output);
+  assert.equal(out.status, 'ok');
+  assert.match(out.instruccion_modelo, /cobro al chat/);
+  // Hora basura: no se manda.
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'solicitar_late_checkout', call_id: 'fc_l2',
+    arguments: JSON.stringify({ hasta: 'al mediodía' }) }] } });
+  await tick();
+  assert.deepEqual(m.de('late_checkout')[1], { call_id: 'rtc_late_wh' });
+  // PMS caído: no se promete el cobro; se pide escribir LATE por el chat.
+  m.estado.lateFalla = true;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'solicitar_late_checkout', call_id: 'fc_l3', arguments: '{}' }] } });
+  await tick();
+  const out3 = JSON.parse(ws.enviados.find((e) => e.type === 'conversation.item.create' && e.item?.call_id === 'fc_l3').item.output);
+  assert.equal(out3.status, 'error');
+  assert.match(out3.instruccion_modelo, /escriba LATE por el chat/);
+});
+
+test('late check-out: sin estadía no hay herramienta (y el PMS no se llama aunque el modelo la pida)', async () => {
+  const m = montar({ inicio: { salida: { regla: REGLA_PMS, late_checkout_habilitado: true }, tiene_estadia: false } });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_late_wh2'))).procesando;
+  const ws = FakeWs.ultima;
+  const accept = m.posts.find((p) => p.url.endsWith('/accept'));
+  assert.equal(accept.body.tools.some((t) => t.name === 'solicitar_late_checkout'), false);
+  // La regla igual se puede explicar (un lead que pregunta).
+  assert.match(accept.body.instructions, /a más tardar a las 11:00 a\. m\./);
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'solicitar_late_checkout', call_id: 'fc_x', arguments: '{}' }] } });
+  await tick();
+  assert.equal(m.de('late_checkout').length, 0);
+});
+
+test('late check-out sin conversación en el PMS: el texto del cobro sale directo por el chat', async () => {
+  const m = montar({ inicio: { salida: { regla: REGLA_PMS, late_checkout_habilitado: true }, tiene_estadia: true },
+    lateResp: () => ({ solicitado: true, estado: 'cobro_creado', enviado_al_chat: false, seguimiento_via: 'sin_caso', seguimiento_texto: 'COBRO LATE (texto del PMS)',
+      instruccion_modelo: 'Dile que le enviaste el cobro al chat.' }) });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_late_wh3'))).procesando;
+  const ws = FakeWs.ultima;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'solicitar_late_checkout', call_id: 'fc_s', arguments: '{}' }] } });
+  await tick();
+  assert.deepEqual(m.textos, [{ to: FICTICIO, body: 'COBRO LATE (texto del PMS)' }]);
+  const out = JSON.parse(ws.enviados.find((e) => e.type === 'conversation.item.create' && e.item?.call_id === 'fc_s').item.output);
+  assert.equal(out.data.enviado_al_chat, true);
+});
+
+test('late check-out: sin regla del PMS (política apagada) no se agrega nada a las instrucciones', () => {
+  const { instruccionesCamiVoz } = require('../lib/voz/cami-voz');
+  assert.equal(/LATE CHECK-OUT/.test(instruccionesCamiVoz({ hoy: '2026-10-26' })), false);
+  assert.match(instruccionesCamiVoz({ hoy: '2026-10-26', salida: { regla: REGLA_PMS, late_checkout_habilitado: false } }), /Hoy no se ofrece late check-out/);
 });
