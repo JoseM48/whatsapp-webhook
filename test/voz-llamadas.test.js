@@ -118,7 +118,7 @@ test('instrucciones: IA, sin cobro por telefono y regla de Airbnb', () => {
   assert.match(t, /Nunca reservas, apartas, cobras/);
   assert.match(t, /huésped de una reserva de Airbnb/);
   const nombres = herramientasDeVoz().map((h) => h.name);
-  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'anotar_lista_espera', 'consultar_al_equipo', 'evaluar_uso_aceptable', 'ofrecer_paquete_magia', 'solicitar_late_checkout'].includes(n)).sort(),
+  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'anotar_lista_espera', 'consultar_al_equipo', 'evaluar_uso_aceptable', 'ofrecer_paquete_magia', 'solicitar_late_checkout', 'solicitar_early_checkin'].includes(n)).sort(),
     ['check_availability', 'get_policy', 'get_public_apartment_attributes', 'quote_stay', 'search_commercial_knowledge']);
   assert.equal(nombres.includes('prepare_pre_reservation'), false);
 });
@@ -1178,14 +1178,15 @@ test('LEAD 256 (paridad): search_commercial_knowledge recibe las noches que la l
 });
 
 // SALIDA Y LATE CHECK-OUT (José Manuel, 2026-10-26; PMS migración 998; paridad, dominio 25).
-const REGLA_PMS = 'La salida (check-out) es a más tardar a las 11:00 a. m. Si necesitas un poco más de tiempo, puedes tomar late check-out hasta las 12:00 m. por COP 50.000; se confirma solo cuando el pago queda registrado.';
+const REGLA_PMS = 'La salida (check-out) es a más tardar a las 11:00 a. m. Si necesitas más tiempo, el late check-out hasta las 12:00 m. cuesta COP 100.000 y está sujeto a disponibilidad.';
+const REGLA_EARLY = 'El check-in es desde las 3:00 p. m. Si necesitas entrar antes, el early check-in desde las 2:00 p. m. cuesta COP 100.000 y está sujeto a disponibilidad.';
 test('late check-out: la regla viene del PMS; la herramienta solo a quien tiene estadía y llega al PMS con la hora', async () => {
-  const m = montar({ inicio: { salida: { regla: REGLA_PMS, late_checkout_habilitado: true }, tiene_estadia: true } });
+  const m = montar({ inicio: { salida: { regla: REGLA_PMS, regla_early: REGLA_EARLY, late_checkout_habilitado: true, early_checkin_habilitado: true }, tiene_estadia: true } });
   await m.manager.handleWebhook(firmado(eventoEntrante('rtc_late_wh'))).procesando;
   const ws = FakeWs.ultima;
   const accept = m.posts.find((p) => p.url.endsWith('/accept'));
   assert.match(accept.body.instructions, /SALIDA Y LATE CHECK-OUT/);
-  assert.match(accept.body.instructions, /COP 50\.000/);
+  assert.match(accept.body.instructions, /COP 100\.000/);
   assert.match(accept.body.instructions, /usa solicitar_late_checkout/);
   assert.equal(accept.body.tools.some((t) => t.name === 'solicitar_late_checkout'), true);
   mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'solicitar_late_checkout', call_id: 'fc_l',
@@ -1218,7 +1219,7 @@ test('late check-out: sin estadía no hay herramienta (y el PMS no se llama aunq
   // La regla igual se puede explicar (un lead que pregunta), sin mencionar la herramienta.
   assert.match(accept.body.instructions, /a más tardar a las 11:00 a\. m\./);
   assert.equal(/usa solicitar_late_checkout/.test(accept.body.instructions), false);
-  assert.match(accept.body.instructions, /escribiendo LATE por el chat/);
+  assert.match(accept.body.instructions, /escribiendo LATE o EARLY por el chat/);
   mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'solicitar_late_checkout', call_id: 'fc_x', arguments: '{}' }] } });
   await tick();
   assert.equal(m.de('late_checkout').length, 0);
@@ -1240,5 +1241,23 @@ test('late check-out sin conversación en el PMS: el texto del cobro sale direct
 test('late check-out: sin regla del PMS (política apagada) no se agrega nada a las instrucciones', () => {
   const { instruccionesCamiVoz } = require('../lib/voz/cami-voz');
   assert.equal(/LATE CHECK-OUT/.test(instruccionesCamiVoz({ hoy: '2026-10-26' })), false);
-  assert.match(instruccionesCamiVoz({ hoy: '2026-10-26', salida: { regla: REGLA_PMS, late_checkout_habilitado: false } }), /Hoy no se ofrece late check-out/);
+  assert.match(instruccionesCamiVoz({ hoy: '2026-10-26', salida: { regla: REGLA_PMS, late_checkout_habilitado: false } }), /Hoy no se ofrecen early check-in ni late check-out/);
+});
+
+test('early check-in: herramienta y regla del PMS; llega al PMS con tipo early; nunca promete', async () => {
+  const m = montar({ inicio: { salida: { regla: REGLA_PMS, regla_early: REGLA_EARLY, late_checkout_habilitado: true, early_checkin_habilitado: true }, tiene_estadia: true },
+    lateResp: (b) => ({ solicitado: true, estado: 'en_espera', enviado_al_chat: true, instruccion_modelo: `Quedó solicitado (${b.tipo}). No lo des por confirmado.` }) });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_early_wh'))).procesando;
+  const ws = FakeWs.ultima;
+  const accept = m.posts.find((p) => p.url.endsWith('/accept'));
+  assert.equal(accept.body.tools.some((t) => t.name === 'solicitar_early_checkin'), true);
+  assert.match(accept.body.instructions, /LLEGADA Y EARLY CHECK-IN/);
+  assert.match(accept.body.instructions, /SUJETOS A DISPONIBILIDAD/);
+  assert.match(accept.body.instructions, /Al cotizar, solo menciónalos como opción con costo sujeta a disponibilidad/);
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'solicitar_early_checkin', call_id: 'fc_e', arguments: '{}' }] } });
+  await tick();
+  assert.deepEqual(m.de('late_checkout'), [{ call_id: 'rtc_early_wh', tipo: 'early' }]);
+  const out = JSON.parse(ws.enviados.find((e) => e.type === 'conversation.item.create' && e.item?.call_id === 'fc_e').item.output);
+  assert.equal(out.status, 'ok');
+  assert.match(out.instruccion_modelo, /No lo des por confirmado/);
 });
