@@ -1215,8 +1215,10 @@ test('late check-out: sin estadía no hay herramienta (y el PMS no se llama aunq
   const ws = FakeWs.ultima;
   const accept = m.posts.find((p) => p.url.endsWith('/accept'));
   assert.equal(accept.body.tools.some((t) => t.name === 'solicitar_late_checkout'), false);
-  // La regla igual se puede explicar (un lead que pregunta).
+  // La regla igual se puede explicar (un lead que pregunta), sin mencionar la herramienta.
   assert.match(accept.body.instructions, /a más tardar a las 11:00 a\. m\./);
+  assert.equal(/usa solicitar_late_checkout/.test(accept.body.instructions), false);
+  assert.match(accept.body.instructions, /escribiendo LATE por el chat/);
   mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'solicitar_late_checkout', call_id: 'fc_x', arguments: '{}' }] } });
   await tick();
   assert.equal(m.de('late_checkout').length, 0);
