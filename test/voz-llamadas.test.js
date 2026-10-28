@@ -1174,3 +1174,17 @@ test('LEAD 256 (paridad): search_commercial_knowledge recibe las noches que la l
   ws.close();
   await tick();
 });
+
+// DIRECCIÓN PARA HUÉSPED CON RESERVA CONFIRMADA (GO 2026-10-28; paridad dominio 25):
+// el texto lo manda el PMS en el inicio; el webhook no lo tiene escrito.
+test('voz: con direccion_estadia del PMS, Cami tiene la dirección exacta para darla; sin ella, nada', () => {
+  const texto = 'Edificio de Prueba, Calle 1 # 2-3, El Poblado. Ubicación en el mapa: https://example.test/m\nEn recepción das tu nombre y el número del apartamento (LF-210).';
+  const con = instruccionesCamiVoz({ hoy: '2026-10-28', huespedAirbnb: true, direccionEstadia: { apartamento: 'LF-210', texto } });
+  assert.match(con, /reserva CONFIRMADA en el apartamento 210/);
+  assert.match(con, /Calle 1 # 2-3/);
+  assert.match(con, /sin escalar a nadie/);
+  const sin = instruccionesCamiVoz({ hoy: '2026-10-28', huespedAirbnb: true });
+  assert.doesNotMatch(sin, /reserva CONFIRMADA/);
+  assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-10-28', direccionEstadia: { apartamento: 'LF-210' } }), /reserva CONFIRMADA/);
+  assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-10-28', direccionEstadia: 'texto suelto' }), /reserva CONFIRMADA/);
+});
