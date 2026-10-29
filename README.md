@@ -24,3 +24,16 @@ Teo encola con `POST /internal/desarrollos/tengocamello/mensaje` en el PMS
 cada texto con `sendWhatsAppTextFrom(TENGOCAMELLO_PHONE_NUMBER_ID, ...)` y
 reporta el resultado. Nunca pasa por el outbox de Miu. Sin
 `TENGOCAMELLO_PHONE_NUMBER_ID` el ciclo no corre.
+
+### Número Demo compartido (beta de TenGo Camello)
+
+`TENGOCAMELLO_DEMO_PHONE_NUMBER_ID` → PMS `POST /api/tengocamello/demo/inbound`
+(migración 1060) y la respuesta sale desde el número demo. Cada negocio de la
+beta tiene su enlace `wa.me/<número demo>?text=<CODIGO>`; el PMS liga el
+teléfono del cliente con el negocio. Las respuestas de Teo a consultas del
+demo salen por la cola `/api/tengocamello/demo/outbox/reclamar` (cada 20 s).
+Sin la variable, el número demo se ignora (fail-closed); si coincide por error
+con Miu o con el 7355, se ignora y esos caminos no cambian. Sus eventos
+`calls` se ignoran: el número demo tampoco debe tener llamadas ni SIP; si se
+activaran, agregar su número a `TENGOCAMELLO_DISPLAY_PHONE_NUMBER` (acepta
+varios, separados por coma).

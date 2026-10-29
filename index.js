@@ -55,7 +55,8 @@ const { interpretManagerMessage, commandForAction, offerAvailableActions,
   isLiteralCommand } = require('./lib/pilot/llm/manager-intent');
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
-const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, whatsappMessagesUrl } = require('./lib/pilot/numero-entrante');
+const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo,
+  whatsappMessagesUrl } = require('./lib/pilot/numero-entrante');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
 const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarTextoEnRafaga, registrarEntrega, turnoSinNombre } = require('./lib/pilot/inbound-image-reader');
@@ -203,6 +204,9 @@ const WHATSAPP_API_URL = `https://graph.facebook.com/v20.0/${process.env.PHONE_N
 // SEGUNDO NÚMERO (TenGo Camello, 2026-10-28): sin la variable, todo lo que no
 // sea de Miu se ignora (fail-closed). El envío de Miu (arriba) no cambia.
 const TENGOCAMELLO_PHONE_NUMBER_ID = (process.env.TENGOCAMELLO_PHONE_NUMBER_ID || '').trim();
+// NÚMERO DEMO compartido de TenGo Camello (beta, PMS migración 1060): sin la
+// variable, ese número se ignora (fail-closed). Sus respuestas salen desde él.
+const TENGOCAMELLO_DEMO_PHONE_NUMBER_ID = (process.env.TENGOCAMELLO_DEMO_PHONE_NUMBER_ID || '').trim();
 
 // Envío de texto parametrizado por el número que ENVÍA (solo el camino TenGo).
 async function sendWhatsAppTextFrom(phoneNumberId, to, body) {
@@ -969,6 +973,15 @@ startM0ObservationLoop({ enabled: Boolean(TENGOCAMELLO_PHONE_NUMBER_ID && PMS_LI
     if (r.enviados || r.fallidos || r.inciertos) console.log('[tengocamello] outbox_poll', r);
   } });
 
+// RESPUESTAS DE TEO A CONSULTAS DEL NÚMERO DEMO (PMS migración 1060): cada 20 s
+// se reclama la cola del demo y se envía desde TENGOCAMELLO_DEMO_PHONE_NUMBER_ID.
+startM0ObservationLoop({ enabled: Boolean(TENGOCAMELLO_DEMO_PHONE_NUMBER_ID && PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET), intervalMs: 20_000,
+  name: 'tengocamello_demo_outbox_poll', observe: async () => {
+    const r = await despacharSalidasTengoCamelloDemo({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
+      enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_DEMO_PHONE_NUMBER_ID, to, body) });
+    if (r.enviados || r.fallidos) console.log('[tengocamello-demo] outbox_poll', r);
+  } });
+
 async function enviarWhatsApp(to, body) {
   const phone = normalizePhone(to);
   if (!phone) { console.error('enviarWhatsApp → número inválido:', to); return { sent: false, providerReference: null }; }
@@ -1592,7 +1605,8 @@ app.post('/webhook', async (req, res) => {
     // de todo lo demás. Lo de Miu (o sin metadata) sigue tal cual; lo de TenGo
     // Camello va al PMS por su endpoint y sale desde su número; lo demás se
     // ignora. Ver lib/pilot/numero-entrante.js.
-    const ruteo = separarPorNumero(req.body, { miuId: process.env.PHONE_NUMBER_ID, tengoId: TENGOCAMELLO_PHONE_NUMBER_ID });
+    const ruteo = separarPorNumero(req.body, { miuId: process.env.PHONE_NUMBER_ID, tengoId: TENGOCAMELLO_PHONE_NUMBER_ID,
+      demoId: TENGOCAMELLO_DEMO_PHONE_NUMBER_ID });
     if (ruteo.desconocidos) console.warn('[webhook] numero_desconocido_ignorado', { count: ruteo.desconocidos, phone_number_ids: ruteo.idsDesconocidos });
     if (ruteo.tengoChanges.length) {
       try {
@@ -1600,6 +1614,14 @@ app.post('/webhook', async (req, res) => {
           enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_PHONE_NUMBER_ID, to, body), extractMetaMessages });
       } catch (error) {
         console.error('[tengocamello] fallo', { code: error?.code || 'unknown' });
+      }
+    }
+    if (ruteo.demoChanges.length) {
+      try {
+        await atenderTengoCamelloDemo(ruteo.demoChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
+          enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_DEMO_PHONE_NUMBER_ID, to, body), extractMetaMessages });
+      } catch (error) {
+        console.error('[tengocamello-demo] fallo', { code: error?.code || 'unknown' });
       }
     }
     if (!ruteo.miuBody) return res.sendStatus(200);
