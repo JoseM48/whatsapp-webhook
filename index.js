@@ -1583,7 +1583,7 @@ app.post('/webhook', async (req, res) => {
     // Camello va al PMS por su endpoint y sale desde su número; lo demás se
     // ignora. Ver lib/pilot/numero-entrante.js.
     const ruteo = separarPorNumero(req.body, { miuId: process.env.PHONE_NUMBER_ID, tengoId: TENGOCAMELLO_PHONE_NUMBER_ID });
-    if (ruteo.desconocidos) console.warn('[webhook] numero_desconocido_ignorado', { count: ruteo.desconocidos });
+    if (ruteo.desconocidos) console.warn('[webhook] numero_desconocido_ignorado', { count: ruteo.desconocidos, phone_number_ids: ruteo.idsDesconocidos });
     if (ruteo.tengoChanges.length) {
       try {
         await atenderTengoCamello(ruteo.tengoChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,

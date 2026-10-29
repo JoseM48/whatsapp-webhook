@@ -60,6 +60,7 @@ test('Número desconocido: se ignora sin responder', () => {
   const r = separarPorNumero(cuerpo(cambio(OTRO)), { miuId: MIU, tengoId: TC });
   assert.equal(r.miuBody, null);
   assert.equal(r.desconocidos, 1);
+  assert.deepEqual(r.idsDesconocidos, [OTRO]);
 });
 
 test('Mezcla: Miu conserva solo lo suyo; TenGo y desconocido salen', () => {
@@ -117,6 +118,7 @@ test('index.js: el envío de Miu sigue con PHONE_NUMBER_ID y el ruteo va antes d
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
   assert.match(src, /const WHATSAPP_API_URL = `https:\/\/graph\.facebook\.com\/v20\.0\/\$\{process\.env\.PHONE_NUMBER_ID\}\/messages`;/);
   assert.match(src, /sendWhatsAppTextFrom\(TENGOCAMELLO_PHONE_NUMBER_ID, to, body\)/);
+  assert.match(src, /numero_desconocido_ignorado', \{ count: ruteo\.desconocidos, phone_number_ids: ruteo\.idsDesconocidos \}/);
   assert.ok(src.indexOf('separarPorNumero(req.body') < src.indexOf('extractMetaCalls(req.body)'));
 });
 
