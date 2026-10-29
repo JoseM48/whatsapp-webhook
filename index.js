@@ -966,7 +966,7 @@ startM0ObservationLoop({ enabled: Boolean(TENGOCAMELLO_PHONE_NUMBER_ID && PMS_LI
   name: 'tengocamello_outbox_poll', observe: async () => {
     const r = await despacharSalidasTengoCamello({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
       enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_PHONE_NUMBER_ID, to, body) });
-    if (r.enviados || r.fallidos) console.log('[tengocamello] outbox_poll', r);
+    if (r.enviados || r.fallidos || r.inciertos) console.log('[tengocamello] outbox_poll', r);
   } });
 
 async function enviarWhatsApp(to, body) {

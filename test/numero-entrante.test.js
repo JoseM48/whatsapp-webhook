@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, whatsappMessagesUrl, RUTA_PMS_TENGOCAMELLO, RUTA_PMS_TC_RECLAMAR } = require('../lib/pilot/numero-entrante');
+const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, clasificarFalloEnvio, whatsappMessagesUrl, RUTA_PMS_TENGOCAMELLO, RUTA_PMS_TC_RECLAMAR } = require('../lib/pilot/numero-entrante');
 const { extractMetaMessages } = require('../lib/pilot/meta-inbound');
 const { parseOpenAiCallIncoming } = require('../lib/voz/call-events');
 const { readVozConfig } = require('../lib/voz/config');
@@ -141,18 +141,42 @@ test('voz: una llamada al número de TenGo Camello se rechaza sin PMS ni WhatsAp
   assert.deepEqual(textos, []);
 });
 
-test('salidas de Teo: reclama la cola de TenGo, envía con el emisor de TenGo y reporta el resultado', async () => {
+test('salidas de Teo: enviado, error explícito de Meta e incierto (timeout) se reportan distinto', async () => {
   const posts = [];
   const pms = { postUrl: async (url, body) => { posts.push({ url, body });
-    return url.endsWith(RUTA_PMS_TC_RECLAMAR) ? { salidas: [{ id: 7, to: '573000000901', texto: 'Hola, soy Teo' }, { id: 8, to: '573000000902', texto: 'Otro' }] } : { estado: 'x' }; } };
+    return url.endsWith(RUTA_PMS_TC_RECLAMAR) ? { salidas: [{ id: 7, to: '573000000901', texto: 'Hola, soy Teo' },
+      { id: 8, to: '573000000902', texto: 'Otro' }, { id: 9, to: '573000000903', texto: 'Tercero' }] } : { estado: 'x' }; } };
   const enviados = [];
-  const enviarTexto = async (to, b) => { if (to.endsWith('902')) throw Object.assign(new Error('x'), { code: 'ERR_BAD_RESPONSE' }); enviados.push({ to, b }); return 'wamid.out.7'; };
+  const enviarTexto = async (to, b) => {
+    if (to.endsWith('902')) throw Object.assign(new Error('Request failed'), { response: { status: 400, data: { error: { code: 131047 } } } });
+    if (to.endsWith('903')) throw Object.assign(new Error('timeout of 15000ms exceeded'), { code: 'ECONNABORTED' });
+    enviados.push({ to, b }); return 'wamid.out.7';
+  };
   const r = await despacharSalidasTengoCamello({ pms, pmsBaseUrl: 'https://pms.example/', enviarTexto, logger: { info() {}, error() {} } });
-  assert.deepEqual(r, { enviados: 1, fallidos: 1 });
+  assert.deepEqual(r, { enviados: 1, fallidos: 1, inciertos: 1 });
   assert.deepEqual(enviados, [{ to: '573000000901', b: 'Hola, soy Teo' }]);
   assert.equal(posts[0].url, `https://pms.example${RUTA_PMS_TC_RECLAMAR}`);
-  assert.deepEqual(posts[1], { url: 'https://pms.example/api/tengocamello/whatsapp/outbox/7/resultado', body: { ok: true, provider_reference: 'wamid.out.7' } });
-  assert.deepEqual(posts[2], { url: 'https://pms.example/api/tengocamello/whatsapp/outbox/8/resultado', body: { ok: false, error: 'ERR_BAD_RESPONSE' } });
+  assert.deepEqual(posts[1], { url: 'https://pms.example/api/tengocamello/whatsapp/outbox/7/resultado', body: { resultado: 'enviado', provider_reference: 'wamid.out.7' } });
+  assert.deepEqual(posts[2], { url: 'https://pms.example/api/tengocamello/whatsapp/outbox/8/resultado', body: { resultado: 'error', error: '131047' } });
+  assert.deepEqual(posts[3], { url: 'https://pms.example/api/tengocamello/whatsapp/outbox/9/resultado', body: { resultado: 'incierto', error: 'ECONNABORTED' } });
+});
+
+test('clasificar fallo: solo 4xx/5xx es error reintentable; timeout, red o sin respuesta es incierto', () => {
+  assert.equal(clasificarFalloEnvio({ response: { status: 500 } }).resultado, 'error');
+  assert.equal(clasificarFalloEnvio({ response: { status: 429 } }).resultado, 'error');
+  assert.equal(clasificarFalloEnvio({ code: 'ECONNABORTED' }).resultado, 'incierto');
+  assert.equal(clasificarFalloEnvio({ code: 'ECONNRESET' }).resultado, 'incierto');
+  assert.equal(clasificarFalloEnvio({ code: 'invalid_recipient' }).resultado, 'incierto');
+  assert.equal(clasificarFalloEnvio({ response: { status: 200 } }).resultado, 'incierto');
+});
+
+test('si el reporte al PMS falla, no se reenvía en el mismo ciclo (el PMS lo marcará incierto)', async () => {
+  let reclamos = 0; const enviados = [];
+  const pms = { postUrl: async (url) => { if (url.endsWith(RUTA_PMS_TC_RECLAMAR)) { reclamos += 1; return { salidas: [{ id: 1, to: '573000000901', texto: 'x' }] }; }
+    throw Object.assign(new Error('x'), { code: 'ECONNREFUSED' }); } };
+  await despacharSalidasTengoCamello({ pms, pmsBaseUrl: 'https://pms.example', enviarTexto: async (to) => { enviados.push(to); return 'w'; }, logger: { info() {}, error() {} } });
+  assert.equal(reclamos, 1);
+  assert.equal(enviados.length, 1);
 });
 
 test('index.js: la cola de Teo sale por sendWhatsAppTextFrom con el número de TenGo, nunca por WHATSAPP_API_URL', () => {
