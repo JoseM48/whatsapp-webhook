@@ -55,7 +55,7 @@ const { interpretManagerMessage, commandForAction, offerAvailableActions,
   isLiteralCommand } = require('./lib/pilot/llm/manager-intent');
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
-const { separarPorNumero, atenderTengoCamello, whatsappMessagesUrl } = require('./lib/pilot/numero-entrante');
+const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, whatsappMessagesUrl } = require('./lib/pilot/numero-entrante');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
 const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarTextoEnRafaga, registrarEntrega, turnoSinNombre } = require('./lib/pilot/inbound-image-reader');
@@ -958,6 +958,16 @@ startM0ObservationLoop({ enabled: PMS_LITE_M0_ENABLED, intervalMs: 60_000, name:
   const results = await m0ClosedPilot.pollPendingInternalOutbox();
   if (results.length) console.log('[m0-closed] internal_outbox_poll', { count: results.length, results });
 } });
+
+// TEO ESCRIBE DESDE EL NÚMERO DE TENGO (PMS migración 1052): cada 20 s se
+// reclama la cola propia del PMS y se envía desde TENGOCAMELLO_PHONE_NUMBER_ID.
+// Sin la variable o sin PMS configurado, no corre.
+startM0ObservationLoop({ enabled: Boolean(TENGOCAMELLO_PHONE_NUMBER_ID && PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET), intervalMs: 20_000,
+  name: 'tengocamello_outbox_poll', observe: async () => {
+    const r = await despacharSalidasTengoCamello({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
+      enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_PHONE_NUMBER_ID, to, body) });
+    if (r.enviados || r.fallidos) console.log('[tengocamello] outbox_poll', r);
+  } });
 
 async function enviarWhatsApp(to, body) {
   const phone = normalizePhone(to);

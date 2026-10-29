@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { separarPorNumero, atenderTengoCamello, whatsappMessagesUrl, RUTA_PMS_TENGOCAMELLO } = require('../lib/pilot/numero-entrante');
+const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, whatsappMessagesUrl, RUTA_PMS_TENGOCAMELLO, RUTA_PMS_TC_RECLAMAR } = require('../lib/pilot/numero-entrante');
 const { extractMetaMessages } = require('../lib/pilot/meta-inbound');
 const { parseOpenAiCallIncoming } = require('../lib/voz/call-events');
 const { readVozConfig } = require('../lib/voz/config');
@@ -139,4 +139,28 @@ test('voz: una llamada al número de TenGo Camello se rechaza sin PMS ni WhatsAp
   assert.match(posts[0], /\/realtime\/calls\/rtc_tc_1\/reject$/);
   assert.deepEqual(pmsLlamado, []);
   assert.deepEqual(textos, []);
+});
+
+test('salidas de Teo: reclama la cola de TenGo, envía con el emisor de TenGo y reporta el resultado', async () => {
+  const posts = [];
+  const pms = { postUrl: async (url, body) => { posts.push({ url, body });
+    return url.endsWith(RUTA_PMS_TC_RECLAMAR) ? { salidas: [{ id: 7, to: '573000000901', texto: 'Hola, soy Teo' }, { id: 8, to: '573000000902', texto: 'Otro' }] } : { estado: 'x' }; } };
+  const enviados = [];
+  const enviarTexto = async (to, b) => { if (to.endsWith('902')) throw Object.assign(new Error('x'), { code: 'ERR_BAD_RESPONSE' }); enviados.push({ to, b }); return 'wamid.out.7'; };
+  const r = await despacharSalidasTengoCamello({ pms, pmsBaseUrl: 'https://pms.example/', enviarTexto, logger: { info() {}, error() {} } });
+  assert.deepEqual(r, { enviados: 1, fallidos: 1 });
+  assert.deepEqual(enviados, [{ to: '573000000901', b: 'Hola, soy Teo' }]);
+  assert.equal(posts[0].url, `https://pms.example${RUTA_PMS_TC_RECLAMAR}`);
+  assert.deepEqual(posts[1], { url: 'https://pms.example/api/tengocamello/whatsapp/outbox/7/resultado', body: { ok: true, provider_reference: 'wamid.out.7' } });
+  assert.deepEqual(posts[2], { url: 'https://pms.example/api/tengocamello/whatsapp/outbox/8/resultado', body: { ok: false, error: 'ERR_BAD_RESPONSE' } });
+});
+
+test('index.js: la cola de Teo sale por sendWhatsAppTextFrom con el número de TenGo, nunca por WHATSAPP_API_URL', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
+  const i = src.indexOf("name: 'tengocamello_outbox_poll'");
+  assert.ok(i > 0);
+  const bloque = src.slice(i, i + 500);
+  assert.match(bloque, /sendWhatsAppTextFrom\(TENGOCAMELLO_PHONE_NUMBER_ID, to, body\)/);
+  assert.doesNotMatch(bloque, /WHATSAPP_API_URL|pollPendingInternalOutbox/);
+  assert.match(src, /async function sendWhatsAppTextFrom\(phoneNumberId, to, body\)[\s\S]{0,300}whatsappMessagesUrl\(phoneNumberId\)/);
 });

@@ -15,3 +15,12 @@ en el webhook de OpenAI, solo se rechaza una llamada cuyo `To` coincida con
 `TENGOCAMELLO_DISPLAY_PHONE_NUMBER`; no está verificado que Meta mande ese
 número en la cabecera `To`. Si el SIP del número apuntara al mismo proyecto
 de OpenAI sin ese filtro, la llamada llegaría a Cami de Miu.
+
+### Teo escribe desde el número de TenGo Camello
+
+Teo encola con `POST /internal/desarrollos/tengocamello/mensaje` en el PMS
+(migración 1052). Cada 20 s este webhook reclama esa cola
+(`/api/tengocamello/whatsapp/outbox/reclamar`, firma HMAC de siempre), envía
+cada texto con `sendWhatsAppTextFrom(TENGOCAMELLO_PHONE_NUMBER_ID, ...)` y
+reporta el resultado. Nunca pasa por el outbox de Miu. Sin
+`TENGOCAMELLO_PHONE_NUMBER_ID` el ciclo no corre.
