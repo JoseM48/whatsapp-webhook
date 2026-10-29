@@ -55,6 +55,7 @@ const { interpretManagerMessage, commandForAction, offerAvailableActions,
   isLiteralCommand } = require('./lib/pilot/llm/manager-intent');
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
+const { separarPorNumero, atenderTengoCamello, whatsappMessagesUrl } = require('./lib/pilot/numero-entrante');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
 const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarTextoEnRafaga, registrarEntrega, turnoSinNombre } = require('./lib/pilot/inbound-image-reader');
@@ -199,6 +200,22 @@ function parseAptoFromText(t) {
 // WhatsApp helpers
 // ===============================
 const WHATSAPP_API_URL = `https://graph.facebook.com/v20.0/${process.env.PHONE_NUMBER_ID}/messages`;
+// SEGUNDO NÚMERO (TenGo Camello, 2026-10-28): sin la variable, todo lo que no
+// sea de Miu se ignora (fail-closed). El envío de Miu (arriba) no cambia.
+const TENGOCAMELLO_PHONE_NUMBER_ID = (process.env.TENGOCAMELLO_PHONE_NUMBER_ID || '').trim();
+
+// Envío de texto parametrizado por el número que ENVÍA (solo el camino TenGo).
+async function sendWhatsAppTextFrom(phoneNumberId, to, body) {
+  const phone = normalizePhone(to);
+  if (!phone || !phoneNumberId) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  const response = await axios.post(whatsappMessagesUrl(phoneNumberId), {
+    messaging_product: 'whatsapp', to: phone, text: { body }
+  }, {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    timeout: 15000
+  });
+  return response.data?.messages?.[0]?.id || null;
+}
 const BRAIN_URL = process.env.BRAIN_URL || 'http://localhost:3010';
 const PMS_LITE_ENABLED = String(process.env.PMS_LITE_ENABLED || 'false').toLowerCase() === 'true';
 const PMS_LITE_INBOUND_URL = (process.env.PMS_LITE_INBOUND_URL || '').trim();
@@ -1560,6 +1577,23 @@ app.post('/webhook', async (req, res) => {
       console.warn('[webhook] meta_signature_rejected', { code: metaAuth.error });
       return res.status(metaAuth.status).json({ error: metaAuth.error });
     }
+
+    // SEGUNDO NÚMERO (2026-10-28): se enruta por metadata.phone_number_id ANTES
+    // de todo lo demás. Lo de Miu (o sin metadata) sigue tal cual; lo de TenGo
+    // Camello va al PMS por su endpoint y sale desde su número; lo demás se
+    // ignora. Ver lib/pilot/numero-entrante.js.
+    const ruteo = separarPorNumero(req.body, { miuId: process.env.PHONE_NUMBER_ID, tengoId: TENGOCAMELLO_PHONE_NUMBER_ID });
+    if (ruteo.desconocidos) console.warn('[webhook] numero_desconocido_ignorado', { count: ruteo.desconocidos });
+    if (ruteo.tengoChanges.length) {
+      try {
+        await atenderTengoCamello(ruteo.tengoChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
+          enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_PHONE_NUMBER_ID, to, body), extractMetaMessages });
+      } catch (error) {
+        console.error('[tengocamello] fallo', { code: error?.code || 'unknown' });
+      }
+    }
+    if (!ruteo.miuBody) return res.sendStatus(200);
+    req.body = ruteo.miuBody;
 
     // Campo `calls` (llamadas de WhatsApp): solo se registra; el audio va por
     // SIP directo a OpenAI. Un cuerpo que solo trae llamadas termina aqui.
