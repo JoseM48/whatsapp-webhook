@@ -56,6 +56,7 @@ const { interpretManagerMessage, commandForAction, offerAvailableActions,
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo,
+  demoIdEfectivo,
   whatsappMessagesUrl } = require('./lib/pilot/numero-entrante');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
@@ -206,7 +207,15 @@ const WHATSAPP_API_URL = `https://graph.facebook.com/v20.0/${process.env.PHONE_N
 const TENGOCAMELLO_PHONE_NUMBER_ID = (process.env.TENGOCAMELLO_PHONE_NUMBER_ID || '').trim();
 // NÚMERO DEMO compartido de TenGo Camello (beta, PMS migración 1060): sin la
 // variable, ese número se ignora (fail-closed). Sus respuestas salen desde él.
-const TENGOCAMELLO_DEMO_PHONE_NUMBER_ID = (process.env.TENGOCAMELLO_DEMO_PHONE_NUMBER_ID || '').trim();
+// Fail-closed con la misma regla del ruteo (numero-entrante.js, demoIdEfectivo): si
+// coincide con PHONE_NUMBER_ID o con TENGOCAMELLO_PHONE_NUMBER_ID queda vacío, y con
+// él el envío y el sondeo del demo.
+const DEMO_ID_RESUELTO = demoIdEfectivo({ miuId: process.env.PHONE_NUMBER_ID, tengoId: TENGOCAMELLO_PHONE_NUMBER_ID,
+  demoId: process.env.TENGOCAMELLO_DEMO_PHONE_NUMBER_ID });
+const TENGOCAMELLO_DEMO_PHONE_NUMBER_ID = DEMO_ID_RESUELTO.id;
+if (DEMO_ID_RESUELTO.motivo && DEMO_ID_RESUELTO.motivo !== 'sin_variable') {
+  console.error('[tengocamello-demo] variable_invalida_demo_apagado', { motivo: DEMO_ID_RESUELTO.motivo });
+}
 
 // Envío de texto parametrizado por el número que ENVÍA (solo el camino TenGo).
 async function sendWhatsAppTextFrom(phoneNumberId, to, body) {
@@ -979,7 +988,7 @@ startM0ObservationLoop({ enabled: Boolean(TENGOCAMELLO_DEMO_PHONE_NUMBER_ID && P
   name: 'tengocamello_demo_outbox_poll', observe: async () => {
     const r = await despacharSalidasTengoCamelloDemo({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
       enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_DEMO_PHONE_NUMBER_ID, to, body) });
-    if (r.enviados || r.fallidos) console.log('[tengocamello-demo] outbox_poll', r);
+    if (r.enviados || r.fallidos || r.inciertos) console.log('[tengocamello-demo] outbox_poll', r);
   } });
 
 async function enviarWhatsApp(to, body) {

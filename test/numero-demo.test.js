@@ -6,7 +6,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { separarPorNumero, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo, atenderTengoCamello,
+const { separarPorNumero, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo, atenderTengoCamello, demoIdEfectivo,
   RUTA_PMS_TC_DEMO, RUTA_PMS_TC_DEMO_RECLAMAR, RUTA_PMS_TENGOCAMELLO } = require('../lib/pilot/numero-entrante');
 const { extractMetaMessages } = require('../lib/pilot/meta-inbound');
 
@@ -117,7 +117,11 @@ test('respuestas de Teo del demo: reclama la cola demo y reporta a su ruta', asy
 
 test('index.js: el demo envía desde TENGOCAMELLO_DEMO_PHONE_NUMBER_ID (entrada y cola), nunca por WHATSAPP_API_URL', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
-  assert.match(src, /const TENGOCAMELLO_DEMO_PHONE_NUMBER_ID = \(process\.env\.TENGOCAMELLO_DEMO_PHONE_NUMBER_ID \|\| ''\)\.trim\(\);/);
+  // Revisión del demo (MEDIO): la variable pasa por la misma regla del ruteo.
+  assert.match(src, /demoIdEfectivo\(\{ miuId: process\.env\.PHONE_NUMBER_ID, tengoId: TENGOCAMELLO_PHONE_NUMBER_ID,\s*demoId: process\.env\.TENGOCAMELLO_DEMO_PHONE_NUMBER_ID \}\)/);
+  assert.match(src, /const TENGOCAMELLO_DEMO_PHONE_NUMBER_ID = DEMO_ID_RESUELTO\.id;/);
+  assert.match(src, /variable_invalida_demo_apagado/);
+  assert.match(src, /if \(r\.enviados \|\| r\.fallidos \|\| r\.inciertos\) console\.log\('\[tengocamello-demo\] outbox_poll'/);
   assert.match(src, /demoId: TENGOCAMELLO_DEMO_PHONE_NUMBER_ID/);
   const i = src.indexOf('atenderTengoCamelloDemo(ruteo.demoChanges');
   assert.ok(i > 0);
@@ -131,4 +135,27 @@ test('index.js: el demo envía desde TENGOCAMELLO_DEMO_PHONE_NUMBER_ID (entrada 
     /enabled: Boolean\(TENGOCAMELLO_DEMO_PHONE_NUMBER_ID/);
   // El ruteo del demo va antes de llamadas y del camino de Miu.
   assert.ok(src.indexOf('atenderTengoCamelloDemo(ruteo.demoChanges') < src.indexOf('extractMetaCalls(req.body)'));
+});
+
+test('revisión del demo: demoIdEfectivo apaga el demo si la variable falta o coincide con Miu o con el 7355', () => {
+  assert.deepEqual(demoIdEfectivo({ miuId: MIU, tengoId: TC, demoId: DEMO }), { id: DEMO, motivo: null });
+  assert.deepEqual(demoIdEfectivo({ miuId: MIU, tengoId: TC, demoId: '' }), { id: '', motivo: 'sin_variable' });
+  assert.deepEqual(demoIdEfectivo({ miuId: MIU, tengoId: TC, demoId: ` ${MIU} ` }), { id: '', motivo: 'igual_a_miu' });
+  assert.deepEqual(demoIdEfectivo({ miuId: MIU, tengoId: TC, demoId: TC }), { id: '', motivo: 'igual_a_tengocamello' });
+});
+
+test('revisión del demo: con la variable igual a Miu o al 7355, el sondeo y el envío del demo quedan apagados', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
+  // El sondeo y los dos envíos usan la constante resuelta, nunca la variable cruda.
+  assert.match(src, /enabled: Boolean\(TENGOCAMELLO_DEMO_PHONE_NUMBER_ID && PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET\)/);
+  const usosCrudos = src.match(/process\.env\.TENGOCAMELLO_DEMO_PHONE_NUMBER_ID/g) || [];
+  assert.equal(usosCrudos.length, 1);
+  assert.ok(src.indexOf('const TENGOCAMELLO_DEMO_PHONE_NUMBER_ID = DEMO_ID_RESUELTO.id') < src.indexOf("name: 'tengocamello_demo_outbox_poll'"));
+});
+
+test('cola del demo: cuenta los inciertos', async () => {
+  const pms = { postUrl: async (url) => (url.endsWith(RUTA_PMS_TC_DEMO_RECLAMAR) ? { salidas: [{ id: 4, to: '573000000991', texto: 'x' }] } : {}) };
+  const r = await despacharSalidasTengoCamelloDemo({ pms, pmsBaseUrl: 'https://pms.example', logger: silencioso,
+    enviarTexto: async () => { throw Object.assign(new Error('timeout'), { code: 'ECONNABORTED' }); } });
+  assert.deepEqual(r, { enviados: 0, fallidos: 0, inciertos: 1 });
 });
