@@ -445,6 +445,9 @@ const vozCalls = createVozCallManager({
   // se entregan de inmediato con el mismo poller de siempre.
   sendImage: (to, link, caption) => sendM0ApartmentPhoto(to, link, caption),
   entregarAhora: () => m0ClosedPilot.pollPendingInternalOutbox(),
+  // CAMI DE VOZ DE TENGO (2026-10-30): los textos de una llamada al 7355 salen
+  // DESDE el 7355, nunca desde Miu. Sin la variable no se envia nada.
+  sendTextTengo: TENGOCAMELLO_PHONE_NUMBER_ID ? (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_PHONE_NUMBER_ID, to, body) : null,
 });
 // Llamadas que quedaron abiertas tras un reinicio: al arrancar y cada 10 min.
 if (vozConfig.habilitada) {
@@ -1620,7 +1623,9 @@ app.post('/webhook', async (req, res) => {
     if (ruteo.tengoChanges.length) {
       try {
         await atenderTengoCamello(ruteo.tengoChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
-          enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_PHONE_NUMBER_ID, to, body), extractMetaMessages });
+          enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_PHONE_NUMBER_ID, to, body), extractMetaMessages,
+          // Notas de voz al 7355 (2026-10-30): el mismo transcriptor de Miu; si falla, el PMS recibe texto vacío.
+          transcribirAudio: (mediaId) => inboundAudioTranscriber.transcribe(mediaId) });
       } catch (error) {
         console.error('[tengocamello] fallo', { code: error?.code || 'unknown' });
       }
@@ -1628,7 +1633,8 @@ app.post('/webhook', async (req, res) => {
     if (ruteo.demoChanges.length) {
       try {
         await atenderTengoCamelloDemo(ruteo.demoChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
-          enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_DEMO_PHONE_NUMBER_ID, to, body), extractMetaMessages });
+          enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_DEMO_PHONE_NUMBER_ID, to, body), extractMetaMessages,
+          transcribirAudio: (mediaId) => inboundAudioTranscriber.transcribe(mediaId) });
       } catch (error) {
         console.error('[tengocamello-demo] fallo', { code: error?.code || 'unknown' });
       }

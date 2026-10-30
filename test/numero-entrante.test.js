@@ -122,7 +122,11 @@ test('index.js: el envío de Miu sigue con PHONE_NUMBER_ID y el ruteo va antes d
   assert.ok(src.indexOf('separarPorNumero(req.body') < src.indexOf('extractMetaCalls(req.body)'));
 });
 
-test('voz: una llamada al número de TenGo Camello se rechaza sin PMS ni WhatsApp (no llega a Cami de Miu)', async () => {
+// CAMI DE VOZ DE TENGO (2026-10-30): la llamada al 7355 ya NO se rechaza en seco,
+// la atiende Cami de TenGo (test/voz-tengocamello.test.js). Lo que sigue
+// verificando esta prueba es el ruteo: con un PMS que no conoce TenGo (responde
+// sin el bloque `tengocamello`) se rechaza y NUNCA sale nada por el número de Miu.
+test('voz: una llamada al número de TenGo Camello no llega a Cami de Miu; un PMS viejo la rechaza sin escribir', async () => {
   const entrada = parseOpenAiCallIncoming({ type: 'realtime.call.incoming', data: { call_id: 'rtc_tc_1', sip_headers: [
     { name: 'From', value: '<sip:+573000000901@sip.example>' }, { name: 'To', value: '<sip:+570000000222@sip.example>' }] } });
   assert.equal(entrada.destino, '570000000222');
@@ -136,9 +140,10 @@ test('voz: una llamada al número de TenGo Camello se rechaza sin PMS ni WhatsAp
     pms, executePmsTool: async () => ({}), sendText: async (to, b) => textos.push(b), logger: { info() {}, warn() {}, error() {} } });
   await manager._interno.atender(entrada);
   assert.equal(posts.length, 1);
-  assert.match(posts[0], /\/realtime\/calls\/rtc_tc_1\/reject$/);
-  assert.deepEqual(pmsLlamado, []);
-  assert.deepEqual(textos, []);
+  assert.match(posts[0], /\/realtime\/calls\/rtc_tc_1\/reject$/, 'no se acepta');
+  // El inicio va al PMS con numero=tengocamello; sin su contexto, solo se registra el rechazo.
+  assert.deepEqual(pmsLlamado, ['vozInicio', 'vozEstado']);
+  assert.deepEqual(textos, [], 'nunca se escribe desde el numero de Miu');
 });
 
 test('salidas de Teo: enviado, error explícito de Meta e incierto (timeout) se reportan distinto', async () => {

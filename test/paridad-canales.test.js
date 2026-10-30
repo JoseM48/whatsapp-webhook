@@ -194,3 +194,26 @@ test('dueño de la demo del Paquete Magia: la llamada no cotiza, igual que el ch
   assert.match(t, /NO cotices/);
   assert.doesNotMatch(t, /CÓMO ATENDER UNA BÚSQUEDA/);
 });
+
+// EXCEPCIÓN DECLARADA (José Manuel, 2026-10-30): Cami de voz de TenGo. Las
+// llamadas al número de TenGo Camello (el 7355) NO son Cami de ventas de Miu:
+// son otro negocio, con otro número, otro guion y su propio contrato con el PMS
+// (vozInicio con numero='tengocamello'). La paridad de arriba (dominio 25) NO
+// le aplica: no cotiza alojamiento, no tiene herramientas del PMS, ni consulta
+// a Teo, ni Paquete Magia, ni late check-out. Lo único compartido con el chat de
+// TenGo es el filtro de uso aceptable (política uso_aceptable_v1, que es
+// transversal) y, dentro de la llamada, colgar y pedir una persona.
+test('Cami de voz de TenGo: excepción declarada, solo 3 herramientas y nada de Miu (2026-10-30)', () => {
+  const { herramientasTenGoVoz, instruccionesCamiTenGoVoz, HERRAMIENTAS_COMERCIALES } = require('../lib/voz/cami-voz');
+  const tengo = herramientasTenGoVoz().map((t) => t.name);
+  assert.deepEqual(tengo.sort(), ['evaluar_uso_aceptable', 'pedir_persona', 'terminar_llamada']);
+  assert.deepEqual(tengo.filter((n) => HERRAMIENTAS_COMERCIALES.has(n)), []);
+  for (const n of ['consultar_al_equipo', 'ofrecer_paquete_magia', 'solicitar_late_checkout', 'solicitar_early_checkin']) {
+    assert.equal(tengo.includes(n), false, n);
+  }
+  // El filtro de uso aceptable sí es transversal (chat, nota de voz, llamada de
+  // Miu y llamada de TenGo): misma instrucción y misma herramienta.
+  const t = instruccionesCamiTenGoVoz({ hoy: '2026-10-30' });
+  assert.match(t, /USO ACEPTABLE/);
+  assert.match(t, /no cotizas alojamiento de Miu La Frontera/i);
+});
