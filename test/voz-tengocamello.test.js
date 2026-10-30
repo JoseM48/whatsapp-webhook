@@ -80,6 +80,8 @@ test('llamada al 7355 con TenGo habilitada: acepta con el guion de TenGo y solo 
   assert.deepEqual(m.de('inicio')[0], { call_id: 'rtc_tc_1', telefono: QUIEN_LLAMA, wacid: 'wacid.TC',
     modelo: 'gpt-realtime-mini', costo_max_llamada_usd: 0.6, duracion_max_min: 10, numero: 'tengocamello' });
   const accept = m.posts.find((p) => p.url.endsWith('/realtime/calls/rtc_tc_1/accept'));
+  // Voz elegida por José Manuel (2026-10-30): marin 5 % más rápida y saludo "¡Quemás!".
+  assert.equal(accept.body.audio.output.speed, 1.05);
   assert.ok(accept, 'la llamada se acepta');
   assert.match(accept.body.instructions, /Cami, de TenGo/);
   assert.match(accept.body.instructions, /inteligencia artificial/);
