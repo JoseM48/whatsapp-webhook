@@ -289,3 +289,14 @@ test('sin transcriptor (o con texto) el cuerpo al PMS no cambia', async () => {
   assert.equal(cuerpos[0].text, '');
   assert.equal(cuerpos[0].message_type, 'audio');
 });
+
+// RED DE SEGURIDAD (2026-10-30): una llamada sobre TenGo que entre por el camino
+// de Miu no se trata como huésped y se manda al chat del 7355.
+test('Cami de Miu por voz sabe atender a quien llama por TenGo Camello', () => {
+  const { instruccionesCamiVoz, TENGO_EN_MIU_VOZ } = require('../lib/voz/cami-voz');
+  const texto = instruccionesCamiVoz({ hoy: '2026-10-30' });
+  assert.ok(texto.includes(TENGO_EN_MIU_VOZ));
+  assert.match(TENGO_EN_MIU_VOZ, /305 453 7355/);
+  assert.match(TENGO_EN_MIU_VOZ, /No prometas ingresos/);
+  assert.ok(!instruccionesCamiVoz({ hoy: '2026-10-30', paqueteMagia: true }).includes(TENGO_EN_MIU_VOZ));
+});
