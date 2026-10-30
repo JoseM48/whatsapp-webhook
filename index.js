@@ -1625,7 +1625,7 @@ app.post('/webhook', async (req, res) => {
         await atenderTengoCamello(ruteo.tengoChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
           enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_PHONE_NUMBER_ID, to, body), extractMetaMessages,
           // Notas de voz al 7355 (2026-10-30): el mismo transcriptor de Miu; si falla, el PMS recibe texto vacío.
-          transcribirAudio: (mediaId) => inboundAudioTranscriber.transcribe(mediaId) });
+          transcribirAudio: M0_AUDIO_TRANSCRIPTION_ENABLED ? (mediaId) => inboundAudioTranscriber.transcribe(mediaId) : null });
       } catch (error) {
         console.error('[tengocamello] fallo', { code: error?.code || 'unknown' });
       }
@@ -1634,7 +1634,7 @@ app.post('/webhook', async (req, res) => {
       try {
         await atenderTengoCamelloDemo(ruteo.demoChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
           enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_DEMO_PHONE_NUMBER_ID, to, body), extractMetaMessages,
-          transcribirAudio: (mediaId) => inboundAudioTranscriber.transcribe(mediaId) });
+          transcribirAudio: M0_AUDIO_TRANSCRIPTION_ENABLED ? (mediaId) => inboundAudioTranscriber.transcribe(mediaId) : null });
       } catch (error) {
         console.error('[tengocamello-demo] fallo', { code: error?.code || 'unknown' });
       }
