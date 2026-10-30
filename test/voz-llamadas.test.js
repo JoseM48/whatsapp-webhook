@@ -105,7 +105,7 @@ test('eventos calls de Meta: connect y terminate', () => {
 
 test('evento realtime.call.incoming: id, telefono y wacid', () => {
   const r = parseOpenAiCallIncoming(eventoEntrante());
-  assert.deepEqual(r, { callId: 'rtc_test_1', telefono: FICTICIO, wacid: 'wacid.TEST', destino: null,
+  assert.deepEqual(r, { callId: 'rtc_test_1', telefono: FICTICIO, wacid: 'wacid.TEST', destino: null, destinoId: null,
     // Diagnostico del ruteo (2026-10-30): solo nombres de cabeceras, nunca valores.
     sipHeaderNames: ['from', 'x-wa-meta-wacid'] });
   assert.equal(parseOpenAiCallIncoming({ type: 'otro' }), null);

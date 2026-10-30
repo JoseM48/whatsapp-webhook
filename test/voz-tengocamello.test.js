@@ -35,10 +35,10 @@ function entradaTenGo(callId = 'rtc_tc_1', { to = TENGO } = {}) {
 
 function montar({ tengocamello = { habilitada: true, duracion_max_min: 12, nombre_saludo: 'Carmen', tipo: 'prospecto', id: 3, nuevo: true },
   uso = 0, pmsFalla = false, sinEmisorTengo = false, finTengo = { seguimiento_texto: TEXTO_PMS_TENGO },
-  resumenJson = { resumen: 'Tiene una floristería.', alerta: null, alerta_motivo: null } } = {}) {
+  resumenJson = { resumen: 'Tiene una floristería.', alerta: null, alerta_motivo: null }, envExtra = {} } = {}) {
   const posts = [], textosMiu = [], textosTengo = [], pmsLlamadas = [], logs = [];
   const config = readVozConfig({ VOZ_LLAMADAS_HABILITADAS: 'true', VOZ_OPENAI_API_KEY: 'sk-test-no-real',
-    TENGOCAMELLO_DISPLAY_PHONE_NUMBER: `+57 000 000 0222` });
+    TENGOCAMELLO_DISPLAY_PHONE_NUMBER: `+57 000 000 0222`, ...envExtra });
   const http = { post: async (url, body) => {
     posts.push({ url, body });
     if (url.endsWith('/chat/completions')) return { data: { choices: [{ message: { content: JSON.stringify(resumenJson) } }] } };
@@ -302,4 +302,39 @@ test('Cami de Miu por voz sabe atender a quien llama por TenGo Camello', () => {
   assert.match(TENGO_EN_MIU_VOZ, /vio un anuncio o un video NO basta/);
   assert.match(TENGO_EN_MIU_VOZ, /si busca alojamiento sigue como Cami de Miu/);
   assert.ok(!instruccionesCamiVoz({ hoy: '2026-10-30', paqueteMagia: true }).includes(TENGO_EN_MIU_VOZ));
+});
+
+// RUTEO POR phone_number_id (llamada de prueba real, 2026-10-30): el To traía un
+// número que no coincidía con el publicado; Meta manda x-wa-meta-phone-number-id
+// con el id del número llamado, y ese manda.
+function entradaConId(callId, id, to = '570000000999') {
+  return parseOpenAiCallIncoming({ type: 'realtime.call.incoming', data: { call_id: callId, sip_headers: [
+    { name: 'From', value: `<sip:+${QUIEN_LLAMA}@sip.example>` },
+    { name: 'To', value: `<sip:+${to}@sip.example>` },
+    { name: 'X-WA-Meta-Wacid', value: 'wacid.ID' },
+    { name: 'X-WA-Meta-Phone-Number-Id', value: id }] } });
+}
+
+test('ruteo: el phone_number_id de TenGo manda aunque el To no coincida', async () => {
+  const m = montar({ envExtra: { TENGOCAMELLO_PHONE_NUMBER_ID: '1425974090599345', PHONE_NUMBER_ID: '111222333444' } });
+  const e = entradaConId('rtc_id_tc', '1425974090599345');
+  assert.equal(e.destinoId, '1425974090599345');
+  await m.manager._interno.atender(e);
+  const log = m.logs.find(([msg]) => msg === '[voz] llamada_entrante')[1];
+  assert.equal(log.numero, 'tengocamello');
+  assert.equal(log.destino_id_presente, true);
+  assert.equal(m.de('inicio')[0].numero, 'tengocamello');
+});
+
+test('ruteo: el phone_number_id de Miu sigue en Miu', async () => {
+  const m = montar({ envExtra: { TENGOCAMELLO_PHONE_NUMBER_ID: '1425974090599345', PHONE_NUMBER_ID: '111222333444' } });
+  await m.manager._interno.atender(entradaConId('rtc_id_miu', '111222333444'));
+  const log = m.logs.find(([msg]) => msg === '[voz] llamada_entrante')[1];
+  assert.equal(log.numero, 'miu');
+  assert.equal(m.de('inicio')[0].numero, undefined);
+});
+
+test('ruteo: si el id de TenGo coincide con el de Miu, no se desvía nada (fail-closed)', () => {
+  const c = readVozConfig({ TENGOCAMELLO_PHONE_NUMBER_ID: '111222333444', PHONE_NUMBER_ID: '111222333444' });
+  assert.equal(c.tengoPhoneNumberId, '');
 });
