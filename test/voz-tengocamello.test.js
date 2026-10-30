@@ -298,5 +298,8 @@ test('Cami de Miu por voz sabe atender a quien llama por TenGo Camello', () => {
   assert.ok(texto.includes(TENGO_EN_MIU_VOZ));
   assert.match(TENGO_EN_MIU_VOZ, /305 453 7355/);
   assert.match(TENGO_EN_MIU_VOZ, /No prometas ingresos/);
+  // Un huésped que vio un anuncio de Miu sigue siendo huésped (revisión 2026-10-30).
+  assert.match(TENGO_EN_MIU_VOZ, /vio un anuncio o un video NO basta/);
+  assert.match(TENGO_EN_MIU_VOZ, /si busca alojamiento sigue como Cami de Miu/);
   assert.ok(!instruccionesCamiVoz({ hoy: '2026-10-30', paqueteMagia: true }).includes(TENGO_EN_MIU_VOZ));
 });
