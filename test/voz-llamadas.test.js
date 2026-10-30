@@ -616,9 +616,10 @@ test('P2-4: con otras fechas la lista se reemplaza', async () => {
 });
 
 // ---------------------------------------------------------------- naturalidad (José Manuel, 2026-10-19)
-test('saludo paisa: calido, corto, dice asistente virtual y que se transcribe', () => {
+test('saludo paisa: calido, corto, dice asistente virtual de José Manuel (2.000 reseñas, 9 años) y que se transcribe', () => {
   const { PRESENTACION } = require('../lib/voz/cami-voz');
-  assert.equal(PRESENTACION, '¡Hola! Qué bueno que llamas a Miu La Frontera. Te habla Cami, la asistente virtual. '
+  // José Manuel, 2026-10-29: Cami se presenta como asistente virtual de José Manuel (paridad con el chat).
+  assert.equal(PRESENTACION, '¡Hola! Qué bueno que llamas a Miu La Frontera. Te habla Cami, la asistente virtual de José Manuel, anfitrión con más de 2.000 reseñas y 9 años de experiencia. '
     + 'Te cuento que la llamada se transcribe para seguirte ayudando por el chat. ¿En qué te puedo ayudar?');
 });
 
@@ -1300,4 +1301,15 @@ test('early check-in: herramienta y regla del PMS; llega al PMS con tipo early; 
   const out = JSON.parse(ws.enviados.find((e) => e.type === 'conversation.item.create' && e.item?.call_id === 'fc_e').item.output);
   assert.equal(out.status, 'ok');
   assert.match(out.instruccion_modelo, /No lo des por confirmado/);
+});
+
+test('2026-10-29: el chat saluda igual que la llamada (asistente virtual de José Manuel) y la voz cierra tras un sí y explica el anticipo', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const writer = fs.readFileSync(path.join(__dirname, '../lib/pilot/llm/writer.js'), 'utf8');
+  assert.match(writer, /¡Hola! Soy Cami, la asistente virtual de José Manuel, anfitrión de Miu La Frontera con más de 2\.000 reseñas y 9 años de experiencia\. ¿Qué fechas necesitas y para cuántas personas\?/);
+  const { instruccionesCamiVoz } = require('../lib/voz/cami-voz');
+  const txt = instruccionesCamiVoz({ hoy: '2026-10-29' });
+  assert.match(txt, /CERRAR TRAS UN SÍ/);
+  assert.match(txt, /depósito por posibles daños que se devuelve al check-out/);
 });
