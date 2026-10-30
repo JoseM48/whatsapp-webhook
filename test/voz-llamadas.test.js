@@ -1311,5 +1311,7 @@ test('2026-10-29: el chat saluda igual que la llamada (asistente virtual de Jos�
   const { instruccionesCamiVoz } = require('../lib/voz/cami-voz');
   const txt = instruccionesCamiVoz({ hoy: '2026-10-29' });
   assert.match(txt, /CERRAR TRAS UN SÍ/);
+  assert.match(txt, /Wompi, la pasarela de pagos de Bancolombia/);
+  assert.match(txt, /No recibimos pagos en efectivo/);
   assert.match(txt, /depósito por posibles daños que se devuelve al check-out/);
 });
