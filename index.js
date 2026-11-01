@@ -58,6 +58,7 @@ const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo,
   demoIdEfectivo,
   whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS } = require('./lib/pilot/numero-entrante');
+const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, RUTA_RECLAMAR: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado } = require('./lib/pilot/numero-equipos');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
 const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarTextoEnRafaga, registrarEntrega, turnoSinNombre } = require('./lib/pilot/inbound-image-reader');
@@ -227,6 +228,15 @@ async function sendWhatsAppTextFrom(phoneNumberId, to, body) {
     headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
     timeout: 15000
   });
+  return response.data?.messages?.[0]?.id || null;
+}
+// Equipos (2026-11-01): texto o botones reales, desde el número que recibió.
+async function enviarEquipos(phoneNumberId, to, { texto, botones }) {
+  if (!botones?.length) return sendWhatsAppTextFrom(phoneNumberId, to, String(texto || ''));
+  const phone = normalizePhone(to);
+  if (!phone || !phoneNumberId) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  const response = await axios.post(whatsappMessagesUrl(phoneNumberId), cuerpoInteractivo(phone, { texto, botones }), {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' }, timeout: 15000 });
   return response.data?.messages?.[0]?.id || null;
 }
 const BRAIN_URL = process.env.BRAIN_URL || 'http://localhost:3010';
@@ -978,6 +988,10 @@ startM0ObservationLoop({ enabled: PMS_LITE_M0_ENABLED, intervalMs: 60_000, name:
 // TEO ESCRIBE DESDE EL NÚMERO DE TENGO (PMS migración 1052): cada 20 s se
 // reclama la cola propia del PMS y se envía desde TENGOCAMELLO_PHONE_NUMBER_ID.
 // Sin la variable o sin PMS configurado, no corre.
+// Lista de números de Equipos (datos en el PMS): caché de 60 s, sin variable nueva.
+const cacheNumerosEquipos = crearCacheNumeros({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL });
+if (PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET) cacheNumerosEquipos.refrescarSiVencio().catch(() => {});
+
 startM0ObservationLoop({ enabled: Boolean(TENGOCAMELLO_PHONE_NUMBER_ID && PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET), intervalMs: 20_000,
   name: 'tengocamello_outbox_poll', observe: async () => {
     const r = await despacharSalidasTengoCamello({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
@@ -992,6 +1006,14 @@ startM0ObservationLoop({ enabled: Boolean(TENGOCAMELLO_DEMO_PHONE_NUMBER_ID && P
     const r = await despacharSalidasTengoCamelloDemo({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
       enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_DEMO_PHONE_NUMBER_ID, to, body) });
     if (r.enviados || r.fallidos || r.inciertos) console.log('[tengocamello-demo] outbox_poll', r);
+  } });
+
+// TENGO CAMELLO EQUIPOS (PMS migración 1088): aviso al dueño y respuestas de Teo.
+startM0ObservationLoop({ enabled: Boolean(PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET), intervalMs: 20_000,
+  name: 'equipos_outbox_poll', observe: async () => {
+    const r = await despacharSalidasTengoCamello({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL, rutaReclamar: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado, etiqueta: '[equipos]',
+      enviarTexto: (to, body, salida) => sendWhatsAppTextFrom(salida.phone_number_id, to, body) });
+    if (r.enviados || r.fallidos || r.inciertos) console.log('[equipos] outbox_poll', r);
   } });
 
 async function enviarWhatsApp(to, body) {
@@ -1617,8 +1639,10 @@ app.post('/webhook', async (req, res) => {
     // de todo lo demás. Lo de Miu (o sin metadata) sigue tal cual; lo de TenGo
     // Camello va al PMS por su endpoint y sale desde su número; lo demás se
     // ignora. Ver lib/pilot/numero-entrante.js.
-    const ruteo = separarPorNumero(req.body, { miuId: process.env.PHONE_NUMBER_ID, tengoId: TENGOCAMELLO_PHONE_NUMBER_ID,
-      demoId: TENGOCAMELLO_DEMO_PHONE_NUMBER_ID });
+    const opcionesRuteo = { miuId: process.env.PHONE_NUMBER_ID, tengoId: TENGOCAMELLO_PHONE_NUMBER_ID, demoId: TENGOCAMELLO_DEMO_PHONE_NUMBER_ID };
+    let ruteo = separarPorNumero(req.body, { ...opcionesRuteo, equiposIds: cacheNumerosEquipos.ids() });
+    // Solo un número desconocido espera a leer la lista de Equipos: Miu nunca espera.
+    if (ruteo.desconocidos) ruteo = separarPorNumero(req.body, { ...opcionesRuteo, equiposIds: await cacheNumerosEquipos.refrescarSiVencio() });
     if (ruteo.desconocidos) console.warn('[webhook] numero_desconocido_ignorado', { count: ruteo.desconocidos, phone_number_ids: ruteo.idsDesconocidos });
     if (ruteo.tengoChanges.length) {
       try {
@@ -1642,6 +1666,14 @@ app.post('/webhook', async (req, res) => {
       } catch (error) {
         console.error('[tengocamello-demo] fallo', { code: error?.code || 'unknown' });
       }
+    }
+    // Equipos: sin esperar. La IA del PMS puede tardar y Meta (ni Miu, si viene en el
+    // mismo cuerpo) no debe esperarla; la deduplicación del PMS cubre un reintento.
+    if (ruteo.equiposChanges.length) {
+      atenderEquipos(ruteo.equiposChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL, enviar: enviarEquipos, extractMetaMessages,
+        transcribirAudio: M0_AUDIO_TRANSCRIPTION_ENABLED ? (mediaId) => inboundAudioTranscriber.transcribe(mediaId) : null,
+        descargarAdjunto: (media) => inboundMediaDownloader.adjunto(media) })
+        .catch((error) => console.error('[equipos] fallo', { code: error?.code || 'unknown' }));
     }
     if (!ruteo.miuBody) return res.sendStatus(200);
     req.body = ruteo.miuBody;
