@@ -458,6 +458,9 @@ const vozCalls = createVozCallManager({
   // CAMI DE VOZ DE TENGO (2026-10-30): los textos de una llamada al 7355 salen
   // DESDE el 7355, nunca desde Miu. Sin la variable no se envia nada.
   sendTextTengo: TENGOCAMELLO_PHONE_NUMBER_ID ? (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_PHONE_NUMBER_ID, to, body) : null,
+  // EQUIPOS (2026-11-01): la lista de números es dato del PMS; la línea sale desde el número llamado.
+  numerosEquipos: { ids: () => cacheNumerosEquipos.ids(), refrescarSiVencio: () => cacheNumerosEquipos.refrescarSiVencio() },
+  sendTextEquipos: (phoneNumberId, to, body) => sendWhatsAppTextFrom(phoneNumberId, to, body),
 });
 // Llamadas que quedaron abiertas tras un reinicio: al arrancar y cada 10 min.
 if (vozConfig.habilitada) {

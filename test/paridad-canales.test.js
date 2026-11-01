@@ -217,3 +217,18 @@ test('Cami de voz de TenGo: excepción declarada, solo 3 herramientas y nada de 
   assert.match(t, /USO ACEPTABLE/);
   assert.match(t, /no cotizas alojamiento de Miu La Frontera/i);
 });
+
+// EQUIPOS (2026-11-01, PMS migración 1089): sus herramientas son de otro mundo, con su
+// propia paridad: en la llamada y en el chat registran por el mismo servicio del PMS
+// (registros.service.js, procesarLectura; lo prueba tests/equipos.test.js del PMS).
+// Excepción declarada: el chat no tiene estas herramientas porque su lectura es el modelo
+// de extracción del PMS, no herramientas. Nada de Equipos entra a Cami de Miu ni al revés.
+test('Equipos no comparte herramientas comerciales con Miu', () => {
+  const { herramientasEquiposVoz } = require('../lib/voz/cami-voz');
+  const eq = herramientasEquiposVoz().map((t) => t.name).sort();
+  assert.deepEqual(eq, ['consultar_cifras', 'pedir_al_equipo', 'registrar_movimiento', 'terminar_llamada']);
+  const miu = new Set(herramientasDeVoz().map((t) => t.name));
+  for (const n of eq.filter((x) => x !== 'terminar_llamada')) assert.equal(miu.has(n), false, n);
+  const chat = new Set(toolsForModel().map((t) => t.name));
+  for (const n of eq) assert.equal(chat.has(n), false, n);
+});
