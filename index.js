@@ -57,7 +57,7 @@ const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-rece
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo,
   demoIdEfectivo,
-  whatsappMessagesUrl } = require('./lib/pilot/numero-entrante');
+  whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS } = require('./lib/pilot/numero-entrante');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
 const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarTextoEnRafaga, registrarEntrega, turnoSinNombre } = require('./lib/pilot/inbound-image-reader');
@@ -1627,7 +1627,9 @@ app.post('/webhook', async (req, res) => {
           // Notas de voz al 7355 (2026-10-30): el mismo transcriptor de Miu; si falla, el PMS recibe texto vacío.
           transcribirAudio: M0_AUDIO_TRANSCRIPTION_ENABLED ? (mediaId) => inboundAudioTranscriber.transcribe(mediaId) : null,
           // Archivos al 7355 (2026-11-01): el mismo descargador de Miu.
-          descargarAdjunto: (media) => inboundMediaDownloader.adjunto(media) });
+          descargarAdjunto: (media) => inboundMediaDownloader.adjunto(media),
+          // Avisos de entrega del 7355 (2026-11-01).
+          rutaEstados: RUTA_PMS_TC_ESTADOS });
       } catch (error) {
         console.error('[tengocamello] fallo', { code: error?.code || 'unknown' });
       }

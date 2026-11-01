@@ -55,6 +55,21 @@ test('un sticker no cuenta como archivo; un texto no descarga nada', async () =>
   assert.ok(m.posts.every((p) => !p.body.adjunto));
 });
 
+test('los avisos de entrega van al PMS sin el resto del cuerpo; sin ruta se ignoran; un fallo no tumba nada', async () => {
+  const estado = { id: 'wamid.s', status: 'failed', timestamp: '1761600000', recipient_id: FROM, errors: [{ code: 131026, title: 'x', message: 'y' }], pricing: { billable: true } };
+  const cam = { field: 'messages', value: { messaging_product: 'whatsapp', metadata: { phone_number_id: '2' }, statuses: [estado] } };
+  const m = montar();
+  await atenderTengoCamello([cam], { ...m.deps, rutaEstados: '/estados' });
+  assert.equal(m.posts[0].url, 'http://pms/estados');
+  assert.deepEqual(m.posts[0].body.statuses[0], { id: 'wamid.s', status: 'failed', timestamp: '1761600000', recipient_id: FROM, errors: [{ code: 131026, title: 'x' }] });
+  const sinRuta = montar();
+  await atenderTengoCamello([cam], sinRuta.deps);
+  assert.equal(sinRuta.posts.length, 0);
+  const cae = montar();
+  cae.deps.pms.postUrl = async () => { throw new Error('caido'); };
+  await atenderTengoCamello([cam], { ...cae.deps, rutaEstados: '/estados' });
+});
+
 test('el 7354 (demo) aún no descarga archivos: excepción declarada', async () => {
   const m = montar();
   await atenderTengoCamelloDemo([cambio(PDF)], m.deps);
