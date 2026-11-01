@@ -1625,7 +1625,9 @@ app.post('/webhook', async (req, res) => {
         await atenderTengoCamello(ruteo.tengoChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
           enviarTexto: (to, body) => sendWhatsAppTextFrom(TENGOCAMELLO_PHONE_NUMBER_ID, to, body), extractMetaMessages,
           // Notas de voz al 7355 (2026-10-30): el mismo transcriptor de Miu; si falla, el PMS recibe texto vacío.
-          transcribirAudio: M0_AUDIO_TRANSCRIPTION_ENABLED ? (mediaId) => inboundAudioTranscriber.transcribe(mediaId) : null });
+          transcribirAudio: M0_AUDIO_TRANSCRIPTION_ENABLED ? (mediaId) => inboundAudioTranscriber.transcribe(mediaId) : null,
+          // Archivos al 7355 (2026-11-01): el mismo descargador de Miu.
+          descargarAdjunto: (media) => inboundMediaDownloader.adjunto(media) });
       } catch (error) {
         console.error('[tengocamello] fallo', { code: error?.code || 'unknown' });
       }
