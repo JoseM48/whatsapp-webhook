@@ -4,7 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello } = require('../lib/pilot/numero-entrante');
-const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, RUTA_RECLAMAR, rutaResultado } = require('../lib/pilot/numero-equipos');
+const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, debeReintentar, RUTA_RECLAMAR, rutaResultado } = require('../lib/pilot/numero-equipos');
 const { extractMetaMessages, m0CommercialText } = require('../lib/pilot/meta-inbound');
 
 const FROM = '573000000901';
@@ -13,11 +13,11 @@ const OPC = { miuId: 'miu', tengoId: 'tengo', demoId: 'demo' };
 const cambio = (id, value = {}) => ({ field: 'messages', value: { metadata: { phone_number_id: id, display_phone_number: '573000007379' }, ...value } });
 const msg = (extra) => ({ contacts: [{ wa_id: FROM, profile: { name: 'Prueba' } }], messages: [{ from: FROM, id: 'wamid.a1', timestamp: '1761600000', ...extra }] });
 
-function montar({ respuesta = { responder: true, mensajes: [{ texto: 'hola' }] } } = {}) {
+function montar({ respuesta = { responder: true, mensajes: [{ texto: 'hola' }] }, puede = { conocido: true, documentos: true, notas_voz: true } } = {}) {
   const posts = [], enviados = [];
   return { posts, enviados, deps: { pmsBaseUrl: 'http://pms', extractMetaMessages, logger: silencio,
     enviar: async (id, to, s) => { enviados.push({ id, to, s }); },
-    pms: { postUrl: async (url, body, opts) => { posts.push({ url, body, opts }); return respuesta; } } } };
+    pms: { postUrl: async (url, body, opts) => { if (url.endsWith('/puede')) { if (puede instanceof Error) throw puede; return puede; } posts.push({ url, body, opts }); return respuesta; } } } };
 }
 
 test('ruteo: los números de la lista van a Equipos; Miu conserva el mismo objeto', () => {
@@ -143,4 +143,58 @@ test('el log nunca lleva el teléfono', async () => {
   await atenderEquipos([cambio('eq1', msg({ type: 'text', text: { body: 'hola' } }))], { ...m.deps, logger: log });
   assert.ok(lineas.length > 0);
   assert.ok(lineas.every((l) => !l.includes(FROM)));
+});
+
+test('desconocido o sin permiso: ni transcripción ni descarga, y el PMS igual recibe el mensaje', async () => {
+  let gastos = 0;
+  const transcribirAudio = async () => { gastos += 1; return 'x'; };
+  const descargarAdjunto = async () => { gastos += 1; return {}; };
+  const a = montar({ puede: { conocido: false, documentos: false, notas_voz: false } });
+  await atenderEquipos([cambio('eq1', msg({ type: 'audio', audio: { id: 'a1' } }))], { ...a.deps, transcribirAudio, descargarAdjunto });
+  assert.equal(a.posts[0].body.text, '');
+  await atenderEquipos([cambio('eq1', msg({ type: 'document', document: { id: 'm1', mime_type: 'application/pdf' } }))], { ...a.deps, transcribirAudio, descargarAdjunto });
+  assert.deepEqual(a.posts[1].body.adjunto, { tipo: 'document', estado: 'no_descargado', motivo: 'sin_permiso_o_desconocido' });
+  // Sin permiso para documentos pero sí para audio: solo gasta lo permitido.
+  const b = montar({ puede: { conocido: true, documentos: false, notas_voz: true } });
+  await atenderEquipos([cambio('eq1', msg({ type: 'document', document: { id: 'm1' } }))], { ...b.deps, transcribirAudio, descargarAdjunto });
+  assert.equal(gastos, 0);
+  await atenderEquipos([cambio('eq1', msg({ type: 'audio', audio: { id: 'a1' } }))], { ...b.deps, transcribirAudio, descargarAdjunto });
+  assert.equal(gastos, 1);
+  // Un texto no pregunta: no hay nada que gastar. Con el PMS caído tampoco se gasta.
+  const c = montar({ puede: new Error('caído') });
+  await atenderEquipos([cambio('eq1', msg({ type: 'document', document: { id: 'm1' } }))], { ...c.deps, transcribirAudio, descargarAdjunto });
+  assert.equal(gastos, 1);
+});
+
+test('PMS caído: traza clara por mensaje, sin teléfono', async () => {
+  const lineas = [];
+  const log = { info() {}, warn() {}, error: (msgLog, datos) => lineas.push([msgLog, datos]) };
+  const pms = { postUrl: async () => { throw Object.assign(new Error('x'), { code: 'ECONNREFUSED' }); } };
+  await atenderEquipos([cambio('eq1', msg({ type: 'text', text: { body: 'hola' } }))], { pmsBaseUrl: 'http://pms', extractMetaMessages, logger: log, enviar: async () => {}, pms });
+  const t = lineas.find((l) => l[0] === '[equipos] mensaje_no_atendido');
+  assert.equal(t[1].message_id, 'wamid.a1');
+  assert.equal(t[1].code, 'ECONNREFUSED');
+  assert.ok(!JSON.stringify(t).includes(FROM));
+});
+
+test('caché fría: conserva lo último tras una falla; sin lista y sin Miu pide reintento a Meta', async () => {
+  let falla = true, t = 0;
+  const pms = { postUrl: async () => { if (falla) throw new Error('caído'); return { numeros: ['eq1'] }; } };
+  const c = crearCacheNumeros({ pms, pmsBaseUrl: 'http://pms', logger: silencio, ahora: () => t });
+  await c.refrescarSiVencio();
+  assert.equal(c.cargada(), false);
+  const ruteo = separarPorNumero({ entry: [{ changes: [cambio('eq1')] }] }, { ...OPC, equiposIds: c.ids() });
+  assert.equal(debeReintentar(ruteo, c), true);
+  const conMiu = separarPorNumero({ entry: [{ changes: [cambio('miu'), cambio('eq1')] }] }, { ...OPC, equiposIds: c.ids() });
+  assert.equal(debeReintentar(conMiu, c), false);
+  falla = false; t = 11_000;
+  await c.refrescarSiVencio();
+  assert.equal(c.cargada(), true);
+  falla = true; t = 80_000;
+  assert.deepEqual([...await c.refrescarSiVencio()], ['eq1']);
+  assert.equal(debeReintentar(separarPorNumero({ entry: [{ changes: [cambio('otro')] }] }, { ...OPC, equiposIds: c.ids() }), c), false);
+  // Lista cargada y vacía (política apagada) no es una falla.
+  const vacia = crearCacheNumeros({ pms: { postUrl: async () => ({ numeros: [] }) }, pmsBaseUrl: 'http://pms', logger: silencio });
+  await vacia.refrescarSiVencio();
+  assert.equal(vacia.cargada(), true);
 });

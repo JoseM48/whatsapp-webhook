@@ -58,7 +58,7 @@ const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo,
   demoIdEfectivo,
   whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS } = require('./lib/pilot/numero-entrante');
-const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, RUTA_RECLAMAR: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado } = require('./lib/pilot/numero-equipos');
+const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, debeReintentar, RUTA_RECLAMAR: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado } = require('./lib/pilot/numero-equipos');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
 const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarTextoEnRafaga, registrarEntrega, turnoSinNombre } = require('./lib/pilot/inbound-image-reader');
@@ -1670,13 +1670,20 @@ app.post('/webhook', async (req, res) => {
         console.error('[tengocamello-demo] fallo', { code: error?.code || 'unknown' });
       }
     }
-    // Equipos: sin esperar. La IA del PMS puede tardar y Meta (ni Miu, si viene en el
-    // mismo cuerpo) no debe esperarla; la deduplicación del PMS cubre un reintento.
+    // Equipos: se espera la respuesta, igual que el 7355 (lo que se pierde deja traza).
     if (ruteo.equiposChanges.length) {
-      atenderEquipos(ruteo.equiposChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL, enviar: enviarEquipos, extractMetaMessages,
-        transcribirAudio: M0_AUDIO_TRANSCRIPTION_ENABLED ? (mediaId) => inboundAudioTranscriber.transcribe(mediaId) : null,
-        descargarAdjunto: (media) => inboundMediaDownloader.adjunto(media) })
-        .catch((error) => console.error('[equipos] fallo', { code: error?.code || 'unknown' }));
+      try {
+        await atenderEquipos(ruteo.equiposChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL, enviar: enviarEquipos, extractMetaMessages,
+          transcribirAudio: M0_AUDIO_TRANSCRIPTION_ENABLED ? (mediaId) => inboundAudioTranscriber.transcribe(mediaId) : null,
+          descargarAdjunto: (media) => inboundMediaDownloader.adjunto(media) });
+      } catch (error) {
+        console.error('[equipos] fallo', { code: error?.code || 'unknown' });
+      }
+    }
+    // Lista nunca leída y un número ajeno: pudo ser de Equipos. No se pierde en silencio.
+    if (ruteo.desconocidos && !cacheNumerosEquipos.cargada()) {
+      console.error('[equipos] lista_no_disponible_mensaje_sin_atender', { count: ruteo.desconocidos, phone_number_ids: ruteo.idsDesconocidos });
+      if (debeReintentar(ruteo, cacheNumerosEquipos)) return res.sendStatus(503);
     }
     if (!ruteo.miuBody) return res.sendStatus(200);
     req.body = ruteo.miuBody;
