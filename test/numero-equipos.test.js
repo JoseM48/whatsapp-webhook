@@ -4,7 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello } = require('../lib/pilot/numero-entrante');
-const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, debeReintentar, RUTA_RECLAMAR, rutaResultado } = require('../lib/pilot/numero-equipos');
+const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, debeReintentar, debeEsperarEquipos, crearMemoriaRemitentes, TEXTO_FALLA_PMS, RUTA_RECLAMAR, rutaResultado } = require('../lib/pilot/numero-equipos');
 const { extractMetaMessages, m0CommercialText } = require('../lib/pilot/meta-inbound');
 
 const FROM = '573000000901';
@@ -197,4 +197,38 @@ test('caché fría: conserva lo último tras una falla; sin lista y sin Miu pide
   const vacia = crearCacheNumeros({ pms: { postUrl: async () => ({ numeros: [] }) }, pmsBaseUrl: 'http://pms', logger: silencio });
   await vacia.refrescarSiVencio();
   assert.equal(vacia.cargada(), true);
+});
+
+test('S2: PMS caído con un remitente conocido: una línea, una sola vez, hasta que vuelva; a un desconocido nada', async () => {
+  let cae = false;
+  const enviados = [];
+  const pms = { postUrl: async () => { if (cae) throw Object.assign(new Error('x'), { code: 'ECONNREFUSED' }); return { responder: false, conocido: true }; } };
+  const memoria = crearMemoriaRemitentes();
+  const deps = { pms, pmsBaseUrl: 'http://pms', extractMetaMessages, logger: silencio, memoria, enviar: async (id, to, s) => { enviados.push({ id, to, s }); } };
+  const texto = cambio('eq1', msg({ type: 'text', text: { body: 'hola' } }));
+  await atenderEquipos([texto], deps);
+  assert.equal(enviados.length, 0);
+  cae = true;
+  await atenderEquipos([texto], deps);
+  await atenderEquipos([texto], deps);
+  assert.equal(enviados.length, 1);
+  assert.deepEqual(enviados[0], { id: 'eq1', to: FROM, s: { texto: TEXTO_FALLA_PMS } });
+  cae = false;
+  await atenderEquipos([texto], deps);
+  cae = true;
+  await atenderEquipos([texto], deps);
+  assert.equal(enviados.length, 2);
+  const nuevo = { ...deps, memoria: crearMemoriaRemitentes(), enviar: async () => { throw new Error('no debe enviar'); } };
+  await atenderEquipos([texto], nuevo);
+  // Si el aviso también falla, nada se cae.
+  const falla = crearMemoriaRemitentes(); falla.conocido(FROM);
+  await atenderEquipos([texto], { ...deps, memoria: falla, enviar: async () => { throw new Error('meta'); } });
+});
+
+test('S3: con Miu, 7355 o 7354 en el cuerpo no se espera a Equipos', () => {
+  const r = (changes) => separarPorNumero({ entry: [{ changes }] }, { ...OPC, equiposIds: new Set(['eq1']) });
+  assert.equal(debeEsperarEquipos(r([cambio('eq1')])), true);
+  assert.equal(debeEsperarEquipos(r([cambio('eq1'), cambio('miu')])), false);
+  assert.equal(debeEsperarEquipos(r([cambio('eq1'), cambio('tengo')])), false);
+  assert.equal(debeEsperarEquipos(r([cambio('eq1'), cambio('demo')])), false);
 });

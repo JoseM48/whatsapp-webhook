@@ -58,7 +58,7 @@ const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo,
   demoIdEfectivo,
   whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS } = require('./lib/pilot/numero-entrante');
-const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, debeReintentar, RUTA_RECLAMAR: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado } = require('./lib/pilot/numero-equipos');
+const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, debeReintentar, debeEsperarEquipos, crearMemoriaRemitentes, RUTA_RECLAMAR: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado } = require('./lib/pilot/numero-equipos');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
 const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarTextoEnRafaga, registrarEntrega, turnoSinNombre } = require('./lib/pilot/inbound-image-reader');
@@ -992,6 +992,7 @@ startM0ObservationLoop({ enabled: PMS_LITE_M0_ENABLED, intervalMs: 60_000, name:
 // reclama la cola propia del PMS y se envía desde TENGOCAMELLO_PHONE_NUMBER_ID.
 // Sin la variable o sin PMS configurado, no corre.
 // Lista de números de Equipos (datos en el PMS): caché de 60 s, sin variable nueva.
+const memoriaRemitentesEquipos = crearMemoriaRemitentes();
 const cacheNumerosEquipos = crearCacheNumeros({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL });
 if (PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET) cacheNumerosEquipos.refrescarSiVencio().catch(() => {});
 
@@ -1670,15 +1671,14 @@ app.post('/webhook', async (req, res) => {
         console.error('[tengocamello-demo] fallo', { code: error?.code || 'unknown' });
       }
     }
-    // Equipos: se espera la respuesta, igual que el 7355 (lo que se pierde deja traza).
+    // Equipos: se espera como el 7355, salvo que el cuerpo traiga algo más: la IA de
+    // Equipos no retrasa a Miu. Lo que se pierde deja traza.
     if (ruteo.equiposChanges.length) {
-      try {
-        await atenderEquipos(ruteo.equiposChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL, enviar: enviarEquipos, extractMetaMessages,
-          transcribirAudio: M0_AUDIO_TRANSCRIPTION_ENABLED ? (mediaId) => inboundAudioTranscriber.transcribe(mediaId) : null,
-          descargarAdjunto: (media) => inboundMediaDownloader.adjunto(media) });
-      } catch (error) {
-        console.error('[equipos] fallo', { code: error?.code || 'unknown' });
-      }
+      const atencion = atenderEquipos(ruteo.equiposChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL, enviar: enviarEquipos, extractMetaMessages, memoria: memoriaRemitentesEquipos,
+        transcribirAudio: M0_AUDIO_TRANSCRIPTION_ENABLED ? (mediaId) => inboundAudioTranscriber.transcribe(mediaId) : null,
+        descargarAdjunto: (media) => inboundMediaDownloader.adjunto(media) })
+        .catch((error) => console.error('[equipos] fallo', { code: error?.code || 'unknown' }));
+      if (debeEsperarEquipos(ruteo)) await atencion;
     }
     // Lista nunca leída y un número ajeno: pudo ser de Equipos. No se pierde en silencio.
     if (ruteo.desconocidos && !cacheNumerosEquipos.cargada()) {
