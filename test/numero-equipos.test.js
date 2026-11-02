@@ -232,3 +232,13 @@ test('S3: con Miu, 7355 o 7354 en el cuerpo no se espera a Equipos', () => {
   assert.equal(debeEsperarEquipos(r([cambio('eq1'), cambio('tengo')])), false);
   assert.equal(debeEsperarEquipos(r([cambio('eq1'), cambio('demo')])), false);
 });
+
+test('si falla el envío de la respuesta, no se pide reenviar lo ya registrado', async () => {
+  const enviados = [];
+  const pms = { postUrl: async () => ({ responder: true, conocido: true, mensajes: [{ texto: 'registrado' }] }) };
+  const memoria = crearMemoriaRemitentes();
+  const deps = { pms, pmsBaseUrl: 'http://pms', extractMetaMessages, logger: silencio, memoria,
+    enviar: async (id, to, s) => { enviados.push(s.texto); throw new Error('meta'); } };
+  await atenderEquipos([cambio('eq1', msg({ type: 'text', text: { body: 'hola' } }))], deps);
+  assert.deepEqual(enviados, ['registrado']);
+});
