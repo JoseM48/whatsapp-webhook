@@ -60,7 +60,7 @@ const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, ate
   whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS } = require('./lib/pilot/numero-entrante');
 const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, debeReintentar, debeEsperarEquipos, crearMemoriaRemitentes, RUTA_RECLAMAR: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado } = require('./lib/pilot/numero-equipos');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
-const { InboundMediaDownloader, capturarConRespaldo } = require('./lib/pilot/inbound-media');
+const { InboundMediaDownloader, capturarConRespaldo, audioDelEquipo } = require('./lib/pilot/inbound-media');
 const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarTextoEnRafaga, registrarEntrega, turnoSinNombre } = require('./lib/pilot/inbound-image-reader');
 const { parseFlowResponse, flowResponseToText } = require('./lib/pilot/flow-response');
 const { toFile } = require('openai');
@@ -1885,10 +1885,15 @@ app.post('/webhook', async (req, res) => {
             console.info('[m0-media] inbound', { phone: maskPilotPhone(incoming.from), tipo: adjunto.tipo,
               estado: adjunto.estado, bytes: adjunto.size_bytes ?? null, motivo: adjunto.motivo ?? null });
           }
+          const audioEquipo = M0_INBOUND_MEDIA_ENABLED && incoming.messageType === 'audio'
+            ? await audioDelEquipo({ audio: incoming.audio, from: normalizePhone(incoming.from),
+              esEquipo: (telefono) => pmsPilotClient.telefonoEsEquipo(telefono),
+              descargar: (media) => inboundMediaDownloader.adjunto(media) })
+            : null;
           const closed = await m0CommercialResponder.captureAndAcknowledge({
             from: normalizePhone(incoming.from), text: raw, messageId: incoming.messageId,
             timestamp: incoming.timestamp, name: incoming.name, referral: incoming.referral,
-            landingRef: incoming.landingRef, adjunto, ubicacion: incoming.ubicacion || null
+            landingRef: incoming.landingRef, adjunto, ubicacion: incoming.ubicacion || null, audioEquipo
           });
           console.info('[m0-commercial] inbound_captured', {
             deduplicated: closed.capture_result?.deduplicated === true,
