@@ -202,15 +202,59 @@ test('un fallo de Meta al bajar el audio queda no_descargado y la captura sigue'
   assert.equal(r.contenido_base64, undefined);
 });
 
-test('si el PMS rechaza la captura con el audio, se reintenta sin el contenido', async () => {
-  const llamadas = [];
-  const capture = async (p) => { llamadas.push(p); if (llamadas.length === 1) throw Object.assign(new Error('x'), { response: { status: 413 } }); return { ok: true }; };
-  const r = await capturarConRespaldo(capture, { mensaje: 'hola', audio_equipo: { tipo: 'audio', estado: 'guardado', sha256: 'a', contenido_base64: 'QUJD' } }, { error() {} });
-  assert.deepEqual(r, { ok: true });
-  assert.equal(llamadas[1].audio_equipo.estado, 'no_descargado');
-  assert.equal(llamadas[1].audio_equipo.contenido_base64, undefined);
-  assert.equal(llamadas[1].audio_equipo.sha256, undefined);
-  assert.equal(llamadas[1].mensaje, 'hola');
+test('si el PMS rechaza la captura con el audio, el responder y el orquestador reales reintentan sin los bytes', async () => {
+  for (const status of [413, 503]) {
+    const cuerpos = [];
+    const pms = { capture: async (body) => {
+      cuerpos.push(body);
+      if (cuerpos.length === 1) throw Object.assign(new Error('x'), { response: { status } });
+      return { created_interaction: true };
+    } };
+    const orchestrator = new PilotOrchestrator({ pms, ai: {}, sendImage: async () => {}, sendText: async () => 'w', context: {} });
+    // El mismo cableado de index.js.
+    const responder = createM0CommercialResponder({
+      capture: (payload) => capturarConRespaldo((p) => orchestrator.capture(p), payload, { error() {} }),
+      ai: { async interpret() { throw new Error('no'); } },
+      closedPilot: { async beginCommercial() { return { result: { processing_claimed: false, outboxes: [] } }; } },
+      pms: { async processingFailure() {} }
+    });
+    const audioEquipo = { tipo: 'audio', estado: 'guardado', mime_type: 'audio/ogg', size_bytes: 3, sha256: 'a'.repeat(64), contenido_base64: 'QUJD' };
+    const r = await responder.captureAndAcknowledge({ from: '573000000301', text: 'revise el 210, sin agua', messageId: `wamid.resp.${status}`,
+      timestamp: '2026-11-03T01:00:00.000Z', audioEquipo });
+    assert.equal(r.captured, true);
+    assert.equal(cuerpos.length, 2);
+    assert.equal(cuerpos[0].audio_equipo.contenido_base64, 'QUJD');
+    assert.equal(cuerpos[1].audio_equipo.estado, 'no_descargado');
+    assert.match(cuerpos[1].audio_equipo.motivo, new RegExp(String(status)));
+    assert.equal(cuerpos[1].audio_equipo.contenido_base64, undefined);
+    assert.equal(cuerpos[1].audio_equipo.sha256, undefined);
+    assert.equal(cuerpos[1].mensaje, 'revise el 210, sin agua');
+  }
+});
+
+test('sin archivo, un fallo de captura se propaga: no se reintenta', async () => {
+  let llamadas = 0;
+  const capture = async () => { llamadas += 1; throw new Error('pms_caido'); };
+  await assert.rejects(capturarConRespaldo(capture, { mensaje: 'hola', audioEquipo: null }, { error() {} }), /pms_caido/);
+  assert.equal(llamadas, 1);
+});
+
+test('si el PMS no contesta a tiempo, audioDelEquipo sigue sin archivo dentro del tope y sin descargar', async () => {
+  let descargas = 0;
+  const errores = [];
+  const inicio = Date.now();
+  const r = await audioDelEquipo({ audio: AUDIO, from: 'x', topeMs: 30, logger: { error: (...a) => errores.push(a) },
+    esEquipo: () => new Promise(() => {}), descargar: async () => { descargas += 1; } });
+  assert.equal(r, null);
+  assert.equal(descargas, 0);
+  assert.ok(Date.now() - inicio < 1000);
+  assert.equal(errores[0][1].code, 'audio_equipo_tope');
+});
+
+test('el tope de 3 s es de la pregunta: la descarga de una persona del equipo conserva su propio plazo', async () => {
+  const r = await audioDelEquipo({ audio: AUDIO, from: 'x', topeMs: 20, esEquipo: async () => true,
+    descargar: async () => { await new Promise((ok) => setTimeout(ok, 60)); return { tipo: 'audio', estado: 'guardado' }; } });
+  assert.equal(r.estado, 'guardado');
 });
 
 test('el respondedor y el orquestador llevan audio_equipo a la captura; sin el, el campo no va', async () => {
