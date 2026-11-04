@@ -120,7 +120,7 @@ test('instrucciones: IA, sin cobro por telefono y regla de Airbnb', () => {
   assert.match(t, /Nunca reservas, apartas, cobras/);
   assert.match(t, /huésped de una reserva de Airbnb/);
   const nombres = herramientasDeVoz().map((h) => h.name);
-  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'anotar_lista_espera', 'consultar_al_equipo', 'evaluar_uso_aceptable', 'ofrecer_paquete_magia', 'solicitar_late_checkout', 'solicitar_early_checkin'].includes(n)).sort(),
+  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'enviar_video_al_chat', 'anotar_lista_espera', 'consultar_al_equipo', 'evaluar_uso_aceptable', 'ofrecer_paquete_magia', 'solicitar_late_checkout', 'solicitar_early_checkin'].includes(n)).sort(),
     ['check_availability', 'get_policy', 'get_public_apartment_attributes', 'quote_stay', 'search_commercial_knowledge']);
   assert.equal(nombres.includes('prepare_pre_reservation'), false);
 });

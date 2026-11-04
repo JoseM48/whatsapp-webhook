@@ -164,6 +164,7 @@ app.use(express.json({
 // Public, unauthenticated static hosting for apartment photos the M0 pilot
 // attaches to WhatsApp messages (Meta's image API needs a plain public link).
 app.use('/media/photos', express.static(path.join(__dirname, 'public', 'photos'), { maxAge: '7d' }));
+app.use('/media/videos', express.static(path.join(__dirname, 'public', 'videos'), { maxAge: '7d' }));
 
 // ===============================
 // Helpers comunes
@@ -454,6 +455,7 @@ const vozCalls = createVozCallManager({
   // fotos fijos del catalogo aprobado); con conversacion van por el outbox y
   // se entregan de inmediato con el mismo poller de siempre.
   sendImage: (to, link, caption) => sendM0ApartmentPhoto(to, link, caption),
+  sendVideo: (to, link, caption) => sendM0ApartmentVideo(to, link, caption),
   entregarAhora: () => m0ClosedPilot.pollPendingInternalOutbox(),
   // CAMI DE VOZ DE TENGO (2026-10-30): los textos de una llamada al 7355 salen
   // DESDE el 7355, nunca desde Miu. Sin la variable no se envia nada.
@@ -499,6 +501,20 @@ async function sendPilotWhatsAppImage(to, link) {
 // is the M0 closed pilot's own apartment-photo delivery, unrelated feature.
 // caption (2026-10-13): pie corto opcional ("LF-510 · 1/6"), solo lo usan las
 // fotos del canal de Desarrollos; desde el 2026-10-17 tambien las de Cami (codigo de la unidad).
+// Video del catalogo (2026-11-04): misma llamada a Meta que las fotos.
+async function sendM0ApartmentVideo(to, link, caption = null) {
+  const phone = normalizePhone(to);
+  if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  const response = await axios.post(WHATSAPP_API_URL, {
+    messaging_product: 'whatsapp', to: phone, type: 'video',
+    video: caption ? { link, caption: String(caption).slice(0, 1024) } : { link }
+  }, {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    timeout: 20000
+  });
+  return response.data?.messages?.[0]?.id || null;
+}
+
 async function sendM0ApartmentPhoto(to, link, caption = null) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
@@ -709,6 +725,7 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
   sendButtons: sendPilotWhatsAppButtons,
   sendReaction: sendPilotWhatsAppReaction,
   sendPhoto: sendM0ApartmentPhoto,
+  sendVideo: sendM0ApartmentVideo,
   sendDocument: sendM0GuestDocument,
   // Incremento D3.3: misma instancia de PilotAi ya usada por interpret()/
   // present() -- redact() solo se invoca si naturalPresentationEnabled es
