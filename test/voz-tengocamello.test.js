@@ -279,7 +279,8 @@ test('guion de TenGo: categoria, promesa, precios publicos y lo que nunca promet
   assert.match(t, /se crea y se maneja hablando/);
   assert.match(t, /Nosotros vendemos por ti y gestionamos tu negocio/);
   assert.match(t, /Miu La Frontera/, 'el caso real se menciona');
-  assert.match(t, /49\.900/);
+  assert.doesNotMatch(t, /49\.900/);
+  assert.match(t, /no tienen costo/);
   assert.match(t, /150\.000/);
   assert.match(t, /99\.000/);
   assert.match(t, /NUNCA prometas ingresos/);
