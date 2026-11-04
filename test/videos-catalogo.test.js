@@ -12,7 +12,9 @@ const { videoForKey, VIDEO_CODES } = require('../lib/pilot/apartment-photos');
 const { createM0ClosedPilotDispatcher } = require('../lib/pilot/m0-closed-pilot');
 
 const guest = '573146892662';
-const config = { enabled: true, guestPhone: guest, internalPhone: '573006774425', naturalPresentationEnabled: false };
+const config = { enabled: true, guestPhone: guest, internalPhone: '573006774425', metaSignatureRequired: true,
+  pmsM0Enabled: true, controlledIngressEnabled: true, pmsConfigured: true, receiptsEnabled: true,
+  internalTemplateName: 'm0_internal_escalation_v1', internalTemplateLanguage: 'es_CO' };
 function dispatcherCon(claims, sendVideo) {
   const sent = { text: [] }, completed = [], cola = [...claims];
   const pms = {
