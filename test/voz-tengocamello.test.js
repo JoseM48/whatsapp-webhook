@@ -34,7 +34,7 @@ function entradaTenGo(callId = 'rtc_tc_1', { to = TENGO } = {}) {
 }
 
 function montar({ tengocamello = { habilitada: true, duracion_max_min: 12, nombre_saludo: 'Carmen', tipo: 'prospecto', id: 3, nuevo: true },
-  uso = 0, pmsFalla = false, sinEmisorTengo = false, finTengo = { seguimiento_texto: TEXTO_PMS_TENGO },
+  uso = 0, pmsFalla = false, citaFalla = false, sinEmisorTengo = false, finTengo = { seguimiento_texto: TEXTO_PMS_TENGO },
   resumenJson = { resumen: 'Tiene una floristería.', alerta: null, alerta_motivo: null }, envExtra = {} } = {}) {
   const posts = [], textosMiu = [], textosTengo = [], pmsLlamadas = [], logs = [];
   const config = readVozConfig({ VOZ_LLAMADAS_HABILITADAS: 'true', VOZ_OPENAI_API_KEY: 'sk-test-no-real',
@@ -56,6 +56,10 @@ function montar({ tengocamello = { habilitada: true, duracion_max_min: 12, nombr
       return { decision: b.decision, texto_para_decir: `TEXTO PMS ${b.decision}`, aviso_encolado: true }; },
     vozConsultaTeo: async (b) => { pmsLlamadas.push(['consulta_teo', b]); return { registrada: true }; },
     vozFotos: async (b) => { pmsLlamadas.push(['fotos', b]); return { via: 'outbox', codigos: [] }; },
+    vozCitaHorarios: async (b) => { pmsLlamadas.push(['cita_horarios', b]); if (citaFalla) throw new Error('down');
+      return { disponible: true, horarios: [{ inicio: '2026-11-05T15:00:00.000Z', etiqueta: 'jueves 5 de noviembre, 10:00 a. m.' }], instruccion_modelo: 'Lee las opciones.' }; },
+    vozCitaAgendar: async (b) => { pmsLlamadas.push(['cita_agendar', b]); return { agendada: true, cita: 'jueves', instruccion_modelo: 'Quedó.' }; },
+    vozCitaCancelar: async (b) => { pmsLlamadas.push(['cita_cancelar', b]); return { cancelada: true, instruccion_modelo: 'Cancelada.' }; },
   };
   const pendientes = [];
   const timers = { setTimeout: (fn, ms) => { pendientes.push({ fn, ms }); return pendientes.length; }, clearTimeout: () => {} };
@@ -86,7 +90,7 @@ test('llamada al 7355 con TenGo habilitada: acepta con el guion de TenGo y solo 
   assert.match(accept.body.instructions, /Cami, de TenGo/);
   assert.match(accept.body.instructions, /inteligencia artificial/);
   assert.doesNotMatch(accept.body.instructions, /Miu La Frontera: apartamentos amoblados/);
-  assert.deepEqual(accept.body.tools.map((h) => h.name).sort(), ['evaluar_uso_aceptable', 'pedir_persona', 'terminar_llamada']);
+  assert.deepEqual(accept.body.tools.map((h) => h.name).sort(), ['agendar_cita', 'cancelar_cita', 'evaluar_uso_aceptable', 'pedir_persona', 'terminar_llamada', 'ver_horarios_cita']);
   // Nada del PMS de Miu ni del Paquete Magia ni late check-out.
   for (const prohibida of ['check_availability', 'quote_stay', 'get_policy', 'consultar_al_equipo', 'ofrecer_paquete_magia',
     'solicitar_late_checkout', 'solicitar_early_checkin', 'enviar_opciones_al_chat', 'anotar_lista_espera']) {
@@ -212,6 +216,43 @@ test('en una llamada de TenGo una herramienta de Miu se rechaza por codigo', asy
   assert.equal(m.de('uso_aceptable').length, 1);
 });
 
+test('citas: la llamada de TenGo ve horarios, agenda y cancela por el PMS; sin PMS no confirma nada', async () => {
+  const m = montar();
+  await m.manager._interno.atender(entradaTenGo());
+  const ws = FakeWs.ultima;
+  ws.emit('open');
+  mensaje(ws, { type: 'response.done', response: { status: 'completed', output: [
+    { type: 'function_call', call_id: 'c1', name: 'ver_horarios_cita', arguments: '{"preferencia":"el jueves"}' },
+    { type: 'function_call', call_id: 'c2', name: 'agendar_cita', arguments: '{"inicio":"2026-11-05T15:00:00.000Z","nombre":"Ana","tema":"Cocina"}' },
+    { type: 'function_call', call_id: 'c3', name: 'cancelar_cita', arguments: '{}' }] } });
+  await new Promise((r) => setTimeout(r, 20));
+  const salidas = ws.enviados.filter((e) => e.type === 'conversation.item.create').map((e) => JSON.parse(e.item.output));
+  assert.equal(salidas[0].data.horarios.length, 1);
+  assert.equal(salidas[0].instruccion_modelo, 'Lee las opciones.');
+  assert.equal(salidas[1].data.agendada, true);
+  assert.equal(salidas[2].data.cancelada, true);
+  assert.equal(m.de('cita_horarios')[0].preferencia, 'el jueves');
+  assert.equal(m.de('cita_agendar')[0].inicio, '2026-11-05T15:00:00.000Z');
+  assert.ok(m.de('cita_agendar')[0].call_id, 'el numero lo saca el PMS de la llamada');
+  assert.equal('telefono' in m.de('cita_agendar')[0], false);
+
+  const f = montar({ citaFalla: true });
+  await f.manager._interno.atender(entradaTenGo('rtc_tc_2'));
+  const wf = FakeWs.ultima;
+  wf.emit('open');
+  mensaje(wf, { type: 'response.done', response: { status: 'completed', output: [{ type: 'function_call', call_id: 'c1', name: 'ver_horarios_cita', arguments: '{}' }] } });
+  await new Promise((r) => setTimeout(r, 20));
+  const sf = wf.enviados.filter((e) => e.type === 'conversation.item.create').map((e) => JSON.parse(e.item.output));
+  assert.equal(sf[0].status, 'error');
+  assert.match(sf[0].instruccion_modelo, /escriba CITA/);
+});
+
+test('citas: Cami de Miu no tiene las herramientas de cita', () => {
+  const { herramientasDeVoz } = require('../lib/voz/cami-voz');
+  const nombres = herramientasDeVoz({}).map((h) => h.name);
+  for (const c of ['ver_horarios_cita', 'agendar_cita', 'cancelar_cita']) assert.equal(nombres.includes(c), false, c);
+});
+
 test('aviso de imagen del chat: no aplica a una llamada de TenGo (las imagenes llegan a otro numero)', async () => {
   const m = montar();
   await m.manager._interno.atender(entradaTenGo());
@@ -253,7 +294,7 @@ test('guion de TenGo: categoria, promesa, precios publicos y lo que nunca promet
   assert.equal(nombreTenGo('Carmen'), 'Carmen');
   assert.doesNotMatch(instruccionesCamiTenGoVoz({ hoy: '2026-10-30', nombre: 'TenGo Camello' }), /La persona se llama/);
   assert.match(presentacionTenGo('Carmen'), /^¡Hola, Carmen!/);
-  assert.deepEqual(herramientasTenGoVoz().map((h) => h.name).sort(), ['evaluar_uso_aceptable', 'pedir_persona', 'terminar_llamada']);
+  assert.deepEqual(herramientasTenGoVoz().map((h) => h.name).sort(), ['agendar_cita', 'cancelar_cita', 'evaluar_uso_aceptable', 'pedir_persona', 'terminar_llamada', 'ver_horarios_cita']);
 });
 
 // ------------------------------------------------- notas de voz al 7355 (chat)

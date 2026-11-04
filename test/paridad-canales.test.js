@@ -203,10 +203,11 @@ test('dueño de la demo del Paquete Magia: la llamada no cotiza, igual que el ch
 // a Teo, ni Paquete Magia, ni late check-out. Lo único compartido con el chat de
 // TenGo es el filtro de uso aceptable (política uso_aceptable_v1, que es
 // transversal) y, dentro de la llamada, colgar y pedir una persona.
-test('Cami de voz de TenGo: excepción declarada, solo 3 herramientas y nada de Miu (2026-10-30)', () => {
+test('Cami de voz de TenGo: excepción declarada, sus herramientas y nada de Miu (2026-10-30)', () => {
   const { herramientasTenGoVoz, instruccionesCamiTenGoVoz, HERRAMIENTAS_COMERCIALES } = require('../lib/voz/cami-voz');
   const tengo = herramientasTenGoVoz().map((t) => t.name);
-  assert.deepEqual(tengo.sort(), ['evaluar_uso_aceptable', 'pedir_persona', 'terminar_llamada']);
+  // Citas (2026-11-03): la misma reserva del chat y de la página, en el PMS (citas.service.js).
+  assert.deepEqual(tengo.sort(), ['agendar_cita', 'cancelar_cita', 'evaluar_uso_aceptable', 'pedir_persona', 'terminar_llamada', 'ver_horarios_cita']);
   assert.deepEqual(tengo.filter((n) => HERRAMIENTAS_COMERCIALES.has(n)), []);
   for (const n of ['consultar_al_equipo', 'ofrecer_paquete_magia', 'solicitar_late_checkout', 'solicitar_early_checkin']) {
     assert.equal(tengo.includes(n), false, n);
