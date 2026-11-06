@@ -128,3 +128,19 @@ test('extrae recibos Meta sin PII adicional y conserva el código seguro de fall
       timestamp: new Date(1787688003 * 1000).toISOString(), errorCode: null }
   ]);
 });
+
+// Canal interno (2026-11-06): la tarjeta de contacto del interno se vuelve texto.
+test('textoDeContactos: nombre y teléfonos de cada tarjeta, en una línea', () => {
+  const { extractMetaMessages, textoDeContactos, avisoNoLeido } = require('../lib/pilot/meta-inbound');
+  const [m] = extractMetaMessages({ entry: [{ changes: [{ value: { messages: [{ from: '573000000000', id: 'wamid.c1',
+    timestamp: '1762370000', type: 'contacts', contacts: [
+      { name: { formatted_name: 'Valeria Prueba' }, phones: [{ phone: '+57 300 111 2233', wa_id: '573001112233' }] },
+      { name: { first_name: 'Sin' }, phones: [] }] }] } }] }] });
+  assert.equal(m.text, null);
+  assert.equal(textoDeContactos(m.contactos),
+    '[Tarjeta de contacto] Valeria Prueba: +57 300 111 2233 | Sin: sin teléfono');
+  assert.equal(textoDeContactos([{ nombre: null, telefonos: [{ telefono: null, wa_id: '573009998877' }] }]),
+    '[Tarjeta de contacto] Sin nombre: +573009998877');
+  assert.equal(textoDeContactos([]), null);
+  assert.match(avisoNoLeido('location'), /tipo location/);
+});

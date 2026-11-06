@@ -54,7 +54,7 @@ const { readGateConfig } = require('./lib/pilot/llm/route-gate');
 const { interpretManagerMessage, commandForAction, offerAvailableActions,
   isLiteralCommand } = require('./lib/pilot/llm/manager-intent');
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
-const { extractMetaMessages, extractMetaStatuses, m0CommercialText } = require('./lib/pilot/meta-inbound');
+const { extractMetaMessages, extractMetaStatuses, m0CommercialText, textoDeContactos, avisoNoLeido } = require('./lib/pilot/meta-inbound');
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo,
   demoIdEfectivo,
   whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS } = require('./lib/pilot/numero-entrante');
@@ -1757,6 +1757,12 @@ app.post('/webhook', async (req, res) => {
               console.error('[m0-flow] response_invalid', { phone: maskPilotPhone(incoming.from), code: error?.message || 'unknown' });
             }
           }
+          // TARJETAS DE CONTACTO DEL INTERNO (José Manuel, 2026-11-06): antes se
+          // apartaban sin leer y el número se perdía (dos tarjetas del 5-nov).
+          // Se vuelven texto y siguen el camino de siempre (instrucción a Teo).
+          if (!incoming.text && incoming.contactos && m0ClosedPilot.isInternal(incoming.from)) {
+            incoming.text = textoDeContactos(incoming.contactos);
+          }
           const raw = m0CommercialText(incoming);
 
           // Fase 4 de avisos (2026-10-06): la Contadora (hoy el numero interno)
@@ -1869,6 +1875,11 @@ app.post('/webhook', async (req, res) => {
             console.warn('[m0-closed] internal_unsupported_quarantined', {
               phone: maskPilotPhone(incoming.from), message_type: incoming.messageType
             });
+            // Nunca en silencio: quien lo mandó sabe que no llegó.
+            // Reacciones y stickers no llevan contenido: no se avisan.
+            if (m0ClosedPilot.isInternal(incoming.from) && !['reaction', 'sticker'].includes(incoming.messageType)) {
+              await sendPilotWhatsAppText(incoming.from, avisoNoLeido(incoming.messageType)).catch(() => {});
+            }
             continue;
           }
           if (!m0ClosedPilot.accepts(incoming.from) || m0ClosedPilot.isControl(incoming.from, raw)) {
