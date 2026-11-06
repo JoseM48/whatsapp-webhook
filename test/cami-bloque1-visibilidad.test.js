@@ -105,3 +105,52 @@ test('con accepts.media_url el PMS recibe la direccion de la imagen enviada (par
   const portada = completados[0].media_sent.find((m) => m.code === 'LF-1208');
   assert.match(portada.url, /\/media\/photos\/LF-1208\/01-portada\.jpg\?v=\d+$/);
 });
+
+// FOTOS DE CAMI VISIBLES EN EL CEM (José Manuel, 2026-11-06): un turno de solo
+// fotos (ENVIAR FOTOS) llega SIN paquete. El PMS nuevo declara en el reclamo
+// (claim.accepts) que acepta media_sent; uno anterior no, y entonces no se manda.
+function montarFotos({ texto, accepts }) {
+  const fotos = [], completados = [];
+  const pms = {
+    async processClosedPilotCommercial() { return { outboxes: [{ id: 81 }], authorized_response_packet: null }; },
+    async claimClosedPilotOutbound() { return { outbox_id: 81, claimable: true, recipient_kind: 'guest', recipient_phone: guest,
+      message_kind: 'photos', message_text: texto, ...(accepts ? { accepts } : {}) }; },
+    async completeClosedPilotOutbound(body) { completados.push(body); }
+  };
+  const dispatcher = createM0ClosedPilotDispatcher({ config, pms, logger: silencio,
+    async sendText() { return 'wamid.text'; },
+    async sendPhoto(phone, url) { fotos.push(url); return `wamid.photo.${fotos.length}`; } });
+  return { dispatcher, fotos, completados };
+}
+
+test('solo fotos, PMS nuevo (claim.accepts): media_sent con cada foto y su direccion', async () => {
+  const { dispatcher, fotos, completados } = montarFotos({ texto: 'Aquí tienes más fotos de LF-210:',
+    accepts: { media_sent: true, media_reason: true, media_url: true, media_max: 60 } });
+  await dispatcher.completeCommercial(turno('wamid.f1'));
+  assert.equal(fotos.length, 6);
+  assert.equal(completados[0].status, 'submitted');
+  assert.equal(completados[0].media_sent.length, 6);
+  assert.deepEqual(completados[0].media_sent.map((m) => m.url), fotos);
+  assert.ok(completados[0].media_sent.every((m) => m.code === 'LF-210' && m.kind === 'gallery' && m.ok === true && m.provider_reference));
+  assert.equal(completados[0].presented_codes, undefined);
+});
+
+test('solo fotos, PMS anterior (sin claim.accepts): se envian igual y no viaja media_sent', async () => {
+  const { dispatcher, fotos, completados } = montarFotos({ texto: 'Aquí tienes más fotos de LF-210:' });
+  await dispatcher.completeCommercial(turno('wamid.f2'));
+  assert.equal(fotos.length, 6);
+  assert.equal(completados[0].status, 'submitted');
+  assert.equal(completados[0].media_sent, undefined);
+});
+
+test('media_sent respeta el tope del esquema del PMS: 30 sin media_max, todo con media_max 60', async () => {
+  const texto = 'Aquí tienes más fotos de LF-1109, LF-1208, LF-210, LF-404, LF-510 y LF-904 y de las zonas comunes:';
+  const sinTope = montarFotos({ texto, accepts: { media_sent: true, media_url: true } });
+  await sinTope.dispatcher.completeCommercial(turno('wamid.f3'));
+  assert.equal(sinTope.fotos.length, 42);
+  assert.equal(sinTope.completados[0].media_sent.length, 30);
+  const conTope = montarFotos({ texto, accepts: { media_sent: true, media_url: true, media_max: 60 } });
+  await conTope.dispatcher.completeCommercial(turno('wamid.f4'));
+  assert.equal(conTope.completados[0].media_sent.length, 42);
+  assert.equal(conTope.completados[0].media_sent.at(-1).code, 'EDIFICIO');
+});
