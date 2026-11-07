@@ -58,6 +58,7 @@ const { extractMetaMessages, extractMetaStatuses, m0CommercialText, textoDeConta
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo,
   demoIdEfectivo,
   whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS } = require('./lib/pilot/numero-entrante');
+const { leerConfigReenvio, configReenvioParaLog, despacharReenvios, crearPostAxios } = require('./lib/pilot/reenvio-numeros');
 const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, debeReintentar, debeEsperarEquipos, crearMemoriaRemitentes, RUTA_RECLAMAR: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado } = require('./lib/pilot/numero-equipos');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo, audioDelEquipo } = require('./lib/pilot/inbound-media');
@@ -218,6 +219,13 @@ const TENGOCAMELLO_DEMO_PHONE_NUMBER_ID = DEMO_ID_RESUELTO.id;
 if (DEMO_ID_RESUELTO.motivo && DEMO_ID_RESUELTO.motivo !== 'sin_variable') {
   console.error('[tengocamello-demo] variable_invalida_demo_apagado', { motivo: DEMO_ID_RESUELTO.motivo });
 }
+// REENVÍO DE NÚMEROS (2026-11-07, "fincas demo" de TenGo): los cambios de los números de
+// REENVIO_NUMEROS_JSON se reenvían firmados a su servicio y no se procesan aquí. Sin
+// configuración válida queda apagado y nada cambia (lib/pilot/reenvio-numeros.js).
+const REENVIO = leerConfigReenvio(process.env, { protegidos: [process.env.PHONE_NUMBER_ID, TENGOCAMELLO_PHONE_NUMBER_ID,
+  TENGOCAMELLO_DEMO_PHONE_NUMBER_ID] });
+if (REENVIO.activo || REENVIO.motivo !== 'sin_variable') console.log('[reenvio] config', configReenvioParaLog(REENVIO));
+const postReenvio = crearPostAxios(axios);
 
 // Envío de texto parametrizado por el número que ENVÍA (solo el camino TenGo).
 async function sendWhatsAppTextFrom(phoneNumberId, to, body) {
@@ -1660,10 +1668,15 @@ app.post('/webhook', async (req, res) => {
     // de todo lo demás. Lo de Miu (o sin metadata) sigue tal cual; lo de TenGo
     // Camello va al PMS por su endpoint y sale desde su número; lo demás se
     // ignora. Ver lib/pilot/numero-entrante.js.
+    // REENVÍO (2026-11-07): ya verificada la firma de Meta, los cambios de un número
+    // reenviado salen a su servicio SIN esperar y desaparecen de lo que sigue.
+    const reenvio = despacharReenvios(req.body, REENVIO, { post: postReenvio });
+    if (reenvio.reenviados && !reenvio.body) return res.sendStatus(200);
+    const cuerpoEntrante = reenvio.body;
     const opcionesRuteo = { miuId: process.env.PHONE_NUMBER_ID, tengoId: TENGOCAMELLO_PHONE_NUMBER_ID, demoId: TENGOCAMELLO_DEMO_PHONE_NUMBER_ID };
-    let ruteo = separarPorNumero(req.body, { ...opcionesRuteo, equiposIds: cacheNumerosEquipos.ids() });
+    let ruteo = separarPorNumero(cuerpoEntrante, { ...opcionesRuteo, equiposIds: cacheNumerosEquipos.ids() });
     // Solo un número desconocido espera a leer la lista de Equipos: Miu nunca espera.
-    if (ruteo.desconocidos) ruteo = separarPorNumero(req.body, { ...opcionesRuteo, equiposIds: await cacheNumerosEquipos.refrescarSiVencio() });
+    if (ruteo.desconocidos) ruteo = separarPorNumero(cuerpoEntrante, { ...opcionesRuteo, equiposIds: await cacheNumerosEquipos.refrescarSiVencio() });
     if (ruteo.desconocidos) console.warn('[webhook] numero_desconocido_ignorado', { count: ruteo.desconocidos, phone_number_ids: ruteo.idsDesconocidos });
     if (ruteo.tengoChanges.length) {
       try {
