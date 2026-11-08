@@ -141,7 +141,7 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
   listaEsperaResp = (b) => ({ anotado: true, ya_anotado: false, check_in: b.check_in, mensaje_para_el_huesped: 'Listo, quedaste en la lista de espera.' }),
   lateResp = () => ({ solicitado: true, estado: 'cobro_creado', enviado_al_chat: true, instruccion_modelo: 'Dile que le enviaste el cobro al chat.' }) } = {}) {
   const posts = [], textos = [], pmsLlamadas = [], herramientas = [], imagenes = [], entregas = [];
-  const estado = { alertaFalla: false };
+  const estado = { alertaFalla: false, alertaResp: null };
   const config = readVozConfig({ VOZ_LLAMADAS_HABILITADAS: habilitada ? 'true' : '', VOZ_OPENAI_API_KEY: 'sk-test-no-real',
     VOZ_OPENAI_WEBHOOK_SECRET: SECRETO });
   const http = { post: async (url, body) => {
@@ -156,7 +156,7 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
       return b.avisar_huesped ? { estado: b.estado, seguimiento_via: viaRechazo, seguimiento_texto: TEXTO_FIJO_PMS } : { estado: b.estado }; },
     vozFin: async (b) => { pmsLlamadas.push(['fin', b]);
       return { seguimiento_via: b.siguiente_paso && b.enviar_seguimiento ? viaFin : 'no_enviado', seguimiento_texto: TEXTO_FIJO_PMS }; },
-    vozAlerta: async (b) => { pmsLlamadas.push(['alerta', b]); if (estado.alertaFalla) throw new Error('down'); return { aviso_encolado: true }; },
+    vozAlerta: async (b) => { pmsLlamadas.push(['alerta', b]); if (estado.alertaFalla) throw new Error('down'); return estado.alertaResp ?? { aviso_encolado: true }; },
     vozSeguimientoDirecto: async (b) => { pmsLlamadas.push(['directo', b]); return {}; },
     vozHuerfanas: async (b) => { pmsLlamadas.push(['huerfanas', b]); return { llamadas: huerfanas }; },
     vozFotos: async (b) => { pmsLlamadas.push(['fotos', b]); return fotosResp(b); },
@@ -304,6 +304,28 @@ test('P1-1: pedir_persona avisa de inmediato al PMS con tipo y motivo; el paso e
   assert.equal(fin.requiere_persona, true);
   assert.equal(fin.alerta, 'emergencia', 'se repite al cerrar; el PMS no duplica el aviso');
   assert.equal(fin.alerta_motivo, 'fuga de agua');
+});
+
+test('José ocupado (2026-11-08): pedir_persona pasa al modelo la hora de regreso que devuelve el PMS; sin ella, igual que antes', async () => {
+  const m = montar();
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_ocupado'))).procesando;
+  const ws = FakeWs.ultima;
+  m.estado.alertaResp = { aviso_encolado: true, jose_ocupado: true, instruccion_modelo: 'José Manuel está ocupado. Dile que José Manuel le responde hoy a las 5:00 p. m. por el chat de WhatsApp.' };
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'pedir_persona', call_id: 'fc_o',
+    arguments: JSON.stringify({ tipo: 'persona', motivo: 'quiere hablar con José' }) }] } });
+  await tick();
+  const out = JSON.parse(ws.enviados.find((e) => e.type === 'conversation.item.create' && e.item?.call_id === 'fc_o').item.output);
+  assert.equal(out.status, 'ok');
+  assert.equal(out.data.aviso_enviado, true);
+  assert.match(out.instruccion_modelo, /hoy a las 5:00 p. m./);
+  m.estado.alertaResp = null;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'pedir_persona', call_id: 'fc_o2',
+    arguments: JSON.stringify({ tipo: 'persona', motivo: 'otra vez' }) }] } });
+  await tick();
+  const out2 = JSON.parse(ws.enviados.find((e) => e.type === 'conversation.item.create' && e.item?.call_id === 'fc_o2').item.output);
+  assert.equal('instruccion_modelo' in out2, false);
+  ws.close();
+  await tick();
 });
 
 test('Cami pregunta primero a Teo (2026-10-24): consultar_al_equipo registra la pregunta en el PMS y devuelve la instrucción', async () => {
