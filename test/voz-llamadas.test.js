@@ -318,6 +318,8 @@ test('José ocupado (2026-11-08): pedir_persona pasa al modelo la hora de regres
   assert.equal(out.status, 'ok');
   assert.equal(out.data.aviso_enviado, true);
   assert.match(out.instruccion_modelo, /hoy a las 5:00 p. m./);
+  const accept = m.posts.find((p) => p.url.endsWith('/accept'));
+  assert.match(accept.body.instructions, /si pedir_persona devuelve instruccion_modelo .*di eso en su lugar/);
   m.estado.alertaResp = null;
   mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'pedir_persona', call_id: 'fc_o2',
     arguments: JSON.stringify({ tipo: 'persona', motivo: 'otra vez' }) }] } });
