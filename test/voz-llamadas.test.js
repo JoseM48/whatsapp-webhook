@@ -334,7 +334,7 @@ test('Cami pregunta primero a Teo (2026-10-24): consultar_al_equipo registra la 
   assert.deepEqual(m.de('alerta').map((a) => a.tipo), ['persona']);
   assert.match(m.de('alerta')[0].motivo, /Cami no supo responder: ¿Hay piscina\?/);
   const out3 = JSON.parse(ws.enviados.find((e) => e.type === 'conversation.item.create' && e.item?.call_id === 'fc_t3').item.output);
-  assert.match(out3.instruccion_modelo, /aviso para José Manuel/);
+  assert.match(out3.instruccion_modelo, /aviso para el equipo/);
 });
 
 test('P1-1: el resumen que detecta una queja la manda como alerta al cerrar', async () => {
@@ -1316,4 +1316,15 @@ test('2026-10-29: el chat saluda igual que la llamada (asistente virtual de Jos�
   assert.match(txt, /Wompi, la pasarela de pagos de Bancolombia/);
   assert.match(txt, /No recibimos pagos en efectivo/);
   assert.match(txt, /depósito por posibles daños que se devuelve al check-out/);
+});
+
+// "Hablar con una persona": primero Teo (José Manuel, 2026-11-07; paridad con el
+// chat). Cami de voz de ventas no promete que José Manuel le escribe.
+test('primero Teo: pedir_persona y las instrucciones de ventas no prometen a José Manuel', () => {
+  const pedir = herramientasDeVoz().find((h) => h.name === 'pedir_persona');
+  assert.doesNotMatch(pedir.description, /José Manuel/);
+  assert.match(pedir.description, /una persona del equipo le escribe por este chat/);
+  const ins = instruccionesCamiVoz({ hoy: '2026-11-07' });
+  assert.match(ins, /usa pedir_persona y dile que una persona del equipo le escribe por este chat en unos minutos/);
+  assert.doesNotMatch(ins, /José Manuel o el equipo le escribe/);
 });
