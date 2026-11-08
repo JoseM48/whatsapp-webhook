@@ -939,6 +939,39 @@ test('fuera del horizonte: la voz anota en la lista de espera por el PMS con las
   assert.ok(m.de('fin')[0].herramientas_usadas.includes('anotar_lista_espera'));
 });
 
+// CON NIÑOS (revisión 2026-11-08): los niños de la consulta van con las fotos al PMS.
+test('fotos al chat: llevan los niños de la consulta de disponibilidad', async () => {
+  const m = montar({ inicio: { inventario: { unidades: [{ codigo: 'LF-510', titulo: 'Apartaestudio' }], edificio: [] } } });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_n5'))).procesando;
+  const ws = FakeWs.ultima;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'check_availability', call_id: 'fc_n5',
+    arguments: JSON.stringify({ arrival_date: '2026-11-15', departure_date: '2026-12-15', guests: 4, children: 2 }) }] } });
+  await tick();
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'enviar_opciones_al_chat', call_id: 'fc_n6',
+    arguments: JSON.stringify({ apartment_codes: ['LF-510'] }) }] } });
+  await tick();
+  assert.deepEqual(m.de('fotos')[0], { call_id: 'rtc_n5', apartamentos: ['LF-510'], check_in: '2026-11-15',
+    check_out: '2026-12-15', guests: 4, children: 2 });
+  ws.close();
+  await tick();
+});
+
+test('reglas de voz: los bebés no cuentan en guests ni en children', () => {
+  const { herramientasDeVoz, instruccionesCamiVoz } = require('../lib/voz/cami-voz.js');
+  const ca = herramientasDeVoz().find((h) => h.name === 'check_availability');
+  assert.match(ca.parameters.properties.guests.description, /bebés menores de 2 años NO cuentan/);
+  assert.match(ca.parameters.properties.children.description, /de 2 a 17 años/);
+  // Chat (paridad): el intérprete y la herramienta dicen lo mismo.
+  const fs = require('node:fs'), path = require('node:path');
+  const motor = fs.readFileSync(path.join(__dirname, '..', 'lib', 'pilot', 'llm', 'conversational-engine.js'), 'utf8');
+  assert.match(motor, /babies under 2 do NOT count in the capacity/);
+  assert.match(motor, /"2 adultos y un bebé" = total 2, children 0, infants 1/);
+  const chat = require('../lib/pilot/llm/tools.js');
+  const lista = chat.READ_TOOLS;
+  const cac = lista.find((t) => t.name === 'check_availability');
+  assert.match(cac.parameters.properties.guests.description, /NO cuentan/);
+});
+
 // CON NIÑOS (José Manuel, 2026-10-21; paridad con el chat).
 test('lista de espera por voz: los menores de la consulta viajan al PMS; con otro total no', async () => {
   const m = montar({ fueraHorizonte: FUERA });
