@@ -469,6 +469,11 @@ test('P2-1 (2a revision): si el aviso durante la llamada falla, la alerta sale a
 test('argumentos de la voz: sin codigo busca en todos; salida -> noches; basura -> null', () => {
   assert.deepEqual(normalizarArgsVoz('check_availability', { arrival_date: '2026-11-15', departure_date: '2026-12-15', guests: 2,
     apartment_code: 'cualquiera' }), { arrival_date: '2026-11-15', nights: 30, apartment_code: null, guests: 2 });
+  // CON NIÑOS (2026-10-21): los menores viajan solo si la persona los dijo.
+  assert.deepEqual(normalizarArgsVoz('check_availability', { arrival_date: '2026-11-15', nights: 7, guests: 4, children: 2 }),
+    { arrival_date: '2026-11-15', nights: 7, apartment_code: null, guests: 4, children: 2 });
+  assert.deepEqual(normalizarArgsVoz('check_availability', { arrival_date: '2026-11-15', nights: 7, guests: 4, children: 9 }),
+    { arrival_date: '2026-11-15', nights: 7, apartment_code: null, guests: 4 });
   assert.deepEqual(normalizarArgsVoz('quote_stay', { arrival_date: '2026-11-15', nights: 30, apartment_code: 'el 510' }),
     { arrival_date: '2026-11-15', nights: 30, apartment_code: 'LF-510' });
   assert.equal(normalizarArgsVoz('check_availability', { arrival_date: '15 de noviembre', nights: 30 }).arrival_date, null);
