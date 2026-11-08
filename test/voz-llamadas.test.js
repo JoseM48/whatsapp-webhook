@@ -939,6 +939,26 @@ test('fuera del horizonte: la voz anota en la lista de espera por el PMS con las
   assert.ok(m.de('fin')[0].herramientas_usadas.includes('anotar_lista_espera'));
 });
 
+// CON NIÑOS (José Manuel, 2026-10-21; paridad con el chat).
+test('lista de espera por voz: los menores de la consulta viajan al PMS; con otro total no', async () => {
+  const m = montar({ fueraHorizonte: FUERA });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_h1'))).procesando;
+  const ws = FakeWs.ultima;
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'check_availability', call_id: 'fc_n1',
+    arguments: JSON.stringify({ arrival_date: '2027-01-01', departure_date: '2027-01-10', guests: 4, children: 2 }) }] } });
+  await tick();
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'anotar_lista_espera', call_id: 'fc_n2',
+    arguments: JSON.stringify({ arrival_date: '2027-01-01', nights: 9 }) }] } });
+  await tick();
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'anotar_lista_espera', call_id: 'fc_n3',
+    arguments: JSON.stringify({ arrival_date: '2027-01-01', nights: 9, guests: 3 }) }] } });
+  await tick();
+  assert.deepEqual(m.de('lista_espera'), [{ call_id: 'rtc_h1', check_in: '2027-01-01', nights: 9, guests: 4, children: 2 },
+    { call_id: 'rtc_h1', check_in: '2027-01-01', nights: 9, guests: 3 }]);
+  ws.close();
+  await tick();
+});
+
 test('lista de espera por voz: sin fechas no llama al PMS; si el PMS no anota, la herramienta lo dice', async () => {
   const m = montar({ listaEsperaResp: () => ({ anotado: false, motivo: 'sin_caso',
     instruccion_modelo: 'No quedó anotado automáticamente: dile que el equipo le confirma la lista de espera por el chat de WhatsApp.' }) });
