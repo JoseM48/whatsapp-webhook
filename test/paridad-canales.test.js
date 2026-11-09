@@ -36,6 +36,8 @@ const SOLO_VOZ = {
     motivo: 'Durante la llamada las opciones y fotos se mandan al WhatsApp; en el chat el motor del PMS las presenta en el propio mensaje.' },
   enviar_video_al_chat: { tipo: 'propia_del_canal',
     motivo: 'Durante la llamada el video se manda al WhatsApp; en el chat y la nota de voz lo envía el motor del PMS con el tema "video" de la interpretación (2026-11-04).' },
+  registrar_ruta_contacto: { tipo: 'propia_del_canal',
+    motivo: 'RUTAS POR INTENCIÓN (2026-11-08): en el chat y la nota de voz la señal es el campo contact_route de la interpretación y el PMS decide en el turno; en la llamada no hay motor por turno y el modelo la registra con esta herramienta, que usa el mismo servicio del PMS (rutas-intencion.service.js).' },
   pedir_persona: { tipo: 'propia_del_canal',
     motivo: 'Aviso inmediato a José Manuel durante la llamada; en el chat lo hace el motor del PMS con la interpretación (requests_human / queja / emergencia).' },
   consultar_al_equipo: { tipo: 'propia_del_canal',
