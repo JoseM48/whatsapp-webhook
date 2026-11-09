@@ -79,3 +79,11 @@ test('por_verificar solo existe en la herramienta de la llamada, no en la clasif
   assert.ok(HERRAMIENTA_VOZ.parameters.properties.ruta.enum.includes('por_verificar'));
   assert.ok(!RUTAS.includes('por_verificar'));
 });
+
+test('una publicación pendiente es contexto: no apaga lo comercial de la llamada', () => {
+  const { instruccionesCamiVoz } = require('../lib/voz/cami-voz');
+  const ins = instruccionesCamiVoz({ hoy: '2026-11-09', publicacionPendiente: 'PV-1' });
+  assert.match(ins, /PV-1/);
+  assert.match(ins, /nuestros apartamentos, atiéndela como siempre/);
+  assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-09' }), /publicación por verificar PV/);
+});
