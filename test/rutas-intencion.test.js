@@ -25,7 +25,7 @@ const ruta = (route, o = {}) => ({ route, barrio: null, confidence: 0.9, summary
 test('el campo es obligatorio en los dos esquemas del chat', () => {
   for (const s of [interpretationSchema, interpretationSchemaV2]) {
     assert.ok(s.required.includes('contact_route'));
-    assert.deepEqual(s.properties.contact_route.properties.route.enum, ['guest', 'owner_listing', 'property_sale', 'ally_interest']);
+    assert.deepEqual(s.properties.contact_route.properties.route.enum, ['guest', 'owner_listing', 'property_sale', 'ally_interest', 'new_market']);
   }
 });
 
