@@ -73,3 +73,9 @@ test('paridad en la llamada: solo en la venta, comercial y en la instrucción de
   const aliado = aliadoDesdeInicio({ perfil: 'aliado', no_cotizar: true, guia: { clave: 'g', secciones: [{ clave: 'negocio_hoy', titulo: 'Negocio', preguntas: ['¿Qué hace?'] }] } });
   assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-08', aliado, duracionMaxMin: 40 }), /registrar_ruta_contacto/);
 });
+
+test('por_verificar solo existe en la herramienta de la llamada, no en la clasificación del chat', () => {
+  const { RUTAS, HERRAMIENTA_VOZ } = require('../lib/pilot/rutas-intencion');
+  assert.ok(HERRAMIENTA_VOZ.parameters.properties.ruta.enum.includes('por_verificar'));
+  assert.ok(!RUTAS.includes('por_verificar'));
+});
