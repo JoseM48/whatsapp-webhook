@@ -29,22 +29,25 @@ test('el campo es obligatorio en los dos esquemas del chat', () => {
   }
 });
 
-test('huésped o inválido no viaja: un PMS anterior rechaza la clave', () => {
-  assert.equal(normalizarRutaContacto(ruta('guest')), null);
+test('huésped viaja (el PMS no contradice al modelo); inválido o sin clasificar no', () => {
+  assert.deepEqual(normalizarRutaContacto(ruta('guest', { summary: null })), { route: 'guest', barrio: null, confidence: 0.9, summary: null });
   assert.equal(normalizarRutaContacto(null), null);
   assert.equal(normalizarRutaContacto({ route: 'otra' }), null);
   assert.deepEqual(normalizarRutaContacto(ruta('owner_listing', { barrio: '  Laureles ', confidence: 2 })),
     { route: 'owner_listing', barrio: 'Laureles', confidence: null, summary: 'x' });
   const g = reconcileInterpretation('Busco apartamento del 1 al 30 de noviembre', { contact_route: ruta('guest') });
-  assert.equal(g.contact_route, null);
-  assert.equal('contact_route' in publicInterpretation(g), false);
+  assert.equal(publicInterpretation(g).contact_route.route, 'guest');
+  const sin = reconcileInterpretation('Busco apartamento', {});
+  assert.equal(sin.contact_route, null);
+  assert.equal('contact_route' in publicInterpretation(sin), false);
 });
 
 test('legacy y V2 llevan la ruta al PMS', () => {
   const r = reconcileInterpretation('tengo un apto en Laureles, ¿me lo administran?', { contact_route: ruta('owner_listing', { barrio: 'Laureles' }) });
   assert.equal(publicInterpretation(r).contact_route.route, 'owner_listing');
   const base = { intent: 'other', language: 'es', stay: { arrival: {}, duration: {}, guests: {} }, references: [], budget: {}, knowledge_topics: [], preferences: [], requirements: [], corrections: [], ambiguity: [] };
-  assert.equal('contact_route' in projectToLegacyInterpretation({ ...base, contact_route: ruta('guest') }), false);
+  assert.equal(projectToLegacyInterpretation({ ...base, contact_route: ruta('guest') }).contact_route.route, 'guest');
+  assert.equal('contact_route' in projectToLegacyInterpretation(base), false);
   assert.equal(projectToLegacyInterpretation({ ...base, contact_route: ruta('property_sale') }).contact_route.route, 'property_sale');
 });
 
