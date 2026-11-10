@@ -38,11 +38,12 @@ test('la ventana recorta lo ANTIGUO, nunca el turno actual', () => {
   assert.equal(context.recent_turns[5].text, 'mensaje 19');
 });
 
+// MEMORIA DE CAMI (2026-11-10): la ventana es de 40 mensajes; pasada la ventana el costo ya no crece.
 test('el contexto NO crece con la conversacion', () => {
-  const short = buildConversationContext({ today: '2026-10-05', transcript: Array.from({ length: 6 }, () => ({ role: 'guest', text: 'x'.repeat(100) })) });
+  const short = buildConversationContext({ today: '2026-10-05', transcript: Array.from({ length: 40 }, () => ({ role: 'guest', text: 'x'.repeat(100) })) });
   const long = buildConversationContext({ today: '2026-10-05', transcript: Array.from({ length: 300 }, () => ({ role: 'guest', text: 'x'.repeat(100) })) });
   assert.ok(long.meta.estimated_tokens <= short.meta.estimated_tokens * 1.2,
-    'una conversacion de 300 turnos no puede costar mas que una de 6');
+    'una conversacion de 300 turnos no puede costar mas que una de 40');
 });
 
 test('PII: correos y telefonos se redactan en TODOS los turnos, no solo el ultimo', () => {
@@ -70,8 +71,8 @@ test('el contexto nunca lleva identificadores internos al modelo', () => {
 
 test('el resumen se regenera solo cuando algo sale de la ventana', () => {
   assert.equal(needsSummaryRefresh({ transcript: new Array(4).fill({ role: 'guest', text: 'x' }) }), false);
-  assert.equal(needsSummaryRefresh({ transcript: new Array(10).fill({ role: 'guest', text: 'x' }), olderSummary: null }), true);
-  assert.equal(needsSummaryRefresh({ transcript: new Array(10).fill({ role: 'guest', text: 'x' }), olderSummary: { text: 'r', covers_turns: 4 } }), false);
+  assert.equal(needsSummaryRefresh({ transcript: new Array(44).fill({ role: 'guest', text: 'x' }), olderSummary: null }), true);
+  assert.equal(needsSummaryRefresh({ transcript: new Array(44).fill({ role: 'guest', text: 'x' }), olderSummary: { text: 'r', covers_turns: 4 } }), false);
 });
 
 // --------------------------------------------------------------------------
