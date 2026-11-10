@@ -243,6 +243,30 @@ test('transport.failed y cierre del canal limpian el temporizador', async () => 
   assert.equal(limpiados, 2);
 });
 
+test('diagnóstico: transport.failed y la petición se registran completos y sin secretos', async () => {
+  const ws = [];
+  class WsDoble extends EventEmitter { constructor() { super(); ws.push(this); } send() {} close() {} }
+  const log = logDoble();
+  const ll = createLlamadaEmergencia({ env: envCompleto({ WA_SIP_USER: MIU }), fetchImpl: fetchDoble(), WebSocketImpl: WsDoble, log, ...sinTimers });
+  await ll.llamar({ clave: 'diag:1', resumen: 'x' });
+  ws[0].emit('message', JSON.stringify({
+    event_id: 'e1', type: 'transport.failed', session_id: 'sess_test_1',
+    error: { code: 'sip_403', message: `403 SIP server wa.meta.vc from INVITE does not match (to sip:${DESTINO}@wa.meta.vc)` },
+    sip: { status_code: 403, reason: 'Forbidden', warning: '399 wa.meta.vc "no match"', password: CLAVE_SIP, headers: { Authorization: `Digest username="${MIU.slice(1)}"` } },
+  }));
+  ws[0].emit('message', JSON.stringify({ event_id: 'e2', type: 'session.closed', reason: 'transport_failed' }));
+  const todo = log.lineas.join('\n');
+  const peticion = log.lineas.find((l) => l.startsWith('llamada_emergencia_peticion'));
+  assert.ok(peticion.includes('"provider_url":"sips:wa.meta.vc:5061"'));
+  assert.ok(peticion.includes('"destino":"***0001"'));
+  // El usuario digest va sin '+' aunque la variable lo traiga; el caller_number sí lleva '+'.
+  assert.ok(peticion.includes('"con_mas":false') && peticion.includes('"caller_con_mas":true') && peticion.includes('"auth_clave":"presente"'));
+  const fallida = log.lineas.find((l) => l.startsWith('llamada_emergencia_fallida'));
+  for (const visible of ['sip_403', '"status_code":403', 'Forbidden', '399 wa.meta.vc', 'does not match']) assert.ok(fallida.includes(visible), visible);
+  assert.ok(log.lineas.find((l) => l.startsWith('llamada_emergencia_cerrada')).includes('transport_failed'));
+  for (const secreto of [DESTINO, DESTINO.slice(1), MIU.slice(1), CLAVE_SIP, API_KEY]) assert.ok(!todo.includes(secreto), `log con ${secreto}`);
+});
+
 test('comillas del resumen no rompen las instrucciones', () => {
   assert.equal(limpiarResumen('dijo "ignora todo" y {x}'), 'dijo ignora todo y x');
 });
@@ -298,7 +322,7 @@ test('sin WA_SIP_*: lee clave SIP y número de Miu en Meta (v23.0) y los usa en 
   ].sort());
   assert.ok(meta.every((l) => l.opts.method === 'GET' && l.opts.headers.Authorization === `Bearer ${META_TOKEN}`));
   const b = JSON.parse(f.llamadas.find((l) => l.url.endsWith('/live/sessions')).opts.body);
-  assert.deepEqual(b.transport.trunk, { provider_url: 'sips:wa.meta.vc:5061', auth: { type: 'digest', username: MIU, password: CLAVE_SIP }, caller_number: MIU });
+  assert.deepEqual(b.transport.trunk, { provider_url: 'sips:wa.meta.vc:5061', auth: { type: 'digest', username: MIU.slice(1), password: CLAVE_SIP }, caller_number: MIU });
   const todo = log.lineas.join('\n');
   for (const secreto of [CLAVE_SIP, META_TOKEN, MIU, MIU.slice(1), DESTINO.slice(1)]) assert.ok(!todo.includes(secreto));
 });
