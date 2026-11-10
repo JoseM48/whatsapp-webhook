@@ -23,7 +23,10 @@ Código: `lib/voz/llamada-saliente.js` (llamada y freno), `lib/voz/llamada-emerg
 
 - Máximo 2 intentos por `clave`, con al menos 3 min entre ellos (el iPhone deja pasar
   la segunda por "Llamadas repetidas" aunque esté en Concentración).
-- Tope global por día de Colombia: `LLAMADA_EMERGENCIA_MAX_DIA` (4 por defecto).
+- Tope global por día de Colombia: `LLAMADA_EMERGENCIA_MAX_DIA` (3 por defecto, 3 como máximo).
+- Tras 3 llamadas seguidas sin contestar no vuelve a llamar (`riesgo_revocacion`) hasta que
+  José conteste una o se reinicie el servicio. Si el canal lateral no llega a funcionar, nunca
+  se ve el "contestó" y el freno queda puesto: es a propósito.
 - Un fallo también gasta el intento.
 - Sin contestar, cuelga a los `LLAMADA_EMERGENCIA_TIMBRE_SEG` (60). Contestada, a los
   `LLAMADA_EMERGENCIA_HABLA_SEG` (45).
@@ -41,9 +44,12 @@ Código: `lib/voz/llamada-saliente.js` (llamada y freno), `lib/voz/llamada-emerg
 | `WA_SIP_CALLER_NUMBER` | número de Miu, E.164 | Opcional si `WA_SIP_USER` ya es el número. |
 | `WA_SIP_PROVIDER_URL` | `sips:wa.meta.vc:5061` | Opcional (es el valor por defecto). |
 | `LLAMADA_EMERGENCIA_MODELO` | `gpt-live-1` | Opcional. |
-| `LLAMADA_EMERGENCIA_MAX_DIA` | `4` | Opcional. |
+| `LLAMADA_EMERGENCIA_MAX_DIA` | `3` | Opcional, máximo 3. |
 
 Se reutilizan `VOZ_OPENAI_API_KEY`, `VOZ_OPENAI_VOZ` y `PMS_LITE_WEBHOOK_SECRET` (firma).
+
+Firma de la ruta: `X-PMS-Signature = hex(HMAC-SHA256(PMS_LITE_WEBHOOK_SECRET, "llamada-emergencia.v1." + X-PMS-Timestamp + "." + cuerpo))`.
+El prefijo evita reusar firmas de webhook -> PMS. Una firma repetida responde 409.
 
 ## Pasos únicos (en orden)
 
@@ -61,7 +67,7 @@ Se reutilizan `VOZ_OPENAI_API_KEY`, `VOZ_OPENAI_VOZ` y `PMS_LITE_WEBHOOK_SECRET`
 
 1. Avisar a José la hora de la prueba.
 2. Poner `LLAMADA_EMERGENCIA_ON=1`.
-3. Pedir la llamada con firma HMAC (clave `prueba:AAAAMMDD`, resumen `esto es una prueba`).
+3. Pedir la llamada con la firma HMAC de esta ruta (clave `prueba:AAAAMMDD`, resumen `esto es una prueba`).
 4. Revisar con José: sonó, se oyó el mensaje completo, colgó sola.
 5. Revisar el log: `llamada_emergencia_iniciada`, `_timbrando`, `_contestada`, `_cerrada`.
 6. Si falla, apagar y leer el error (`status`, `error_code`) antes de reintentar.
@@ -79,7 +85,8 @@ Se reutilizan `VOZ_OPENAI_API_KEY`, `VOZ_OPENAI_VOZ` y `PMS_LITE_WEBHOOK_SECRET`
 - La guía de OpenAI dice que la Live API soporta salida por SIP, pero otra versión de la
   misma página decía que no. Se confirma solo con la prueba real.
 - No está documentado si el modelo habla primero al contestar. Las instrucciones se lo
-  piden. Si no habla, falta un evento por el canal lateral (no documentado hoy).
+  piden y, al contestar, se manda `response.create` por el canal lateral (patrón de las
+  entrantes; en la Live API no está documentado). Se valida en la prueba real.
 - Meta puede exigir que el `From` coincida con el servidor SIP configurado para el número.
   OpenAI pone el `From`; no se puede controlar desde aquí.
 - SRTP: OpenAI exige SDES-SRTP. Meta usa DTLS-SRTP en WebRTC; en SIP se configura en sus

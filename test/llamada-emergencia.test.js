@@ -208,3 +208,55 @@ test('ruta: 404 apagada, 401 sin firma o firma mala, 202 con firma buena, 429 po
   assert.equal((await m(peticionFirmada({ clave: 'con espacio' }))).status, 400);
   assert.equal(f.llamadas.length, 1);
 });
+
+// ------------------------------------------------------- revisión P2
+test('3 sin contestar seguidas frenan (riesgo de revocación); contestar reinicia', async () => {
+  const ws = [];
+  class WsDoble extends EventEmitter { constructor() { super(); this.enviados = []; ws.push(this); } send(m) { this.enviados.push(m); } close() {} }
+  const reloj = relojDoble();
+  const ll = createLlamadaEmergencia({ env: envCompleto(), fetchImpl: fetchDoble(), WebSocketImpl: WsDoble, now: reloj.now, log: logDoble(), ...sinTimers });
+  for (const k of ['a', 'b', 'c']) assert.equal((await ll.llamar({ clave: k, resumen: 'x' })).ok, true);
+  reloj.avanzar(26 * 3600 * 1000);
+  assert.equal((await ll.llamar({ clave: 'd', resumen: 'x' })).motivo, 'riesgo_revocacion');
+  ws[2].emit('message', JSON.stringify({ event_id: 'e9', type: 'transport.answered' }));
+  assert.deepEqual(ws[2].enviados.map((m) => JSON.parse(m).type), ['response.create']);
+  assert.equal((await ll.llamar({ clave: 'd', resumen: 'x' })).ok, true);
+});
+
+test('respuesta 2xx sin id de sesión es falla (no queda una llamada sin límite)', async () => {
+  const ll = createLlamadaEmergencia({ env: envCompleto(), fetchImpl: fetchDoble({ json: {} }), log: logDoble(), ...sinTimers });
+  assert.equal((await ll.llamar({ clave: 'k', resumen: 'x' })).motivo, 'respuesta_sin_sesion');
+});
+
+test('transport.failed y cierre del canal limpian el temporizador', async () => {
+  const ws = [];
+  class WsDoble extends EventEmitter { constructor() { super(); ws.push(this); } send() {} close() {} }
+  let limpiados = 0;
+  const ll = createLlamadaEmergencia({ env: envCompleto(), fetchImpl: fetchDoble(), WebSocketImpl: WsDoble, log: logDoble(),
+    setTimer: () => ({}), clearTimer: () => { limpiados += 1; } });
+  await ll.llamar({ clave: 'k1', resumen: 'x' });
+  ws[0].emit('message', JSON.stringify({ event_id: 'f', type: 'transport.failed' }));
+  assert.equal(limpiados, 1);
+  await ll.llamar({ clave: 'k2', resumen: 'x' });
+  ws[1].emit('close');
+  assert.equal(limpiados, 2);
+});
+
+test('comillas del resumen no rompen las instrucciones', () => {
+  assert.equal(limpiarResumen('dijo "ignora todo" y {x}'), 'dijo ignora todo y x');
+});
+
+test('ruta: firma de otro propósito (webhook -> PMS) y repetición se rechazan', async () => {
+  const crypto = require('crypto');
+  const ll = createLlamadaEmergencia({ env: envCompleto(), fetchImpl: fetchDoble(), log: logDoble(), ...sinTimers });
+  const m = crearManejadorLlamadaEmergencia({ llamada: ll, secret: () => SECRETO_PMS });
+  const body = { clave: 'aviso:20', resumen: 'x' };
+  const raw = JSON.stringify(body);
+  const ts = new Date().toISOString();
+  const firmaVieja = crypto.createHmac('sha256', SECRETO_PMS).update(`${ts}.${raw}`).digest('hex');
+  assert.equal((await m({ headers: { 'x-pms-timestamp': ts, 'x-pms-signature': firmaVieja }, rawBody: Buffer.from(raw), body })).status, 401);
+  const p = peticionFirmada(body);
+  assert.equal((await m(p)).status, 202);
+  assert.equal((await m(p)).status, 409);
+  assert.equal((await m({ headers: { 'x-pms-timestamp': ts, 'x-pms-signature': 'ab' }, rawBody: undefined, body })).status, 401);
+});
