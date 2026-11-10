@@ -70,7 +70,7 @@ test('sin credenciales no llama y dice qué variable falta, sin valores', async 
   const ll = createLlamadaEmergencia({ env: { LLAMADA_EMERGENCIA_ON: '1' }, fetchImpl: f, log: logDoble(), ...sinTimers });
   const r = await ll.llamar({ clave: 'aviso:1', resumen: 'x' });
   assert.equal(r.motivo, 'sin_config');
-  assert.deepEqual(r.falta.sort(), ['ACCESS_TOKEN+PHONE_NUMBER_ID', 'JOSE_ALERT_PHONE', 'VOZ_OPENAI_API_KEY', 'WA_SIP_CALLER_NUMBER', 'WA_SIP_PASSWORD', 'WA_SIP_USER'].sort());
+  assert.deepEqual(r.falta.sort(), ['ACCESS_TOKEN+PHONE_NUMBER_ID', 'JOSE_ALERT_PHONE|ADMIN_WA_NUMBER', 'VOZ_OPENAI_API_KEY', 'WA_SIP_CALLER_NUMBER', 'WA_SIP_PASSWORD', 'WA_SIP_USER'].sort());
   assert.equal(f.llamadas.length, 0);
 });
 
@@ -345,5 +345,16 @@ test('sin JOSE_ALERT_PHONE usa ADMIN_WA_NUMBER y lo dice en estado()', async () 
   await ll.llamar({ clave: 'a:1', resumen: 'x' });
   assert.equal(JSON.parse(f.llamadas.find((l) => l.url.endsWith('/live/sessions')).opts.body).transport.destination, DESTINO);
   const sinNada = { ...env }; delete sinNada.ADMIN_WA_NUMBER;
-  assert.ok(createLlamadaEmergencia({ env: sinNada, fetchImpl: f, log: logDoble(), ...sinTimers }).estado().falta.includes('JOSE_ALERT_PHONE'));
+  assert.ok(createLlamadaEmergencia({ env: sinNada, fetchImpl: f, log: logDoble(), ...sinTimers }).estado().falta.includes('JOSE_ALERT_PHONE|ADMIN_WA_NUMBER'));
+});
+
+test('Graph base no https se ignora (el token no sale a otra URL)', () => {
+  assert.equal(leerConfigEmergencia({ LLAMADA_EMERGENCIA_GRAPH_BASE: 'http://evil.example' }).graphBase, 'https://graph.facebook.com/v23.0');
+});
+
+test('toma la clave del servidor SIP que la trae, aunque no sea el primero', async () => {
+  const f = fetchConMeta({ settings: { calling: { sip: { servers: [{ hostname: 'a' }, { hostname: 'b', sip_user_password: CLAVE_SIP }] } } } });
+  const ll = createLlamadaEmergencia({ env: envSoloMeta(), fetchImpl: f, log: logDoble(), ...sinTimers });
+  assert.equal((await ll.llamar({ clave: 's:1', resumen: 'x' })).ok, true);
+  assert.equal(JSON.parse(f.llamadas.find((l) => l.url.endsWith('/live/sessions')).opts.body).transport.trunk.auth.password, CLAVE_SIP);
 });
