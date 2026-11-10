@@ -54,6 +54,21 @@ test('el intérprete ve los 40 mensajes, el resumen de lo anterior y la ficha vi
   assert.equal(meta.over_budget, false);
 });
 
+test('known no duplica la ventana, la ficha ni el resumen (revisión P2-3)', () => {
+  const { context } = buildConversationContext({ transcript: conversacion(), today: '2026-11-10',
+    commercialContext: { guests: 2, transcript: conversacion(), ficha_viva: FICHA, older_summary: RESUMEN } });
+  assert.equal(context.known.guests, 2);
+  assert.equal(context.known.transcript, undefined);
+  assert.equal(context.known.ficha_viva, undefined);
+  assert.equal(context.known.older_summary, undefined);
+});
+
+test('el redactor no recibe identificadores ni el nombre de la empresa en la ficha', () => {
+  const input = buildWriterInput({ guestText: 'hola', transcript: [], packet: {}, today: '2026-11-10',
+    fichaViva: { ...FICHA, lead_id: 9, telefono: '573000000000', historial: { ...FICHA.historial, corporativo: { empresa: 'ACME SAS' } } } });
+  assert.doesNotMatch(input, /ACME|573000000000|"lead_id"/);
+});
+
 test('la ficha nunca lleva teléfonos, ids ni nombres aunque vengan', () => {
   const { context } = buildConversationContext({ transcript: [], today: '2026-11-10', fichaViva: { ...FICHA, telefono: '573000000000', lead_id: 5, nombre: 'X' } });
   assert.equal(context.person.telefono, undefined);
@@ -68,6 +83,7 @@ test('el redactor ve 40 turnos, el resumen y la ficha, marcada como contexto y n
   assert.match(input, /Earlier conversation \(summary from the system\)/);
   assert.match(WRITER_SYSTEM_PROMPT, /PERSON FILE/);
   assert.match(WRITER_SYSTEM_PROMPT, /Qué bueno tenerte de vuelta/);
+  assert.match(WRITER_SYSTEM_PROMPT, /if the packet has returning_guest, its greeting is that welcome/);
   assert.match(SYSTEM_PROMPT, /PERSON FILE/);
 });
 
@@ -78,11 +94,16 @@ test('llamada: la misma ficha en las instrucciones (paridad, dominio 25)', () =>
   assert.match(ins, /el 210 del 2027-01-15 al 2027-04-15/);
   assert.doesNotMatch(ins, /LF-510/);
   assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-10' }), /LO QUE YA SABEMOS/);
+  // Una reserva próxima no es "ya se ha quedado" (revisión P2-6).
+  const proxima = { historial: { ...FICHA.historial, pasadas: 0, total_estadias: 1 } };
+  assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-10', fichaViva: proxima }), /tenerte de vuelta/);
 });
 
 test('costo por turno: tokens de entrada estimados antes y después (se reporta)', () => {
   const t = conversacion();
-  const interpAntes = buildConversationContext({ transcript: t, today: '2026-11-10' }, ANTES).meta.estimated_tokens;
+  // Antes, `known` llevaba además la ventana de 10 turnos del PMS sin recortar (se suma aquí).
+  const interpAntes = buildConversationContext({ transcript: t, today: '2026-11-10' }, ANTES).meta.estimated_tokens
+    + estimateTokens(JSON.stringify(t.slice(-10)), 4);
   const interpDespues = buildConversationContext({ transcript: t, today: '2026-11-10', fichaViva: FICHA, olderSummary: RESUMEN }).meta.estimated_tokens;
   const sys = (s) => estimateTokens(s, 4);
   const escritorAntes = sys(buildWriterInput({ guestText: 'hola', transcript: t.slice(-10), packet: {}, today: '2026-11-10' }));

@@ -36,12 +36,15 @@ test('el redactor recibe la nota "repeticion:" y el nombre que manda el PMS', ()
   assert.equal(vista.guest.name, 'Astrid');
 });
 
-test('llamada: las mismas tres reglas en las instrucciones de voz, en todos los perfiles de Cami de Miu', () => {
-  assert.equal(CAMI_ENTIENDE_VOZ.length, 3);
+test('llamada: las mismas tres reglas en las instrucciones de voz', () => {
+  assert.equal(CAMI_ENTIENDE_VOZ.length, 2);
+  const comercial = instruccionesCamiVoz({ hoy: '2026-11-10' });
+  assert.match(comercial, /PRIMERO ENTIENDE QUÉ NECESITA/);
+  assert.match(comercial, /no supongas que busca alojamiento ni le pidas fechas/);
+  // A un huésped de Airbnb o con una persona al mando no se le pregunta si busca dónde quedarse.
+  assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-10', huespedAirbnb: true }), /PRIMERO ENTIENDE/);
   for (const opciones of [{}, { huespedAirbnb: true }, { personaAlMando: true }]) {
     const ins = instruccionesCamiVoz({ hoy: '2026-11-10', ...opciones });
-    assert.match(ins, /PRIMERO ENTIENDE QUÉ NECESITA/);
-    assert.match(ins, /no supongas que busca alojamiento ni le pidas fechas/);
     assert.match(ins, /nunca propongas ni confirmes un día que la persona no dijo/);
     assert.match(ins, /usa la última que dijo/);
     assert.match(ins, /no lo preguntes una tercera vez igual/);
