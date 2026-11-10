@@ -33,18 +33,21 @@ Código: `lib/voz/llamada-saliente.js` (llamada y freno), `lib/voz/llamada-emerg
 - Motivo: Meta revoca el permiso de llamada tras 4 llamadas seguidas sin contestar.
 - El freno vive en memoria: un reinicio lo borra. El PMS debe deduplicar también.
 
-## Variables de entorno (Render, `whatsapp-webhook`) — requieren OK de José
+## Variables de entorno (Render, `whatsapp-webhook`)
 
-| Variable | Valor | Nota |
-|---|---|---|
-| `LLAMADA_EMERGENCIA_ON` | `1` | Interruptor. Sin él, la ruta responde 404. |
-| `JOSE_ALERT_PHONE` | número de José, E.164 | Nunca en el código. |
-| `WA_SIP_USER` | usuario SIP que da Meta | Normalmente el número del negocio de Miu. |
-| `WA_SIP_PASSWORD` | clave SIP que da Meta | Secreta. |
-| `WA_SIP_CALLER_NUMBER` | número de Miu, E.164 | Opcional si `WA_SIP_USER` ya es el número. |
-| `WA_SIP_PROVIDER_URL` | `sips:wa.meta.vc:5061` | Opcional (es el valor por defecto). |
-| `LLAMADA_EMERGENCIA_MODELO` | `gpt-live-1` | Opcional. |
-| `LLAMADA_EMERGENCIA_MAX_DIA` | `3` | Opcional, máximo 3. |
+**El único cambio necesario en Render es `LLAMADA_EMERGENCIA_ON=1`** (con OK de José).
+Lo demás sale de variables que el webhook ya tiene o de Meta en tiempo de ejecución:
+
+| Dato | De dónde sale (en orden) |
+|---|---|
+| Clave SIP | `WA_SIP_PASSWORD`; si no está, `GET https://graph.facebook.com/v23.0/{PHONE_NUMBER_ID}/settings?include_sip_credentials=true` con `ACCESS_TOKEN` → `calling.sip.servers[0].sip_user_password`. Caché en memoria 6 h; un `transport.failed` la borra. Nunca va a logs. |
+| Usuario SIP y número que llama | `WA_SIP_USER` / `WA_SIP_CALLER_NUMBER`; si no están, `GET /{PHONE_NUMBER_ID}?fields=display_phone_number` → E.164 (con `+`). Caché 6 h. |
+| Número de José | `JOSE_ALERT_PHONE`; si no está, `ADMIN_WA_NUMBER`. En este webhook `ADMIN_WA_NUMBER` es el teléfono del operador: el único que puede mandar "DETENER PILOTO M0" (`lib/pilot/m0-kill-switch-command.js`) y el que recibe `escalateToHuman`. El código no prueba que sea de José: lo confirma la llamada de prueba. El log de arranque dice `destino_fuente`. |
+
+Opcionales: `WA_SIP_PROVIDER_URL` (`sips:wa.meta.vc:5061`), `LLAMADA_EMERGENCIA_MODELO`
+(`gpt-live-1`), `LLAMADA_EMERGENCIA_MAX_DIA` (3, máximo 3), `LLAMADA_EMERGENCIA_GRAPH_BASE`.
+
+Si Meta no responde o no trae la clave, no se llama y no se gasta el intento (`meta_sin_credencial`, 502).
 
 Se reutilizan `VOZ_OPENAI_API_KEY`, `VOZ_OPENAI_VOZ` y `PMS_LITE_WEBHOOK_SECRET` (firma).
 
@@ -55,13 +58,12 @@ El prefijo evita reusar firmas de webhook -> PMS. Una firma repetida responde 40
 
 1. José da a Miu permiso **permanente** de llamarlo: Miu le manda la solicitud de
    permiso de llamada (o él llama primero al número de Miu) y José elige "Permitir siempre".
-2. Con OK de José, Teo lee la credencial SIP del número de Miu en Meta:
-   `GET /{phone_number_id}/settings?include_sip_credentials=true`. Solo lectura.
-   No cambiar la configuración SIP del número: las llamadas entrantes dependen de ella.
-3. Revisar en Meta que el número tenga SRTP activo (SDES). OpenAI lo exige en saliente.
-4. Con OK de José, Teo guarda en Render las variables de la tabla, sin `LLAMADA_EMERGENCIA_ON`.
-5. Desplegar el webhook. Comprobar en el log de arranque `[voz] llamada_emergencia`
-   con `falta: []`.
+2. Hecho el 2026-11-10 (solo lectura, con OK de José): el número tiene calling `ENABLED`,
+   SRTP `SDES` y servidor SIP `sip.miolafrontera.co:5061`. No cambiar la configuración SIP:
+   las llamadas entrantes dependen de ella. La clave ya no se copia a ningún lado: el
+   webhook la lee de Meta.
+3. Desplegar el webhook. Comprobar en el log de arranque `[voz] llamada_emergencia`
+   con `falta: []` y `destino_fuente`.
 
 ## Prueba (una sola llamada real)
 
@@ -77,8 +79,8 @@ El prefijo evita reusar firmas de webhook -> PMS. Una firma repetida responde 40
 
 - Inmediato: quitar `LLAMADA_EMERGENCIA_ON` en Render (la ruta vuelve a 404).
 - Código: `git revert` del commit de esta rama sobre la punta desplegada.
-- Credencial: borrar `WA_SIP_PASSWORD` de Render. José puede quitar el permiso de llamada
-  en su WhatsApp.
+- No hay credencial nueva guardada que borrar (vive solo en memoria). José puede quitar el
+  permiso de llamada en su WhatsApp.
 
 ## Riesgos abiertos
 
@@ -87,8 +89,10 @@ El prefijo evita reusar firmas de webhook -> PMS. Una firma repetida responde 40
 - No está documentado si el modelo habla primero al contestar. Las instrucciones se lo
   piden y, al contestar, se manda `response.create` por el canal lateral (patrón de las
   entrantes; en la Live API no está documentado). Se valida en la prueba real.
-- Meta puede exigir que el `From` coincida con el servidor SIP configurado para el número.
-  OpenAI pone el `From`; no se puede controlar desde aquí.
-- SRTP: OpenAI exige SDES-SRTP. Meta usa DTLS-SRTP en WebRTC; en SIP se configura en sus
-  ajustes. Verificar antes de la prueba.
+- **Dominio del `From`:** el número tiene configurado el servidor SIP `sip.miolafrontera.co`.
+  Meta puede exigir que el INVITE saliente venga de ese dominio; OpenAI pone su propio
+  `From` y aquí no se controla. Si la prueba falla con 403/401 de Meta, es lo primero a revisar.
+- Usuario digest: Meta pide que sea el número del negocio (el del `From`). Se manda en
+  E.164 con `+`; si Meta lo rechaza, probar sin `+` con `WA_SIP_USER`.
+- SRTP: OpenAI exige SDES-SRTP; el número ya lo tiene en SDES (verificado 2026-11-10).
 - El freno vive en memoria y se borra al reiniciar.

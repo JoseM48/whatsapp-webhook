@@ -70,7 +70,7 @@ test('sin credenciales no llama y dice qué variable falta, sin valores', async 
   const ll = createLlamadaEmergencia({ env: { LLAMADA_EMERGENCIA_ON: '1' }, fetchImpl: f, log: logDoble(), ...sinTimers });
   const r = await ll.llamar({ clave: 'aviso:1', resumen: 'x' });
   assert.equal(r.motivo, 'sin_config');
-  assert.deepEqual(r.falta.sort(), ['JOSE_ALERT_PHONE', 'VOZ_OPENAI_API_KEY', 'WA_SIP_CALLER_NUMBER', 'WA_SIP_PASSWORD', 'WA_SIP_USER'].sort());
+  assert.deepEqual(r.falta.sort(), ['ACCESS_TOKEN+PHONE_NUMBER_ID', 'JOSE_ALERT_PHONE', 'VOZ_OPENAI_API_KEY', 'WA_SIP_CALLER_NUMBER', 'WA_SIP_PASSWORD', 'WA_SIP_USER'].sort());
   assert.equal(f.llamadas.length, 0);
 });
 
@@ -260,4 +260,90 @@ test('ruta: firma de otro propósito (webhook -> PMS) y repetición se rechazan'
   assert.equal((await m(p)).status, 202);
   assert.equal((await m(p)).status, 409);
   assert.equal((await m({ headers: { 'x-pms-timestamp': ts, 'x-pms-signature': 'ab' }, rawBody: undefined, body })).status, 401);
+});
+
+// ------------------------------------- credencial y número desde Meta
+const META_TOKEN = 'EAAtoken-de-prueba';
+const PNID = '999111222333';
+
+function envSoloMeta(extra = {}) {
+  return { LLAMADA_EMERGENCIA_ON: '1', VOZ_OPENAI_API_KEY: API_KEY, ACCESS_TOKEN: META_TOKEN, PHONE_NUMBER_ID: PNID, JOSE_ALERT_PHONE: DESTINO, ...extra };
+}
+
+function fetchConMeta({ settings = { calling: { status: 'ENABLED', sip: { status: 'ENABLED', servers: [{ hostname: 'sip.example.invalid', port: 5061, sip_user_password: CLAVE_SIP }] } } },
+  numero = { display_phone_number: '+999 000 000 002', id: PNID }, falla = null } = {}) {
+  const llamadas = [];
+  const fn = async (url, opts) => {
+    llamadas.push({ url, opts });
+    if (url.startsWith('https://graph.facebook.com/')) {
+      if (falla) return { ok: false, status: falla, json: async () => ({}) };
+      if (url.includes('/settings?include_sip_credentials=true')) return { ok: true, status: 200, json: async () => settings };
+      if (url.includes('?fields=display_phone_number')) return { ok: true, status: 200, json: async () => numero };
+    }
+    return { ok: true, status: 200, json: async () => ({ session: { id: 'sess_meta_1' } }) };
+  };
+  fn.llamadas = llamadas;
+  return fn;
+}
+
+test('sin WA_SIP_*: lee clave SIP y número de Miu en Meta (v23.0) y los usa en la troncal', async () => {
+  const f = fetchConMeta();
+  const log = logDoble();
+  const ll = createLlamadaEmergencia({ env: envSoloMeta(), fetchImpl: f, log, ...sinTimers });
+  assert.equal((await ll.llamar({ clave: 'm:1', resumen: 'x' })).ok, true);
+  const meta = f.llamadas.filter((l) => l.url.startsWith('https://graph.facebook.com/'));
+  assert.deepEqual(meta.map((l) => l.url).sort(), [
+    `https://graph.facebook.com/v23.0/${PNID}/settings?include_sip_credentials=true`,
+    `https://graph.facebook.com/v23.0/${PNID}?fields=display_phone_number`,
+  ].sort());
+  assert.ok(meta.every((l) => l.opts.method === 'GET' && l.opts.headers.Authorization === `Bearer ${META_TOKEN}`));
+  const b = JSON.parse(f.llamadas.find((l) => l.url.endsWith('/live/sessions')).opts.body);
+  assert.deepEqual(b.transport.trunk, { provider_url: 'sips:wa.meta.vc:5061', auth: { type: 'digest', username: MIU, password: CLAVE_SIP }, caller_number: MIU });
+  const todo = log.lineas.join('\n');
+  for (const secreto of [CLAVE_SIP, META_TOKEN, MIU, MIU.slice(1), DESTINO.slice(1)]) assert.ok(!todo.includes(secreto));
+});
+
+test('caché de Meta: la segunda llamada no vuelve a pedir la clave; un transport.failed la invalida', async () => {
+  const f = fetchConMeta();
+  const ws = [];
+  class WsDoble extends EventEmitter { constructor() { super(); ws.push(this); } send() {} close() {} }
+  const reloj = relojDoble();
+  const ll = createLlamadaEmergencia({ env: envSoloMeta(), fetchImpl: f, WebSocketImpl: WsDoble, now: reloj.now, log: logDoble(), ...sinTimers });
+  await ll.llamar({ clave: 'c:1', resumen: 'x' });
+  await ll.llamar({ clave: 'c:2', resumen: 'x' });
+  const settings = () => f.llamadas.filter((l) => l.url.includes('include_sip_credentials')).length;
+  assert.equal(settings(), 1);
+  ws[1].emit('message', JSON.stringify({ event_id: 'x', type: 'transport.failed' }));
+  ws[1].emit('message', JSON.stringify({ event_id: 'y', type: 'transport.answered' })); // no frenar por sin contestar
+  await ll.llamar({ clave: 'c:3', resumen: 'x' });
+  assert.equal(settings(), 2);
+  assert.equal(f.llamadas.filter((l) => l.url.includes('display_phone_number')).length, 1);
+});
+
+test('Meta falla: no llama y no gasta el intento', async () => {
+  const f = fetchConMeta({ falla: 401 });
+  const ll = createLlamadaEmergencia({ env: envSoloMeta(), fetchImpl: f, log: logDoble(), ...sinTimers });
+  assert.equal((await ll.llamar({ clave: 'f:1', resumen: 'x' })).motivo, 'meta_sin_credencial');
+  assert.equal((await ll.llamar({ clave: 'f:1', resumen: 'x' })).motivo, 'meta_sin_credencial');
+  assert.equal(f.llamadas.filter((l) => l.url.endsWith('/live/sessions')).length, 0);
+  assert.equal(ll.estado().llamadas_hoy, 0);
+});
+
+test('Meta sin sip_user_password: no llama', async () => {
+  const f = fetchConMeta({ settings: { calling: { sip: { servers: [{ hostname: 'h' }] } } } });
+  const ll = createLlamadaEmergencia({ env: envSoloMeta(), fetchImpl: f, log: logDoble(), ...sinTimers });
+  assert.equal((await ll.llamar({ clave: 'f:2', resumen: 'x' })).motivo, 'meta_sin_credencial');
+});
+
+test('sin JOSE_ALERT_PHONE usa ADMIN_WA_NUMBER y lo dice en estado()', async () => {
+  const env = envSoloMeta({ ADMIN_WA_NUMBER: DESTINO.slice(1) });
+  delete env.JOSE_ALERT_PHONE;
+  const f = fetchConMeta();
+  const ll = createLlamadaEmergencia({ env, fetchImpl: f, log: logDoble(), ...sinTimers });
+  assert.equal(ll.estado().destino_fuente, 'ADMIN_WA_NUMBER');
+  assert.deepEqual(ll.estado().falta, []);
+  await ll.llamar({ clave: 'a:1', resumen: 'x' });
+  assert.equal(JSON.parse(f.llamadas.find((l) => l.url.endsWith('/live/sessions')).opts.body).transport.destination, DESTINO);
+  const sinNada = { ...env }; delete sinNada.ADMIN_WA_NUMBER;
+  assert.ok(createLlamadaEmergencia({ env: sinNada, fetchImpl: f, log: logDoble(), ...sinTimers }).estado().falta.includes('JOSE_ALERT_PHONE'));
 });
