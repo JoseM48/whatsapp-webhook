@@ -202,7 +202,8 @@ test('ruta: 404 apagada, 401 sin firma o firma mala, 202 con firma buena, 429 po
   const ok = await m(peticionFirmada({ clave: 'aviso:11', resumen: 'caso' }));
   assert.equal(ok.status, 202);
   assert.equal(ok.body.intento, 1);
-  const otra = await m(peticionFirmada({ clave: 'aviso:11', resumen: 'caso' }));
+  // Otra firma (otro instante): si no, sería la misma y respondería 409 por repetición.
+  const otra = await m(peticionFirmada({ clave: 'aviso:11', resumen: 'caso' }, { ts: new Date(Date.now() + 1000).toISOString() }));
   assert.equal(otra.status, 429);
   assert.equal(otra.body.motivo, 'muy_pronto');
   assert.equal((await m(peticionFirmada({ clave: 'con espacio' }))).status, 400);
