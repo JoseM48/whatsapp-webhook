@@ -635,6 +635,28 @@ async function sendPilotWhatsAppButtons(to, { bodyText, buttons }) {
   return response.data?.messages?.[0]?.id || null;
 }
 
+// AVISOS CON BOTONES (José Manuel, 2026-11-10): lista de opciones (interactive
+// "list") para los avisos internos con mas de 3 respuestas. Al tocar una fila,
+// Meta devuelve interactive.list_reply con su id ("aviso:<decision>:<n>"), que
+// meta-inbound.js convierte en "BOTON AVISO <decision> <n>".
+async function sendPilotWhatsAppList(to, { bodyText, buttonText, rows }) {
+  const phone = normalizePhone(to);
+  if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  const response = await axios.post(WHATSAPP_API_URL, {
+    messaging_product: 'whatsapp', to: phone, type: 'interactive',
+    interactive: {
+      type: 'list',
+      body: { text: String(bodyText || '').slice(0, 1024) },
+      action: { button: buttonText, sections: [{ title: 'Respuestas', rows: rows.map((r) => ({ id: r.id, title: r.title,
+        ...(r.description ? { description: r.description } : {}) })) }] }
+    }
+  }, {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    timeout: 15000
+  });
+  return response.data?.messages?.[0]?.id || null;
+}
+
 // REACCION ✅ AL AVISO LEIDO (José Manuel, 2026-10-23, instruccion 54): WhatsApp
 // no deja borrar un mensaje enviado; si deja reaccionar a uno del chat (Cloud
 // API, type 'reaction' con el message_id del mensaje y el emoji). Se usa para
@@ -736,6 +758,7 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
   sendTemplate: sendM0ClosedInternalTemplate,
   sendFlow: sendPilotWhatsAppFlow,
   sendButtons: sendPilotWhatsAppButtons,
+  sendList: sendPilotWhatsAppList,
   sendReaction: sendPilotWhatsAppReaction,
   sendPhoto: sendM0ApartmentPhoto,
   sendVideo: sendM0ApartmentVideo,
