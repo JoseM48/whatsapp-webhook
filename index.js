@@ -69,6 +69,8 @@ const WebSocket = require('ws');
 const { readVozConfig, vozConfigParaLog } = require('./lib/voz/config');
 const { createVozCallManager } = require('./lib/voz/call-manager');
 const { extractMetaCalls, isCallsOnlyPayload } = require('./lib/voz/call-events');
+const { createLlamadaEmergencia } = require('./lib/voz/llamada-saliente');
+const { crearManejadorLlamadaEmergencia } = require('./lib/voz/llamada-emergencia-ruta');
 
 // Logs de variables críticas (sin exponer valores)
 console.log('ENV CHECK →', {
@@ -452,6 +454,9 @@ if (vozConfigParaLog(vozConfig).costo_max_llamada_excede_pms) {
   console.error('[voz] config_invalida: VOZ_DURACION_MAX_MIN x VOZ_COSTO_USD_MINUTO supera el maximo que acepta el PMS; '
     + 'el PMS rechazara el registro y no se aceptaran llamadas');
 }
+const llamadaEmergencia = createLlamadaEmergencia({ WebSocketImpl: WebSocket });
+const manejarLlamadaEmergencia = crearManejadorLlamadaEmergencia({ llamada: llamadaEmergencia });
+console.log('[voz] llamada_emergencia', llamadaEmergencia.estado());
 const vozCalls = createVozCallManager({
   config: vozConfig,
   http: axios,
@@ -1304,6 +1309,18 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'dev-verify-token';
 app.post('/voz/openai/webhook', (req, res) => {
   const r = vozCalls.handleWebhook({ rawBody: req.rawBody, headers: req.headers, body: req.body });
   res.status(r.status).json(r.body);
+});
+
+// LLAMADA DE EMERGENCIA A JOSÉ (2026-11-10): la pide el PMS con firma HMAC.
+// 404 mientras LLAMADA_EMERGENCIA_ON no sea 1. Ver lib/voz/LLAMADA_EMERGENCIA.md.
+app.post('/internal/voz/llamada-emergencia', async (req, res) => {
+  try {
+    const r = await manejarLlamadaEmergencia({ headers: req.headers, rawBody: req.rawBody, body: req.body });
+    res.status(r.status).json(r.body);
+  } catch (e) {
+    console.error('[voz] llamada_emergencia_ruta_error', String(e?.message || e).slice(0, 120));
+    res.status(500).json({ ok: false, error: 'internal_error' });
+  }
 });
 
 app.get('/webhook', (req, res) => {
