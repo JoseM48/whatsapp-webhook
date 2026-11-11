@@ -87,3 +87,15 @@ test('una publicación pendiente es contexto: no apaga lo comercial de la llamad
   assert.match(ins, /nuestros apartamentos, atiéndela como siempre/);
   assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-09' }), /publicación por verificar PV/);
 });
+
+// CO-ANFITRIÓN, RUTEO A ZONAS DE LA VITRINA (José Manuel, 2026-11-11, punto 5; paridad, dominio 25):
+// el PMS ofrece la publicación de la zona (chat y nota de voz por contact_route, llamada por la
+// herramienta). El modelo debe pasar la ciudad tal cual y, en la llamada, no adelantarse.
+test('nuevos mercados: la ciudad va tal cual y la voz no dice "solo Medellín" antes de la herramienta', () => {
+  assert.match(INSTRUCCION_CHAT, /exactly as they said it/);
+  assert.match(INSTRUCCION_CHAT, /offer a listing published in that zone/);
+  assert.match(INSTRUCCION_VOZ, /no digas que solo operamos en Medellín/);
+  assert.match(INSTRUCCION_VOZ, /Di lo que la herramienta te indique/);
+  const ins = instruccionesCamiVoz({ hoy: '2026-11-11' });
+  assert.match(ins, /hay propiedades publicadas en Miubica/);
+});
