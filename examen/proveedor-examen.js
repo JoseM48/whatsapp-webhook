@@ -16,8 +16,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
+// Sin retornos de carro: un checkout de Windows (CRLF) da la misma huella que el de Linux (Render).
+const sinCR = (x) => (typeof x === 'string' ? x.split(String.fromCharCode(13)).join('') : x);
 const huella = ({ system, input, schema }) => crypto.createHash('sha256')
-  .update(JSON.stringify({ system, input, schema })).digest('hex').slice(0, 24);
+  .update(JSON.stringify({ system: sinCR(system), input: sinCR(input), schema })).digest('hex').slice(0, 24);
 
 function error(code) { return Object.assign(new Error(code), { code }); }
 
