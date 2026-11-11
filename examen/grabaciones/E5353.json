@@ -1,0 +1,37 @@
+{
+ "7591bf4ae650399ca54da2ab": {
+  "output": {
+   "reply": "Sí, exactamente: sería por un mes, del 13 de noviembre al 13 de diciembre, que son 30 noches. La opción que te envié corresponde a esas fechas. Si deseas seguir con el LF-1109, me confirmas y te indico el paso para separarlo.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13768,
+   "output_tokens": 380
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:20f41993c1a9619658b7f09e": {
+  "valid": false,
+  "failure_reasons": [
+   "unauthorized_date:13 de noviembre",
+   "unauthorized_date:13 de diciembre"
+  ]
+ },
+ "396776e05a53c92d5ed9f80d": {
+  "output": {
+   "reply": "Sí, sería por un mes. La opción que te envié corresponde a una estadía mensual; si te gusta, me confirmas y seguimos con el siguiente paso.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13884,
+   "output_tokens": 227
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:f9336d0c96b81ad42ffc9fe2": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

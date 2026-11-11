@@ -1,0 +1,18 @@
+{
+ "917cb4752226882b05418cd4": {
+  "output": {
+   "reply": "Para tu estadía de 360 noches, hasta el 15 de enero de 2028, la referencia de hoy es **$3.100.000 al mes**. Pagarías ese valor cada mes, no todo el año por adelantado. Es una tarifa de referencia, no una cotización reservable; la tarifa final se confirma más cerca de tu llegada.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13663,
+   "output_tokens": 492
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:d85998e57fe2f17f9722c9d7": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

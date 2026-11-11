@@ -1,0 +1,18 @@
+{
+ "e379e511c1ca974df9efc7ca": {
+  "output": {
+   "reply": "Perfecto, podría ser por más de un año; la duración la podemos ajustar después. ¿Qué fecha de llegada tienes prevista?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12913,
+   "output_tokens": 119
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:73ee738e724e3d2f111f8cd7": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

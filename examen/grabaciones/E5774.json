@@ -1,0 +1,37 @@
+{
+ "e0233361b40a09a502f457c0": {
+  "output": {
+   "reply": "¿Te refieres a un presupuesto de $1.450.000 al mes? El monto que escribiste quedó incompleto como “1.450.00”. También necesito saber qué fecha de llegada tienes prevista y para cuántas personas sería.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13164,
+   "output_tokens": 278
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:49634a632aa8db1bbf53f31d": {
+  "valid": false,
+  "failure_reasons": [
+   "unauthorized_number:$1.450.000",
+   "unauthorized_digits:1.450.000"
+  ]
+ },
+ "e121b4206181d8db1bfbe5f6": {
+  "output": {
+   "reply": "No alcanzo a confirmar el presupuesto porque quedó incompleto. ¿Me lo escribes completo, junto con la fecha de llegada y para cuántas personas sería?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13283,
+   "output_tokens": 342
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:920db493ae661f1ab5dda3dc": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

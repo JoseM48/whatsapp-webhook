@@ -1,0 +1,18 @@
+{
+ "db8f24ca1825f69bd9f31589": {
+  "output": {
+   "reply": "No hay problema, podemos trabajar con una duración aproximada. ¿En qué mes te gustaría llegar? Puedes responder, por ejemplo: “en diciembre, por unos 3 meses”. Si prefieres, una persona del equipo también puede orientarte por aquí.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12964,
+   "output_tokens": 250
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:06b56b604519bc988098f822": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

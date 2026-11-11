@@ -1,0 +1,38 @@
+{
+ "8c7ad1b8fdbb981a43bbdcf6": {
+  "output": {
+   "reply": "Entiendo, Efrain. Por ahora esta estadía se sale del presupuesto que me compartiste y no tengo una opción dentro de ese rango. Si cambian tus fechas o tu presupuesto, escríbeme y revisamos.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13728,
+   "output_tokens": 283
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:ea9519ce9f591b27f243d135": {
+  "valid": false,
+  "failure_reasons": [
+   "fixed_text_must_be_verbatim"
+  ]
+ },
+ "8d63368355f2a5e9dea4fc98": {
+  "output": {
+   "reply": "Sí, entiendo, Efrain. José Manuel sigue revisando si es posible mejorar la oferta y te escribiremos por aquí; por ahora no hay ningún valor aprobado ni prometido.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13836,
+   "output_tokens": 185
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:d90f525ba8c4630084612a57": {
+  "valid": false,
+  "failure_reasons": [
+   "fixed_text_must_be_verbatim"
+  ]
+ }
+}

@@ -1,0 +1,36 @@
+{
+ "b228bb49e958b6f0aa74a8c5": {
+  "output": {
+   "reply": "La fecha de llegada que tenemos cotizada es el 15 de enero de 2027. Si eliges el LF-210 o el LF-510, puedo dejarlo pre-confirmado sin pago ahora; la confirmación definitiva sería a más tardar 15 días antes de tu llegada.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13731,
+   "output_tokens": 312
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:a9617943220cd27a1e8653ec": {
+  "valid": false,
+  "failure_reasons": [
+   "unauthorized_date:15 de enero de 2027"
+  ]
+ },
+ "5c0dfc5ec6c52f1abbad1746": {
+  "output": {
+   "reply": "Para la estadía que venimos revisando, puedes habitar el apartamento desde las 3:00 p. m. del día de llegada. Las fechas exactas aún deben confirmarse; dime cuál de las opciones prefieres y avanzamos con ella.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13842,
+   "output_tokens": 320
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:1c438dd7661b7cbdf6211512": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

@@ -1,0 +1,18 @@
+{
+ "31ea8ba925664abd271d0940": {
+  "output": {
+   "reply": "Perfecto, manejamos estadías largas desde 30 noches con tarifa mensual. ¿Qué fecha de llegada tienes prevista y por cuántos meses aproximadamente lo necesitarías?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12894,
+   "output_tokens": 137
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:4196bbb4d6017ed299a515d7": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

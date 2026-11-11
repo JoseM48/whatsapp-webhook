@@ -1,0 +1,38 @@
+{
+ "2ad70c4738ac457f30ca21fe": {
+  "output": {
+   "reply": "Claro, tienes razón: noviembre ya lo habíamos descartado. No hay ninguna reserva ni pago que cancelar; queda vigente únicamente lo de enero que habíamos conversado.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13315,
+   "output_tokens": 170
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:00e8744b86458d24c005b3d2": {
+  "valid": false,
+  "failure_reasons": [
+   "denies_reservation"
+  ]
+ },
+ "7b320d9046362a7d2415bac6": {
+  "output": {
+   "reply": "Entendido, para noviembre ya no lo necesitas. No hay ninguna reserva ni pago que cancelar. Si más adelante quieres revisar otra fecha, aquí estoy.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13419,
+   "output_tokens": 148
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:0af69c9e70a4043a830fd49f": {
+  "valid": false,
+  "failure_reasons": [
+   "denies_reservation"
+  ]
+ }
+}

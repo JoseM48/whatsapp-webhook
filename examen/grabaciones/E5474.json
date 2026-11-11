@@ -1,0 +1,36 @@
+{
+ "99be8a84977e522f203483f6": {
+  "output": {
+   "reply": "Listo, dejé creada la pre-reserva del LF-1109 para tu estadía del 15 de noviembre de 2026 al 15 de marzo de 2027, por COP 3.400.000 al mes. Queda pendiente de validación del propietario; todavía no hay dinero real de por medio y por ahora no se cobra nada.\n\nEl anticipo sería de COP 600.000. Por la cercanía de tu llegada, si cancelas, ese anticipo no sería reembolsable. Te escribimos por este medio apenas tengamos la validación.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12926,
+   "output_tokens": 303
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:869a768a514a61317a41ecc3": {
+  "valid": false,
+  "failure_reasons": [
+   "required_fact_missing:cancelacion_terminos"
+  ]
+ },
+ "bdfd4661888610400d612b4a": {
+  "output": {
+   "reply": "La pre-reserva del LF-1109 quedó creada para tu estadía del 15 de noviembre de 2026 al 15 de marzo de 2027, pendiente de validación del propietario. El valor es COP 3.400.000 al mes y el anticipo sería de COP 600.000.\n\nTodavía no hay dinero real de por medio: por ahora no se cobra nada. Por la cercanía de tu llegada, si cancelas el anticipo no es reembolsable.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13036,
+   "output_tokens": 393
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:c5b70fdd6b6b6c355ae435e1": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

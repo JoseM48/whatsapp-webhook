@@ -1,0 +1,37 @@
+{
+ "ff3b0262e55c9dd3d95516e4": {
+  "output": {
+   "reply": "Entiendo, te refieres a un presupuesto de $1.450.000 al mes. Con ese presupuesto no tenemos una opción disponible por ahora; el valor que viste corresponde a una referencia diferente y no a la cotización actual. Si más adelante cambian tu presupuesto o tus fechas, puedes escribirme nuevamente.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13967,
+   "output_tokens": 186
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:3eb433732bd1649da3d065d5": {
+  "valid": false,
+  "failure_reasons": [
+   "unauthorized_number:$1.450.000",
+   "unauthorized_digits:1.450.000"
+  ]
+ },
+ "8c234d4f5d5632208e0db065": {
+  "output": {
+   "reply": "Con ese presupuesto no tengo una opción disponible por ahora. Si cambian tus fechas o el presupuesto, puedes escribirme nuevamente y revisamos qué opciones hay.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 14087,
+   "output_tokens": 163
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:222ec990c080c77223295a93": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

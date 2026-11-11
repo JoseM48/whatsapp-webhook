@@ -1,0 +1,18 @@
+{
+ "f5cc04606a64e5e724b4c0b5": {
+  "output": {
+   "reply": "El archivo quedó guardado; no lo puedo leer, pero José Manuel lo puede revisar. El pago reportado está en verificación por administración; la reserva se confirma cuando quede conciliado.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13671,
+   "output_tokens": 127
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:1bfbd63d1fb5280270bfed3c": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

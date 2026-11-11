@@ -1,0 +1,18 @@
+{
+ "8626fb9863e944a0c96f3a66": {
+  "output": {
+   "reply": "Sí. Para una estadía de 360 noches pagarías el primer mes antes de llegar y el resto mes a mes; no tienes que pagar todo el año por adelantado. Para separar se paga un anticipo de COP 600.000, que queda como depósito y no se descuenta del primer mes. La solicitud especial sigue pendiente de decisión de José Manuel; todavía no está aprobada ni rechazada.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13144,
+   "output_tokens": 366
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:f6b6c721badfed83d8a01b85": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

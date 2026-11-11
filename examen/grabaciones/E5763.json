@@ -1,0 +1,18 @@
+{
+ "e321e80780439b4fb7c94398": {
+  "output": {
+   "reply": "No, no es solo el pago del mes. Para una estadía de 30 noches o más, al aceptar no pagas nada: la reserva queda preconfirmada. Luego, 21 días antes de llegar, pagas $300.000 por Wompi, que se descuentan del primer mes; antes de ingresar pagas el primer mes y un depósito reembolsable de $600.000 (COP 600.000), que se devuelve al hacer check-out si todo está bien.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13257,
+   "output_tokens": 284
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:c0513f2124106b8656ff07af": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

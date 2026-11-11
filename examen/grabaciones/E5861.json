@@ -1,0 +1,18 @@
+{
+ "8e81791bd98b9036d3b2c58d": {
+  "output": {
+   "reply": "Entiendo la duda. ¿Qué presupuesto mensual tenías pensado?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 14126,
+   "output_tokens": 137
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:6f96bae8d02d9b1cee1eea63": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

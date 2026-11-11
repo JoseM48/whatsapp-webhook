@@ -1,0 +1,18 @@
+{
+ "abcf72df5745abd919d41ec9": {
+  "output": {
+   "reply": "Con mucho gusto, Daniela. Quedamos atentos para enviarte la factura electrónica.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13071,
+   "output_tokens": 38
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:ef00826df3b9c4d449eda023": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

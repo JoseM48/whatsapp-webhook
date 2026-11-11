@@ -1,0 +1,18 @@
+{
+ "0c43d9b1f4dca2c95901cc5c": {
+  "output": {
+   "reply": "Me refiero a que José Manuel revisará personalmente tu solicitud del 11 al 15 de enero de 2027 y te responderemos por aquí con el valor cuando la revise. Aún no tengo un día u hora exactos confirmados.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13010,
+   "output_tokens": 241
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:1d88284719b9cc96fc4cb444": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

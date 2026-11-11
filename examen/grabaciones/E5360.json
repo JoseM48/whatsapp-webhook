@@ -1,0 +1,39 @@
+{
+ "f093ee1dd32681a80ca344c1": {
+  "output": {
+   "reply": "Perfecto, sería para una persona, de enero a junio. ¿Qué día de enero llegarías y qué día de junio saldrías?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12848,
+   "output_tokens": 142
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:a40eb37542877c9b4ea2abb9": {
+  "valid": false,
+  "failure_reasons": [
+   "date_missing:check_in",
+   "required_fact_missing:data_confirmation"
+  ]
+ },
+ "8bfc4a2e3fd7754064751b8b": {
+  "output": {
+   "reply": "Perfecto, sería para una persona. Antes de cotizar necesito confirmar las fechas: ¿qué día de enero de 2027 llegarías y qué día de junio saldrías?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12960,
+   "output_tokens": 184
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:6f2f6d0119433cf6d07633e8": {
+  "valid": false,
+  "failure_reasons": [
+   "date_missing:check_in"
+  ]
+ }
+}

@@ -1,0 +1,18 @@
+{
+ "8e1175bd723ac7476a9fb09f": {
+  "output": {
+   "reply": "Para decirte qué apartamentos están disponibles y darte el precio exacto, necesito saber el día de llegada. ¿Qué día te gustaría llegar?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13072,
+   "output_tokens": 184
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:2546c6952d2e1d08a779d213": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

@@ -1,0 +1,37 @@
+{
+ "257a3e87ef3000bd94c91e63": {
+  "output": {
+   "reply": "Entiendo. Con un presupuesto de $1.500.000 al mes no tengo por ahora una opción disponible para esas fechas. Todos nuestros apartamentos son estudios abiertos, pero la buena vista depende del apartamento; si cambia tu presupuesto o tus fechas, puedes escribirme nuevamente y revisamos opciones.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13766,
+   "output_tokens": 232
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:f52ac2b510d8ec3b07f3cec1": {
+  "valid": false,
+  "failure_reasons": [
+   "unauthorized_number:$1.500.000",
+   "unauthorized_digits:1.500.000"
+  ]
+ },
+ "664f750b3c5c23fe4299970e": {
+  "output": {
+   "reply": "Entiendo. Con ese presupuesto no tengo una opción disponible por ahora. Todos nuestros alojamientos son estudios de un solo ambiente, pero no tengo confirmada una vista específica para ofrecerte; si cambia tu presupuesto o tus fechas, puedes escribirme nuevamente y revisamos opciones.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13886,
+   "output_tokens": 247
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:71af211cfb3be72e40340327": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

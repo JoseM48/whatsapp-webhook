@@ -1,0 +1,18 @@
+{
+ "155deef5d6fe5eb23efc326a": {
+  "output": {
+   "reply": "Con gusto 😊 Cuando quieras, me dices cuál de las dos opciones te interesa y avanzamos.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13888,
+   "output_tokens": 72
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:e827bd0f807d22f81088a186": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

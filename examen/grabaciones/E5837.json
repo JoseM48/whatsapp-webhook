@@ -1,0 +1,18 @@
+{
+ "158f7af9a64a81ea52b3fb05": {
+  "output": {
+   "reply": "Claro, Juan. El equipo te confirma por este chat el enlace y los datos para hacer el pago.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13533,
+   "output_tokens": 197
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:9fb8d123c5bb911c0d5ba469": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

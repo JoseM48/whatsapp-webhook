@@ -1,0 +1,18 @@
+{
+ "41ba151bd45c0ab8843a5c66": {
+  "output": {
+   "reply": "Perfecto, sería para una persona. ¿Qué fecha de llegada tienes prevista y por cuántas noches necesitas el apartamento?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12779,
+   "output_tokens": 70
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:b6c90cf62d81ca1e54916c7d": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

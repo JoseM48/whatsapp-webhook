@@ -1,0 +1,18 @@
+{
+ "279079df94e53ffd530577d9": {
+  "output": {
+   "reply": "La visita se puede programar entre semana, idealmente de 11:00 a. m. a 3:00 p. m.; si necesitas otro horario, también se puede coordinar porque la recepción está disponible 24 horas. José Manuel gestiona la autorización entre 8:00 a. m. y 9:00 p. m. ¿Qué día y hora te quedarían bien?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 14060,
+   "output_tokens": 183
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:f802e8e781256247f0481f03": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

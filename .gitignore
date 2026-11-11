@@ -19,3 +19,6 @@ secrets/
 google-creds.json
 *.pem
 *.p12
+
+# Examen de Cami: informes locales (se regeneran)
+examen/out/

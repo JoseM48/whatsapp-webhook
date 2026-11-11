@@ -1,0 +1,18 @@
+{
+ "2519d0f8a830715ce792e9bc": {
+  "output": {
+   "reply": "Astrid, ¿en qué te puedo ayudar? ¿Buscas un lugar para quedarte o tienes un apartamento para rentar con nosotros?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12650,
+   "output_tokens": 143
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:30f18d565068e91212639b93": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

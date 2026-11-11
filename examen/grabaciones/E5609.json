@@ -1,0 +1,40 @@
+{
+ "4dd13f7ca90d5a3bd54244e7": {
+  "output": {
+   "reply": "Para una estadía de 30 noches o más, primero confirmamos las fechas, disponibilidad y valor; luego eliges el estudio y solicitamos la pre-reserva. Cuando queda aprobada, te enviamos los datos para pagar por Wompi (tarjeta, PSE o Nequi), transferencia bancaria o llave Bre-B. No recibimos pagos en efectivo.\n\nPara el ingreso piden cédula o pasaporte, y registramos los nombres de las personas que se van a alojar. En el proceso normal, el anticipo es de COP 600.000; antes de llegar pagas el primer mes sin descontarlo y el anticipo queda como depósito reembolsable al finalizar si todo está bien. Hay algo que no tengo confirmado todavía; lo confirmo y te respondo en unos minutos por este chat.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13567,
+   "output_tokens": 709
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:f3bce7723d75f8476da30156": {
+  "valid": false,
+  "failure_reasons": [
+   "forbidden_claim:excepcion_aprobada",
+   "forbidden_claim:accion_interna_ejecutada"
+  ]
+ },
+ "6840376246b4e2947ef8c580": {
+  "output": {
+   "reply": "El trámite es directo con nosotros: me confirmas la fecha de llegada y el número de personas, te cotizo disponibilidad y precio, y luego eliges el estudio. Cuando la pre-reserva queda aprobada, te enviamos los datos para pagar por Wompi (tarjeta, PSE o Nequi), transferencia a Bancolombia o llave Bre-B; no recibimos efectivo. Para el ingreso pedimos cédula o pasaporte, y si necesitas factura a nombre de una empresa, el RUT. La disponibilidad y el precio exactos todavía no los tengo confirmados; hay algo que no tengo confirmado todavía; lo confirmo y te respondo en unos minutos por este chat. ¿Qué día llegarías?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13688,
+   "output_tokens": 687
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:f1e305095acae229c0d3ca1c": {
+  "valid": false,
+  "failure_reasons": [
+   "forbidden_claim:excepcion_aprobada",
+   "forbidden_claim:accion_interna_ejecutada"
+  ]
+ }
+}

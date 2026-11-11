@@ -1,0 +1,18 @@
+{
+ "409026ddc23a20268a1b62df": {
+  "output": {
+   "reply": "Para alquilarlo por mes necesitas una estadía de mínimo 30 noches y presentar cédula o pasaporte para el ingreso. Para separar, normalmente se paga un anticipo de COP 600.000; antes de llegar se paga el primer mes y el anticipo queda como depósito reembolsable al finalizar, si todo está bien. Hay un detalle específico que todavía no tengo confirmado; lo confirmo y te respondo en unos minutos por este chat. ¿Qué fecha de llegada tienes prevista y para cuántas personas sería?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12954,
+   "output_tokens": 433
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:1dfae6eca0d693d64c784cac": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

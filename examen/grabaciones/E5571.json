@@ -1,0 +1,18 @@
+{
+ "e98deafb08bab2d8ad22e433": {
+  "output": {
+   "reply": "Estamos en Mío Edificio La Frontera, Cra 41 AA # 18 B Sur 3, El Poblado, Medellín, cerca del Mall La Frontera y del Mall São Paulo. Puedes verlo en el mapa: https://maps.google.com/?q=6.183848,-75.577255. Si quieres, también podemos agendar una visita previa.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13302,
+   "output_tokens": 164
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:3f98f73b3945cce5316029dd": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

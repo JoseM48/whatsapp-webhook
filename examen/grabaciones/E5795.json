@@ -1,0 +1,18 @@
+{
+ "e0e6af9e41a1f57044bd41ff": {
+  "output": {
+   "reply": "Sí, entendí: no pagarías el año completo. Pagarías $3.100.000 cada mes, uno por uno; esa es la tarifa de referencia de hoy y el valor final se confirma más cerca de la llegada.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13687,
+   "output_tokens": 310
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:e5c76084c4364990e98b71da": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

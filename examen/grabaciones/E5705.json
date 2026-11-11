@@ -1,0 +1,18 @@
+{
+ "e036a064e8a5a6a1efb41216": {
+  "output": {
+   "reply": "Perfecto. ¿José Manuel te indicó algo sobre la oportunidad de trabajo en aseo, o hay algo más en lo que te pueda ayudar?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12863,
+   "output_tokens": 187
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:878a02be3b8b71b1aaa70bba": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

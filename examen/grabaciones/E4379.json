@@ -1,0 +1,18 @@
+{
+ "781d968463764669e981f499": {
+  "output": {
+   "reply": "Entiendo, buscas la opción más económica. ¿Qué presupuesto mensual tienes en mente?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13240,
+   "output_tokens": 125
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:6a050dff12734b864e6941d7": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

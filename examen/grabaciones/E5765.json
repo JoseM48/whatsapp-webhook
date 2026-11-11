@@ -1,0 +1,18 @@
+{
+ "792b62652acfd7031b009e15": {
+  "output": {
+   "reply": "Claro. Para estadías de 30 noches o más con llegada hasta el 30 de noviembre hay una oferta temporal de $3.000.000 al mes, todo incluido y sin póliza. Para cotizar tu estadía larga, ¿qué día de llegada tienes previsto?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13059,
+   "output_tokens": 373
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:7a59de18f5e7c647d10670de": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

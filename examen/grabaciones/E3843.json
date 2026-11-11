@@ -1,0 +1,37 @@
+{
+ "f16a17c365120e9189233fbf": {
+  "output": {
+   "reply": "Sí, como habíamos quedado, la visita al LF-904 sería mañana, 3 de noviembre, entre las 5:00 y 6:00 p. m. Hay algo que no tengo confirmado todavía; lo confirmo y te respondo en unos minutos por este chat.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 14099,
+   "output_tokens": 161
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:417009b7a35df32d6aa38d66": {
+  "valid": false,
+  "failure_reasons": [
+   "unauthorized_date:3 de noviembre",
+   "apartment_not_authorized:LF-904"
+  ]
+ },
+ "82d50487a2067df50e081887": {
+  "output": {
+   "reply": "Hay algo que no tengo confirmado todavía; lo confirmo y te respondo en unos minutos por este chat.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 14216,
+   "output_tokens": 147
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:f34ca3ab29f77a3b5eeb4cf3": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

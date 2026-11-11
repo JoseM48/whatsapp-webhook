@@ -1,0 +1,36 @@
+{
+ "6948976189e058506b7cb8cc": {
+  "output": {
+   "reply": "¡Hola! Muy bien, gracias 😊 Voy a confirmar si podemos conseguir una plancha para el LF-510 y te respondo en unos minutos por este chat.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13215,
+   "output_tokens": 154
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:22f752ce30c034c08c354f47": {
+  "valid": false,
+  "failure_reasons": [
+   "apartment_not_authorized:LF-510"
+  ]
+ },
+ "07774fc809322bdc683736e0": {
+  "output": {
+   "reply": "Muy bien, gracias 😊 Claro. Todavía no tengo confirmado si podemos conseguirte una plancha; lo confirmo y te respondo en unos minutos por este chat.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13324,
+   "output_tokens": 206
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:aa35bf1b087e1a7d34fdd160": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

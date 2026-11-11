@@ -1,0 +1,18 @@
+{
+ "79169deb217f91c1fafbca99": {
+  "output": {
+   "reply": "Perfecto, quedo pendiente de revisarlo con el equipo y te confirmo por aquí.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12921,
+   "output_tokens": 196
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:9bb281face368c421166526c": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

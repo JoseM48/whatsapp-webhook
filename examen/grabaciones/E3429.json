@@ -1,0 +1,18 @@
+{
+ "cfce01d671787ae1f8ddae1e": {
+  "output": {
+   "reply": "Sí, se pueden solicitar prórrogas para pasar de un mes a tres, sujetas a disponibilidad y a la cotización actualizada. En estadías de más de 30 noches, el resto se puede pagar mes a mes. Hay algo que no tengo confirmado todavía; lo confirmo y te respondo en unos minutos por este chat. Para cotizarte, ¿qué día llegarías y para cuántas personas sería?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12790,
+   "output_tokens": 294
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:55fa3d7d255a8f01e3b51fb5": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

@@ -1,0 +1,18 @@
+{
+ "8d8dffd6a97ab290fe812564": {
+  "output": {
+   "reply": "Entiendo, podría ser en febrero o incluso antes. ¿Qué día aproximado te gustaría llegar?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13188,
+   "output_tokens": 135
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:2983f0c6f76952807224bc33": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

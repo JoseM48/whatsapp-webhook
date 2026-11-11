@@ -1,0 +1,18 @@
+{
+ "ad0d5378016f2056f899dcd0": {
+  "output": {
+   "reply": "¡Perfecto! ¿Qué fechas necesitas y para cuántas personas sería?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12319,
+   "output_tokens": 71
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:113bbb4131186e831453ab0e": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

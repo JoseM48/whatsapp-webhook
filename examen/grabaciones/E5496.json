@@ -1,0 +1,18 @@
+{
+ "051b380fe85d3ce7ee60e3c8": {
+  "output": {
+   "reply": "Unfortunately, no. Small and medium-sized dogs are accepted only for stays of 30 nights or more, so a 15-day stay wouldn’t qualify—even if the dog is there for only part of it. For a stay of 30 nights or more, there is an additional charge of $100.000 COP per month.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13103,
+   "output_tokens": 190
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:f24ce54debd9b1a3f449c5cf": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

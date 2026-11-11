@@ -1,0 +1,18 @@
+{
+ "5515ccd22dd7b96aac605020": {
+  "output": {
+   "reply": "Sí, entiendo: pagarías $3.100.000 al mes, mes a mes; no pagarías los 360 días de una sola vez. Ese es el valor mensual de referencia de hoy.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13748,
+   "output_tokens": 257
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:4b83eb1625c8276a4c183825": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

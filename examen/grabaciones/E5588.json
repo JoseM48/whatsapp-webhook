@@ -1,0 +1,39 @@
+{
+ "2849efb5f43854c8a9bda724": {
+  "output": {
+   "reply": "¿De qué mes sería la llegada?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13087,
+   "output_tokens": 122
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:798b92d4606878b646307e6a": {
+  "valid": false,
+  "failure_reasons": [
+   "date_missing:check_in",
+   "required_fact_missing:data_confirmation"
+  ]
+ },
+ "72c07ed636312ced174a85d0": {
+  "output": {
+   "reply": "Entiendo, sería a fin de mes. Para confirmar el dato y cotizar los 6 meses, ¿qué día exacto y de qué mes sería la llegada?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13199,
+   "output_tokens": 269
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:446b44afae09218890e18935": {
+  "valid": false,
+  "failure_reasons": [
+   "date_missing:check_in"
+  ]
+ }
+}

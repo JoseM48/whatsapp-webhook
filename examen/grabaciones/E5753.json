@@ -1,0 +1,18 @@
+{
+ "7d5956f4f1e34f409bab1a9e": {
+  "output": {
+   "reply": "¡Hola! Soy Cami, la asistente virtual de José Manuel, anfitrión de Miu La Frontera con más de 2.000 reseñas y 9 años de experiencia. ¿En qué te puedo ayudar? ¿Buscas un lugar para quedarte o tienes un apartamento para rentar con nosotros?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12745,
+   "output_tokens": 131
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:3507fc34896463b193521de6": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

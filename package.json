@@ -9,7 +9,10 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "examen:cami": "node examen/correr-examen.js --modo grabado",
+    "examen:cami:vivo": "node examen/correr-examen.js --modo vivo --grabar",
+    "examen:cami:real": "node examen/correr-examen.js --modo real"
   },
   "overrides": {
     "gaxios": "7.2.0"

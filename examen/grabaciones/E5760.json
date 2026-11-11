@@ -1,0 +1,18 @@
+{
+ "03a9fe049f45249354532a40": {
+  "output": {
+   "reply": "Para ingresar necesitas presentar tu cédula o pasaporte. El check-in es desde las 3:00 p. m. ¿Qué día llegarías y para cuántas personas sería?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13072,
+   "output_tokens": 241
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:2a9fd4af0103878642bfae74": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

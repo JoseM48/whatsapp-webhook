@@ -1,0 +1,40 @@
+{
+ "91fa678096ef4e1ca966b473": {
+  "output": {
+   "reply": "Perfecto, entiendo que saldrías el 23 de junio de 2027. ¿Qué día de enero llegarías?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12971,
+   "output_tokens": 193
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:f849c46d4e4ecfba20b15928": {
+  "valid": false,
+  "failure_reasons": [
+   "date_missing:check_in",
+   "unauthorized_date:23 de junio de 2027",
+   "required_fact_missing:data_confirmation"
+  ]
+ },
+ "08989976ee50a9c1aac2597a": {
+  "output": {
+   "reply": "Perfecto, entiendo que sería para una persona y que deseas hacer contrato. Antes de seguir necesito confirmar un dato: ¿qué día de enero de 2027 llegarías?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13095,
+   "output_tokens": 199
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:4a20f2b46080ed5fde7e6771": {
+  "valid": false,
+  "failure_reasons": [
+   "date_missing:check_in"
+  ]
+ }
+}

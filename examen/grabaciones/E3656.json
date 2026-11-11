@@ -1,0 +1,36 @@
+{
+ "ff99bce5111bdc4662e9b19e": {
+  "output": {
+   "reply": "Sí, el televisor es Smart TV con Chromecast. Puedes ver Netflix usando tu propia cuenta, además de YouTube.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12881,
+   "output_tokens": 45
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:7ff01cd0ce1790fa2ca1adca": {
+  "valid": false,
+  "failure_reasons": [
+   "required_fact_missing:knowledge_gap_teo"
+  ]
+ },
+ "309e7effdc4c0a420b35fbe2": {
+  "output": {
+   "reply": "Sí, el televisor es Smart TV con Chromecast; puedes ver Netflix usando tu propia cuenta. Hay algo que todavía no tengo confirmado; lo confirmo y te respondo en unos minutos por este chat.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12989,
+   "output_tokens": 225
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:11b605aa35b8ec0eb232f813": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

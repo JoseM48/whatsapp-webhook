@@ -1,0 +1,20 @@
+{
+ "3bb34a1ae50298fa9bbfc221": {
+  "output": {
+   "reply": "Esta es una de las opciones que tenemos para tus fechas, del 19 de noviembre de 2026 al 19 de enero de 2027:\n\nLF-210: estudio privado con balcón, cama queen y espacio de trabajo.\n\n[[PRECIOS]]\n\nTodavía no hay dinero real de por medio: por ahora no se cobra nada. Si te gusta, dime y lo dejo en proceso.",
+   "presented_codes": [
+    "LF-210"
+   ],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13819,
+   "output_tokens": 504
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:8ce96edfdfdd3f1ced55819b": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

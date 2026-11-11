@@ -1,0 +1,37 @@
+{
+ "38636c00969a4012805d0a11": {
+  "output": {
+   "reply": "Entiendo: buscas un estudio por mes. El valor que escribiste quedó incompleto; ¿cuál es el presupuesto mensual exacto que tienes en mente? Puedes escribirlo así: “$1.450.000 al mes”. Para cotizarte necesito además el día de llegada y cuántas personas serían; si prefieres, una persona del equipo te escribe por aquí para ayudarte.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13190,
+   "output_tokens": 570
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:65d86a923090c992d60fa752": {
+  "valid": false,
+  "failure_reasons": [
+   "unauthorized_number:$1.450.000",
+   "unauthorized_digits:1.450.000"
+  ]
+ },
+ "1a57a446a9f579a3696c5e13": {
+  "output": {
+   "reply": "Entiendo: buscas un estudio por mes. El valor que escribiste quedó incompleto; si era tu presupuesto mensual, escríbelo nuevamente de forma clara. Para revisar opciones, puedes responderme así: “llego el [día y mes], somos [número] persona(s)”. Si prefieres, José Manuel también puede escribirte por aquí.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13310,
+   "output_tokens": 313
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:84bd182364f25fdab74f4278": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

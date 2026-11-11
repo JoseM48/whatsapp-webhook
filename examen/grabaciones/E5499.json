@@ -1,0 +1,18 @@
+{
+ "a935663dfde599ec3ba44dd4": {
+  "output": {
+   "reply": "You’re chatting with Cami, Miu La Frontera’s virtual assistant—not José directly. A human team reviews each conversation, and José can speak with you directly if you prefer. There’s one detail I don’t have confirmed yet; I’ll confirm it and reply here in a few minutes.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13275,
+   "output_tokens": 242
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:ba7f0a68f3cf4762781536e0": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

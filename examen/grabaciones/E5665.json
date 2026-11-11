@@ -1,0 +1,18 @@
+{
+ "2736cea43046f660a6349d0e": {
+  "output": {
+   "reply": "Para estadías de 30 noches o más, el precio depende de las fechas, la duración y el apartaestudio. En este momento tenemos una oferta de lanzamiento de $3.000.000 al mes, todo incluido y sin póliza, para llegadas hasta el 30 de noviembre; se separa hasta el 18 de noviembre. ¿Qué día llegarías, cuántas noches necesitas y para cuántas personas sería?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12884,
+   "output_tokens": 292
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:d02da80cc50170a27d071aad": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

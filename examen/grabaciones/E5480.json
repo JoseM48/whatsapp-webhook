@@ -1,0 +1,18 @@
+{
+ "cecfddd28a8426579a30fc34": {
+  "output": {
+   "reply": "Perfecto. La pre-reserva anterior del LF-1109 sigue en trámite; no se cambió nada. José Manuel la revisa y te escribimos por aquí.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13338,
+   "output_tokens": 235
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:a579adacc6ae43ef28be09a1": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

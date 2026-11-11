@@ -1,0 +1,18 @@
+{
+ "4a41af030a0171ec2b2f2f7d": {
+  "output": {
+   "reply": "Got it — LF-1109 is your preferred studio for November 11–25. The small dog request for this 14-night stay needs José Manuel’s personal review, since our pet policy normally applies only to stays of 30 nights or more. I’ll have him review this request here; the apartment is not confirmed yet.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13072,
+   "output_tokens": 190
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:dd20d781e07554520c12e75b": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

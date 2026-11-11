@@ -1,0 +1,39 @@
+{
+ "19441d0bfa8633e45274a430": {
+  "output": {
+   "reply": "Yes, electricity is included for monthly stays, but the included amount depends on the apartment: up to COP 300,000 per month in LF-510 and up to COP 380,000 per month in LF-1208. Any amount above that is charged separately. I don’t yet have the apartment confirmed for your dates; I’ll confirm it and reply here in a few minutes.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13302,
+   "output_tokens": 268
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:0c6b8a8cff2122533fdb386b": {
+  "valid": false,
+  "failure_reasons": [
+   "unauthorized_number:COP 300",
+   "unauthorized_number:COP 380",
+   "apartment_not_authorized:LF-510",
+   "apartment_not_authorized:LF-1208"
+  ]
+ },
+ "4d104b60f9df078455ce14fc": {
+  "output": {
+   "reply": "I don’t have that confirmed yet. I’ll check and reply here in a few minutes.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13438,
+   "output_tokens": 145
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:696cd7032b205b197bd545a1": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

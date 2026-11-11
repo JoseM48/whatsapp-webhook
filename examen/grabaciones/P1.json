@@ -1,0 +1,18 @@
+{
+ "90d2843fd81a3d3cf7f653bf": {
+  "output": {
+   "reply": "Claro. Son apartaestudios completos, privados y amoblados en El Poblado, ideales para estadías desde 3 noches; tienen cocina equipada, TV, internet y parqueadero incluido. Para estadías de 30 noches o más manejamos tarifa mensual, que depende de las fechas y del apartamento. ¿Qué fechas necesitas y para cuántas personas?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12357,
+   "output_tokens": 248
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:80696deacb253ad88e5934fa": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

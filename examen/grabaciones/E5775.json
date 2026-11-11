@@ -1,0 +1,18 @@
+{
+ "50f4d4520835cd8695ee9458": {
+  "output": {
+   "reply": "Sí, sería una estadía mensual. El valor exacto depende de la fecha de llegada, la duración y el apartamento. ¿Qué fecha de llegada tienes prevista y para cuántas personas sería?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13163,
+   "output_tokens": 278
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:b4755d3a614b3a6e68640dbd": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

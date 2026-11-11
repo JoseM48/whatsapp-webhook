@@ -1,0 +1,18 @@
+{
+ "e57d85fae643ab467ae8c0a3": {
+  "output": {
+   "reply": "Para una estadía de 360 noches, del 20 de enero de 2027 al 15 de enero de 2028, la tarifa de referencia de hoy es $3.100.000 al mes. No es una cotización reservable: los precios se revisan cada cierto tiempo y la tarifa final se confirma más cerca de la llegada.\n\nGuarda este número: siempre te podemos cotizar y estamos sumando más apartamentos. ¿Quieres que te anote en la lista de espera? No pagas nada ni adquieres ningún compromiso; cuando se abran esas fechas te escribimos primero con la tarifa vigente y el apartamento.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13470,
+   "output_tokens": 431
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:3179765160510c1ed38b1e4e": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

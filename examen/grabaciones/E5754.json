@@ -1,0 +1,18 @@
+{
+ "db2bf3c0a13542ef34363483": {
+  "output": {
+   "reply": "Claro, sí tenemos apartamentos tipo estudio. Para revisar disponibilidad, ¿qué fecha de llegada tienes, cuántas noches necesitas y para cuántas personas sería?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12739,
+   "output_tokens": 135
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:6a724b2d1d12f291ab4c4ae7": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

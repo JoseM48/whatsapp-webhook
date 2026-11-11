@@ -1,0 +1,18 @@
+{
+ "60ee20e3cb5b7d21f505bd9c": {
+  "output": {
+   "reply": "Recibimos el aviso de pago. Administración está verificando el comprobante; la reserva del LF-1109 todavía no está confirmada. Te avisamos cuando el pago esté conciliado.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13714,
+   "output_tokens": 176
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:d618e63d8dec37ee465cf202": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

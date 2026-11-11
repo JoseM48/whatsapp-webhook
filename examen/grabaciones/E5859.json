@@ -1,0 +1,21 @@
+{
+ "fbdae06f00f30262487ce00f": {
+  "output": {
+   "reply": "Sí, sería pagando mes a mes, no el año completo por adelantado. Estas son algunas de las opciones que tenemos para tus fechas del 20 de enero al 19 de febrero de 2027:\n\n• LF-210: estudio con balcón, cama queen y espacio de trabajo.\n• LF-510: estudio con balcón, lavadora-secadora privada y vista panorámica.\n\n[[PRECIOS]]\n\nEsas fechas exactas todavía no se pueden confirmar. Si quieres avanzar con alguna, te la dejamos pre-confirmada con el precio cotizado, sin pago, y la confirmamos a más tardar 15 días antes de tu llegada. ¿Cuál de los dos prefieres?",
+   "presented_codes": [
+    "LF-210",
+    "LF-510"
+   ],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 15427,
+   "output_tokens": 405
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:33f700b91d047bd55040db2b": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

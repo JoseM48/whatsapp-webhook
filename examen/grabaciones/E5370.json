@@ -1,0 +1,22 @@
+{
+ "c48dbd3cdd2e936ccc96f632": {
+  "output": {
+   "reply": "Perfecto, entonces sería para una persona, del 15 de enero al 23 de junio de 2027. Estas son las opciones para esas fechas:\n\n• LF-1109: ventanal de piso a techo y vista panorámica.\n• LF-210: balcón.\n• LF-510: balcón, vista panorámica y lavadora-secadora privada.\n\n[[PRECIOS]]\n\nEsas fechas exactas todavía no se pueden confirmar. Si quieres avanzar, te las dejo pre-confirmadas con este precio, sin pago, y se confirman a más tardar 15 días antes de tu llegada. ¿Cuál de los tres te interesa?",
+   "presented_codes": [
+    "LF-1109",
+    "LF-210",
+    "LF-510"
+   ],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 15134,
+   "output_tokens": 474
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:2f5baa7711cb8cd86596ac28": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

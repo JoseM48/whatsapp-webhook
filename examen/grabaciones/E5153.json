@@ -1,0 +1,36 @@
+{
+ "0fd3069e46855b8fe0e35527": {
+  "output": {
+   "reply": "No, Emilio: lo que quedó en este chat fue una consulta, no una reserva confirmada ni un pago registrado. Si tienes una reserva por Airbnb, esa debe revisarse directamente allí; José Manuel revisará lo que falta confirmar y te responderemos por este medio.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13170,
+   "output_tokens": 180
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:9b191d27dddd4a25e4f8319d": {
+  "valid": false,
+  "failure_reasons": [
+   "forbidden_claim:reserva_confirmada"
+  ]
+ },
+ "f7321b84c19ab874484381b7": {
+  "output": {
+   "reply": "Correcto: esto fue una consulta, no una confirmación de alojamiento, y por este canal no se registró ningún pago. José Manuel revisará lo que falta confirmar y te responderemos por aquí.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13278,
+   "output_tokens": 207
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:5d142265b91ff5ec421a03cf": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

@@ -1,0 +1,37 @@
+{
+ "8f70b4acacb8381cba9efc59": {
+  "output": {
+   "reply": "Perfecto, Juan. ¿Listo para hacer el pago de $1.187.339 o necesitas que te ayude con algo más?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13532,
+   "output_tokens": 249
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:8ae3cfd0898a94246e6086ad": {
+  "valid": false,
+  "failure_reasons": [
+   "unauthorized_number:$1.187.339",
+   "unauthorized_digits:1.187.339"
+  ]
+ },
+ "7caa738388a3c71065a03c07": {
+  "output": {
+   "reply": "Perfecto. ¿Vas a hacer el pago o necesitas que te ayude con algo más?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13652,
+   "output_tokens": 171
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:7b796f32bcb431f6d1e24295": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

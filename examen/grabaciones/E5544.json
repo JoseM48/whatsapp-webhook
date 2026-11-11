@@ -1,0 +1,38 @@
+{
+ "87071264d4a8274b9a5ef75b": {
+  "output": {
+   "reply": "No alcanzo a identificar a cuál apartamento te refieres; las opciones que te mostré fueron el LF-210 y el LF-510. ¿Cuál de los dos te interesa? Y ¿qué fecha de llegada tienes prevista?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13039,
+   "output_tokens": 259
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:85fce1a2aab541488e3b8410": {
+  "valid": false,
+  "failure_reasons": [
+   "apartment_not_authorized:LF-210",
+   "apartment_not_authorized:LF-510",
+   "required_fact_missing:reference_not_found"
+  ]
+ },
+ "e4ac13b06c31928466f90dac": {
+  "output": {
+   "reply": "No logro identificar a qué apartamento te refieres con “este”. Ese apartamento no está entre las opciones listadas; dime cuál de los estudios de las fotos te interesa y qué día de llegada tendrías.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13167,
+   "output_tokens": 346
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:31abe626272a34a810af7480": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

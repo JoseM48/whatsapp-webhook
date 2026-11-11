@@ -1,0 +1,18 @@
+{
+ "fdcb6289c49e979c3841b718": {
+  "output": {
+   "reply": "Perfecto, entonces eres propietario y buscas apoyo para alquilar tu casa-finca. Con Miu conservas tu propiedad y tu cuenta; el huésped te paga directamente y cobramos el 12 % solo después del check-in, sin mensualidades ni permanencia. El diagnóstico es gratis. ¿Quieres que te cuente cómo trabajamos y qué necesitamos para revisarla?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12721,
+   "output_tokens": 175
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:26ecec77d7b3759c3c640e3d": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

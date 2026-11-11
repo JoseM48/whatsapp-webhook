@@ -1,0 +1,18 @@
+{
+ "3bbef3b465d4b52533796957": {
+  "output": {
+   "reply": "Para tus fechas del 10 de noviembre al 31 de enero de 2027 no tengo disponibilidad. Lo más pronto que puedo recibirte por 82 noches es del 12 de noviembre de 2026 al 2 de febrero de 2027. ¿Te sirve esa fecha? Si prefieres esperar por tus fechas originales, escríbeme \"lista de espera\" y te aviso si se libera algo.\n\nGuarda este número: siempre te podemos cotizar y estamos sumando más apartamentos.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13243,
+   "output_tokens": 423
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:6205b6ff18023973a37dc576": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

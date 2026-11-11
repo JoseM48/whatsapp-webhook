@@ -1,0 +1,39 @@
+{
+ "8333954e43977b3ced7b503f": {
+  "output": {
+   "reply": "Correcto: lo que se gestionó por este WhatsApp no era una reserva. La reserva que mencionaste era la de Airbnb, pero aquí no quedó ninguna reserva ni pago registrados; por eso el guardia no tenía tu ingreso. No puedo confirmar desde aquí el estado de esa reserva de Airbnb; José Manuel revisará lo ocurrido contigo.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13173,
+   "output_tokens": 389
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:944b8a6c958e09256574a5ff": {
+  "valid": false,
+  "failure_reasons": [
+   "denies_reservation"
+  ]
+ },
+ "b362a490bcf9f48b91c24f39": {
+  "output": {
+   "reply": "Para aclararlo: sí, tú me indicaste que tenías una reserva por Airbnb. Lo que no era una reserva independiente hecha por este WhatsApp; aquí solo atendimos tu consulta sobre el ingreso y la llave del LF-210. No puedo confirmar desde este canal el estado actual de la reserva de Airbnb; José Manuel lo va a revisar.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13277,
+   "output_tokens": 367
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:58aa2c0d65c49fcb075ea100": {
+  "valid": false,
+  "failure_reasons": [
+   "apartment_not_authorized:LF-210",
+   "denies_reservation"
+  ]
+ }
+}

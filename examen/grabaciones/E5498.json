@@ -1,0 +1,18 @@
+{
+ "639640b2ae26c0ba88544b23": {
+  "output": {
+   "reply": "No, para una estadía de 15 días no es posible llevarlo, aunque tu perro se quede solo 9 días. Las mascotas pequeñas y medianas se aceptan únicamente en estadías de 30 noches o más, con un cargo adicional de $100.000 COP al mes.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13163,
+   "output_tokens": 164
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:d11b90634195120bb11eab4f": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}
