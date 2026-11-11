@@ -57,8 +57,10 @@ const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-rece
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText, textoDeContactos, avisoNoLeido } = require('./lib/pilot/meta-inbound');
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo,
   demoIdEfectivo,
-  whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS } = require('./lib/pilot/numero-entrante');
+  whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS, clasificarFalloEnvio } = require('./lib/pilot/numero-entrante');
 const { leerConfigReenvio, configReenvioParaLog, despacharReenvios, crearPostAxios } = require('./lib/pilot/reenvio-numeros');
+// QUEDÓ BIEN / NÚMEROS DE MARCA (GO José Manuel 2026-11-11; PMS migraciones 1201-1207).
+const { atenderMarca, separarMarca, crearCacheNumerosMarca, crearMemoriaRemitentesMarca, cuerpoSalidaMarca, despacharSalidasMarca, debeEsperarMarca } = require('./lib/pilot/numero-marca');
 const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, debeReintentar, debeEsperarEquipos, crearMemoriaRemitentes, RUTA_RECLAMAR: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado } = require('./lib/pilot/numero-equipos');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo, audioDelEquipo } = require('./lib/pilot/inbound-media');
@@ -247,6 +249,14 @@ async function enviarEquipos(phoneNumberId, to, { texto, botones }) {
   const phone = normalizePhone(to);
   if (!phone || !phoneNumberId) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
   const response = await axios.post(whatsappMessagesUrl(phoneNumberId), cuerpoInteractivo(phone, { texto, botones }), {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' }, timeout: 15000 });
+  return response.data?.messages?.[0]?.id || null;
+}
+// Marca (Quedó Bien, 2026-11-11): texto, botones o imagen, desde el número de marca que recibió.
+async function enviarMarca(phoneNumberId, to, salida) {
+  const phone = normalizePhone(to);
+  if (!phone || !phoneNumberId) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  const response = await axios.post(whatsappMessagesUrl(phoneNumberId), cuerpoSalidaMarca(phone, salida || {}), {
     headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' }, timeout: 15000 });
   return response.data?.messages?.[0]?.id || null;
 }
@@ -476,6 +486,9 @@ const vozCalls = createVozCallManager({
   // EQUIPOS (2026-11-01): la lista de números es dato del PMS; la línea sale desde el número llamado.
   numerosEquipos: { ids: () => cacheNumerosEquipos.ids(), refrescarSiVencio: () => cacheNumerosEquipos.refrescarSiVencio() },
   sendTextEquipos: (phoneNumberId, to, body) => sendWhatsAppTextFrom(phoneNumberId, to, body),
+  // MARCA (Quedó Bien, 2026-11-11): lista de números del PMS; la línea sale desde el número llamado.
+  numerosMarca: { ids: () => cacheNumerosMarca.ids(), refrescarSiVencio: () => cacheNumerosMarca.refrescarSiVencio(), cargada: () => cacheNumerosMarca.cargada() },
+  sendTextMarca: (phoneNumberId, to, body) => sendWhatsAppTextFrom(phoneNumberId, to, body),
 });
 // Llamadas que quedaron abiertas tras un reinicio: al arrancar y cada 10 min.
 if (vozConfig.habilitada) {
@@ -1048,6 +1061,10 @@ startM0ObservationLoop({ enabled: PMS_LITE_M0_ENABLED, intervalMs: 60_000, name:
 const memoriaRemitentesEquipos = crearMemoriaRemitentes();
 const cacheNumerosEquipos = crearCacheNumeros({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL });
 if (PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET) cacheNumerosEquipos.refrescarSiVencio().catch(() => {});
+// Números de marca (Quedó Bien): misma caché de 60 s, su propia lista en el PMS, sin variable nueva.
+const memoriaRemitentesMarca = crearMemoriaRemitentesMarca();
+const cacheNumerosMarca = crearCacheNumerosMarca({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL });
+if (PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET) cacheNumerosMarca.refrescarSiVencio().catch(() => {});
 
 startM0ObservationLoop({ enabled: Boolean(TENGOCAMELLO_PHONE_NUMBER_ID && PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET), intervalMs: 20_000,
   name: 'tengocamello_outbox_poll', observe: async () => {
@@ -1071,6 +1088,15 @@ startM0ObservationLoop({ enabled: Boolean(PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_
     const r = await despacharSalidasTengoCamello({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL, rutaReclamar: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado, etiqueta: '[equipos]',
       enviarTexto: (to, body, salida) => sendWhatsAppTextFrom(salida.phone_number_id, to, body) });
     if (r.enviados || r.fallidos || r.inciertos) console.log('[equipos] outbox_poll', r);
+  } });
+
+// QUEDÓ BIEN (cola qb_outbox, PMS migración 1205): avisos al cliente y al equipo, desde el número de marca.
+startM0ObservationLoop({ enabled: Boolean(PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET), intervalMs: 20_000,
+  name: 'marca_outbox_poll', observe: async () => {
+    await cacheNumerosMarca.refrescarSiVencio();
+    const r = await despacharSalidasMarca({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL, enviar: enviarMarca, numerosMarca: cacheNumerosMarca,
+      clasificarFallo: clasificarFalloEnvio });
+    if (r.enviados || r.fallidos || r.inciertos) console.log('[marca] outbox_poll', r);
   } });
 
 async function enviarWhatsApp(to, body) {
@@ -1714,9 +1740,20 @@ app.post('/webhook', async (req, res) => {
     if (reenvio.reenviados && !reenvio.body) return res.sendStatus(200);
     const cuerpoEntrante = reenvio.body;
     const opcionesRuteo = { miuId: process.env.PHONE_NUMBER_ID, tengoId: TENGOCAMELLO_PHONE_NUMBER_ID, demoId: TENGOCAMELLO_DEMO_PHONE_NUMBER_ID };
-    let ruteo = separarPorNumero(cuerpoEntrante, { ...opcionesRuteo, equiposIds: cacheNumerosEquipos.ids() });
-    // Solo un número desconocido espera a leer la lista de Equipos: Miu nunca espera.
-    if (ruteo.desconocidos) ruteo = separarPorNumero(cuerpoEntrante, { ...opcionesRuteo, equiposIds: await cacheNumerosEquipos.refrescarSiVencio() });
+    // MARCA (Quedó Bien, 2026-11-11): sus números salen primero del cuerpo; el resto sigue el ruteo de siempre.
+    const reservadosMarca = [opcionesRuteo.miuId, opcionesRuteo.tengoId, opcionesRuteo.demoId];
+    const rutear = (marcaIds, equiposIds) => {
+      const m = separarMarca(cuerpoEntrante, { marcaIds, reservados: reservadosMarca });
+      const r = m.body ? separarPorNumero(m.body, { ...opcionesRuteo, equiposIds })
+        : { miuBody: null, tengoChanges: [], demoChanges: [], equiposChanges: [], desconocidos: 0, idsDesconocidos: [] };
+      return { ...r, marcaChanges: m.marcaChanges };
+    };
+    let ruteo = rutear(cacheNumerosMarca.ids(), cacheNumerosEquipos.ids());
+    // Solo un número desconocido espera a leer las listas de Equipos y de marca: Miu nunca espera.
+    if (ruteo.desconocidos) {
+      const [marcaIds, equiposIds] = await Promise.all([cacheNumerosMarca.refrescarSiVencio(), cacheNumerosEquipos.refrescarSiVencio()]);
+      ruteo = rutear(marcaIds, equiposIds);
+    }
     if (ruteo.desconocidos) console.warn('[webhook] numero_desconocido_ignorado', { count: ruteo.desconocidos, phone_number_ids: ruteo.idsDesconocidos });
     if (ruteo.tengoChanges.length) {
       try {
@@ -1748,12 +1785,27 @@ app.post('/webhook', async (req, res) => {
         transcribirAudio: M0_AUDIO_TRANSCRIPTION_ENABLED ? (mediaId) => inboundAudioTranscriber.transcribe(mediaId) : null,
         descargarAdjunto: (media) => inboundMediaDownloader.adjunto(media) })
         .catch((error) => console.error('[equipos] fallo', { code: error?.code || 'unknown' }));
-      if (debeEsperarEquipos(ruteo)) await atencion;
+      if (debeEsperarEquipos(ruteo) && !ruteo.marcaChanges.length) await atencion;
+    }
+    // MARCA (Quedó Bien): bloque aislado. Nada de Miu, del 7355, del 7354 ni de Equipos.
+    if (ruteo.marcaChanges.length) {
+      const atencionMarca = atenderMarca(ruteo.marcaChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL, enviar: enviarMarca, extractMetaMessages, memoria: memoriaRemitentesMarca,
+        transcribirAudio: M0_AUDIO_TRANSCRIPTION_ENABLED ? (mediaId) => inboundAudioTranscriber.transcribe(mediaId) : null,
+        descargarAdjunto: (media) => inboundMediaDownloader.adjunto(media) })
+        .catch((error) => console.error('[marca] fallo', { code: error?.code || 'unknown' }));
+      if (debeEsperarMarca(ruteo)) await atencionMarca;
+    }
+    // Lista de marcas nunca leída y un número ajeno: pudo ser de una marca. Meta lo reintenta
+    // (503) solo si en ese cuerpo no venía nada más que ya se atendió.
+    if (ruteo.desconocidos && !cacheNumerosMarca.cargada()) {
+      console.error('[marca] lista_no_disponible_mensaje_sin_atender', { count: ruteo.desconocidos, phone_number_ids: ruteo.idsDesconocidos });
+      if (!ruteo.miuBody && !ruteo.tengoChanges.length && !ruteo.demoChanges.length && !ruteo.equiposChanges.length && !ruteo.marcaChanges.length) return res.sendStatus(503);
     }
     // Lista nunca leída y un número ajeno: pudo ser de Equipos. No se pierde en silencio.
     if (ruteo.desconocidos && !cacheNumerosEquipos.cargada()) {
       console.error('[equipos] lista_no_disponible_mensaje_sin_atender', { count: ruteo.desconocidos, phone_number_ids: ruteo.idsDesconocidos });
-      if (debeReintentar(ruteo, cacheNumerosEquipos)) return res.sendStatus(503);
+      // Si el cuerpo trajo algo de marca ya se atendió: un reintento de Meta lo repetiría.
+      if (debeReintentar(ruteo, cacheNumerosEquipos) && !ruteo.marcaChanges.length) return res.sendStatus(503);
     }
     if (!ruteo.miuBody) return res.sendStatus(200);
     req.body = ruteo.miuBody;

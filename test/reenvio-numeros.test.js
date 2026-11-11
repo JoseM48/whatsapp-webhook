@@ -223,7 +223,8 @@ test('index.js: la firma de Meta se valida antes del reenvío; el reenvío no se
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
   const firma = src.indexOf("signatureHeader: req.get('X-Hub-Signature-256')");
   const reenvio = src.indexOf('despacharReenvios(req.body, REENVIO');
-  const ruteo = src.indexOf('separarPorNumero(cuerpoEntrante');
+  // Marca (Quedó Bien, 2026-11-11): el ruteo empieza separando los números de marca del mismo cuerpo.
+  const ruteo = src.indexOf('separarMarca(cuerpoEntrante');
   assert.ok(firma > 0 && reenvio > firma && ruteo > reenvio);
   assert.ok(!/await\s+despacharReenvios/.test(src));
   assert.ok(!/await\s+reenvio\.promesa/.test(src));

@@ -237,3 +237,39 @@ test('Equipos no comparte herramientas comerciales con Miu', () => {
   const chat = new Set(toolsForModel().map((t) => t.name));
   for (const n of eq) assert.equal(chat.has(n), false, n);
 });
+
+// MARCA (Quedó Bien, GO José Manuel 2026-11-11; PMS migraciones 1201-1207). Paridad
+// entre Camis (dominio 25): la asistente de una marca tiene las funciones de Cami (tomar
+// el pedido, cotizar solo lo aprobado, agendar, cobrar por enlace, garantía, pedir una
+// persona, colgar) con la voz, la personalidad y el nombre de config.marca. En el chat
+// lo hace el PMS (reparaciones/cliente.service.js) con los MISMOS servicios del núcleo
+// que llama la voz (reparaciones/voz.service.js). Perfil 'marca'.
+// EXCEPCIÓN DECLARADA: las fotos del daño no se toman por voz; la llamada las pide por
+// el chat del mismo número (en el chat sí llegan como adjunto). Tampoco comparte nada
+// con Miu ni con Equipos, y pedir_persona avisa al responsable de la marca, no a José.
+// Uso aceptable propio: fase 2 (PLAN_QUEDO_BIEN_V1, sección 8); hasta entonces la marca
+// no usa evaluar_uso_aceptable (que avisa a Teo de Miu).
+const PARIDAD_MARCA = Object.freeze({
+  perfil: 'marca',
+  herramientas: ['agendar_visita', 'cancelar_visita', 'enviar_enlace_pago', 'pedir_persona', 'registrar_garantia_reclamo', 'terminar_llamada', 'tomar_dano', 'ver_cotizacion', 'ver_horarios_visita'],
+  excepciones: { fotos_por_voz: 'propia_del_canal' },
+});
+test('marca: perfil declarado, sus herramientas, excepción de fotos y nada de Miu ni de Equipos (2026-11-11)', () => {
+  const { herramientasMarcaVoz, herramientasEquiposVoz, instruccionesCamiMarcaVoz, marcaDesdeInicio, HERRAMIENTAS_COMERCIALES } = require('../lib/voz/cami-voz');
+  const marca = herramientasMarcaVoz().map((t) => t.name).sort();
+  assert.deepEqual(marca, PARIDAD_MARCA.herramientas);
+  assert.deepEqual(marca.filter((n) => HERRAMIENTAS_COMERCIALES.has(n)), []);
+  for (const n of ['consultar_al_equipo', 'evaluar_uso_aceptable', 'ofrecer_paquete_magia', 'solicitar_late_checkout', 'registrar_movimiento', 'consultar_cifras']) {
+    assert.equal(marca.includes(n), false, n);
+  }
+  const miu = new Set(herramientasDeVoz().map((t) => t.name));
+  const equipos = new Set(herramientasEquiposVoz().map((t) => t.name));
+  for (const n of marca.filter((x) => !['terminar_llamada', 'pedir_persona'].includes(x))) {
+    assert.equal(miu.has(n), false, n);
+    assert.equal(equipos.has(n), false, n);
+  }
+  assert.ok(TIPOS.has(PARIDAD_MARCA.excepciones.fotos_por_voz));
+  const t = instruccionesCamiMarcaVoz({ hoy: '2026-11-11', marca: marcaDesdeInicio({ marca_nombre: 'Quedó Bien' }) });
+  assert.match(t, /FOTOS: por teléfono no se toman fotos/);
+  assert.match(t, /no ofrece alojamiento/);
+});
