@@ -1410,3 +1410,21 @@ test('primero Teo: pedir_persona y las instrucciones de ventas no prometen a Jos
   assert.match(ins, /usa pedir_persona y dile que una persona del equipo le escribe por este chat en unos minutos/);
   assert.doesNotMatch(ins, /José Manuel o el equipo le escribe/);
 });
+
+// CO-ANFITRIÓN (PMS migración 1197; paridad dominio 25): huésped de Airbnb de un
+// alojamiento de un propietario. Fuera de La Frontera, nada de La Frontera.
+test('co-anfitrión: contexto del alojamiento del propietario en la llamada', () => {
+  const { textoCoanfitrionVoz } = require('../lib/voz/cami-voz');
+  const fuera = instruccionesCamiVoz({ hoy: '2026-11-11', huespedAirbnb: true,
+    estadiaCoanfitrion: { alojamiento: 'Finca Betulia', en_la_frontera: false, hora_checkin: '14:00' } });
+  assert.match(fuera, /huésped de Airbnb de "Finca Betulia"/);
+  assert.match(fuera, /NO está en el edificio La Frontera/);
+  assert.match(fuera, /El check-in es desde las 14:00/);
+  assert.match(fuera, /No le ofrezcas reservar ni pagar por fuera de Airbnb/);
+  const dentro = textoCoanfitrionVoz({ alojamiento: 'Loft El Poblado', en_la_frontera: true, hora_checkin: '15:00' });
+  assert.doesNotMatch(dentro, /NO está en el edificio/);
+  assert.equal(textoCoanfitrionVoz(null), null);
+  assert.equal(textoCoanfitrionVoz({ alojamiento: '' }), null);
+  assert.equal(textoCoanfitrionVoz('texto suelto'), null);
+  assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-11', huespedAirbnb: true }), /anfitrión aliado/);
+});
