@@ -1276,6 +1276,19 @@ test('voz: con direccion_estadia del PMS, Cami tiene la dirección exacta para d
   assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-10-28', direccionEstadia: 'texto suelto' }), /reserva CONFIRMADA/);
 });
 
+// SALDO DEL HUÉSPED (Teo, 2026-11-11; caso lead 192; paridad dominio 25): el PMS manda lo
+// abierto en Cartera; la voz lo dice exacto y no negocia.
+test('voz: con saldo_estadia del PMS, Cami dice el saldo exacto de Cartera; sin él, nada', () => {
+  const texto = 'Tiene pendiente 590.792 pesos de hospedaje de las noches del 4 al 9 de noviembre de 2026; y 596.547 pesos de hospedaje de las noches del 9 al 12 de noviembre de 2026. En total, 1.187.339 pesos.';
+  const con = instruccionesCamiVoz({ hoy: '2026-11-11', saldoEstadia: { apartamento: 'LF-1109', texto, total: 1187339 } });
+  assert.match(con, /saldo de Cartera de esta persona \(su hospedaje en el 1109\)/);
+  assert.match(con, /1\.187\.339 pesos/);
+  assert.match(con, /no ofrezcas descuentos/);
+  assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-11' }), /saldo de Cartera/);
+  assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-11', saldoEstadia: { apartamento: 'LF-1109' } }), /saldo de Cartera/);
+  assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-11', saldoEstadia: 'texto suelto' }), /saldo de Cartera/);
+});
+
 // SALIDA Y LATE CHECK-OUT (José Manuel, 2026-10-26; PMS migración 1032; paridad, dominio 25).
 const REGLA_PMS = 'La salida (check-out) es a más tardar a las 11:00 a. m. Si necesitas más tiempo, el late check-out hasta las 12:00 m. cuesta COP 100.000 y está sujeto a disponibilidad.';
 const REGLA_EARLY = 'El check-in es desde las 3:00 p. m. Si necesitas entrar antes, el early check-in desde las 2:00 p. m. cuesta COP 100.000 y está sujeto a disponibilidad.';
