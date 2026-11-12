@@ -37,7 +37,7 @@ test('el redactor recibe la nota "repeticion:" y el nombre que manda el PMS', ()
 });
 
 test('llamada: las mismas tres reglas en las instrucciones de voz', () => {
-  assert.equal(CAMI_ENTIENDE_VOZ.length, 2);
+  assert.equal(CAMI_ENTIENDE_VOZ.length, 3); // + CLIENTE INDECISO (2026-11-12)
   const comercial = instruccionesCamiVoz({ hoy: '2026-11-10' });
   assert.match(comercial, /PRIMERO ENTIENDE QUÉ NECESITA/);
   assert.match(comercial, /no supongas que busca alojamiento ni le pidas fechas/);
