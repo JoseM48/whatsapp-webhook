@@ -1,0 +1,18 @@
+{
+ "afd909f99325b0e639fc54e7": {
+  "output": {
+   "reply": "Sí, tenemos apartamentos amoblados tipo estudio para estadías de 30 noches o más. También emitimos factura electrónica a nombre de la empresa; los datos de facturación se piden al reservar. ¿Qué fecha de llegada y cuántas noches necesitas, y para cuántas personas sería?",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 12809,
+   "output_tokens": 283
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:66c73ed06d72bf04dabde575": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

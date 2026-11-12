@@ -1,0 +1,40 @@
+{
+ "e33f3096733222e7ecefe449": {
+  "output": {
+   "reply": "El LF-210 tiene este valor para 2 personas:\n\n[[PRECIOS]]\n\nPor ahora no se cobra nada. Si te gusta, me dices y avanzamos con ese apartamento.",
+   "presented_codes": [
+    "LF-210"
+   ],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13854,
+   "output_tokens": 357
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:1019eeeb1503cb39d6eb32d9": {
+  "valid": false,
+  "failure_reasons": [
+   "required_fact_missing:options_some"
+  ]
+ },
+ "99b49b15f1cde2d423532cf8": {
+  "output": {
+   "reply": "Esta es una de las opciones que tenemos para tus fechas, cotizada para 2 personas. Si son más, dímelo y ajusto la cotización.\n\nLF-210\n[[PRECIOS]]\n\nTodavía no hay dinero real de por medio: por ahora no se cobra nada. Si te interesa, me dices y avanzamos con esta opción.",
+   "presented_codes": [
+    "LF-210"
+   ],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13960,
+   "output_tokens": 356
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:2516216878849af5e4c68022": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

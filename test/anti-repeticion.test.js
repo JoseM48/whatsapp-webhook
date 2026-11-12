@@ -76,11 +76,13 @@ test('confundida: si nada sale distinto, Cami pregunta qué aclarar (nunca el mi
   assert.doesNotMatch(r.text, /\$|\d{3}/);
 });
 
-test('sin señal de confusión no cambia nada (mismo paquete, sin bloque de repetición)', async () => {
+test('sin señal de confusión: sin bloque de repetición; un borrador casi igual se regenera una vez (2026-11-11)', async () => {
   const e = escenario([IGUAL]);
   const r = await resolveWrittenReply({ packet: PAQUETE, provider: e.provider, pms: e.pms, guestText: '20 de enero', transcript: TRANSCRIPT, today: '2026-11-11', logger: { info() {}, error() {} } });
+  // Los dos borradores son casi iguales al mensaje anterior: sale el último validado, no el texto del sistema.
   assert.equal(r.text, IGUAL);
-  assert.equal(r.attempts, 1);
+  assert.equal(r.attempts, 2);
+  assert.deepEqual(r.failure_reasons, ['casi_igual_al_anterior', 'casi_igual_al_anterior']);
   assert.doesNotMatch(e.vistos[0], /REPETITION GUARD/);
   assert.equal(e.validados[0].packet, PAQUETE);
 });

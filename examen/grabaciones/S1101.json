@@ -1,0 +1,20 @@
+{
+ "ff213cdafa4318fd47379c09": {
+  "output": {
+   "reply": "Sí, emitimos factura electrónica a nombre de tu empresa. Los datos de facturación los pedimos al reservar; todavía no hay dinero real de por medio, por ahora no se cobra nada.\n\nEsta es una de las opciones que tenemos para tus fechas: el LF-210 es un estudio privado con balcón, cama queen, cocina equipada y espacio de trabajo.\n\n[[PRECIOS]]\n\nSi te gusta, me dices y avanzamos con esta opción.",
+   "presented_codes": [
+    "LF-210"
+   ],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13843,
+   "output_tokens": 281
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:1305308262f4d1dc3f17bfa6": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

@@ -1,0 +1,36 @@
+{
+ "4558dc9f9569b22cf4980d09": {
+  "output": {
+   "reply": "La lavadora-secadora propia está confirmada solo en el LF-510. En el LF-210 puedes usar la lavandería común del primer piso, disponible de 7:00 a. m. a 9:00 p. m.; funciona con tarjeta de crédito.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13314,
+   "output_tokens": 190
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:9581d38e3170ecb8758c820a": {
+  "valid": false,
+  "failure_reasons": [
+   "unpublished_attribute:secadora"
+  ]
+ },
+ "6787afe158ba3b32512980d7": {
+  "output": {
+   "reply": "El LF-510 sí tiene lavadora propia. En los demás no tengo confirmado que haya lavadora dentro del apartamento, pero todos pueden usar la lavandería del primer piso, de 7:00 a. m. a 9:00 p. m.; se activa con tarjeta de crédito.",
+   "presented_codes": [],
+   "send_photos": []
+  },
+  "usage": {
+   "input_tokens": 13420,
+   "output_tokens": 225
+  },
+  "model": "gpt-5.6-luna"
+ },
+ "v:10b8bb3a77cb0d9d3e96c276": {
+  "valid": true,
+  "failure_reasons": []
+ }
+}

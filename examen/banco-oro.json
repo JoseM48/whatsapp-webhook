@@ -16588,6 +16588,1352 @@
    },
    "nota": "Pregunta de identidad: decir que es Cami, la asistente virtual. No es una brecha.",
    "lead": 285
+  },
+  {
+   "id": "S1101",
+   "capa": "cami",
+   "grupo": "simulados:factura_antes_de_cotizar",
+   "origen": {
+    "tipo": "simulado",
+    "fuente": "docs/08_AUDITORIAS/PRUEBAS_CAMI_SIMULADOS_20261111.md",
+    "fecha": "2026-11-11",
+    "caso": "ejecutivo #1"
+   },
+   "hoy": "2026-11-11",
+   "texto": "Del 19 nov 2026 al 19 enero 2027, 1 persona. ¿Emiten factura electrónica a nombre de mi empresa?",
+   "antes": [
+    {
+     "role": "guest",
+     "text": "Hola Cami, busco un estudio amoblado por meses en Medellín"
+    },
+    {
+     "role": "cami",
+     "text": "¡Hola! Soy Cami, la asistente virtual de José Manuel, anfitrión de Miu La Frontera con más de 2.000 reseñas y 9 años de experiencia. ¿Qué fechas necesitas y para cuántas personas?"
+    }
+   ],
+   "interpretacion": {
+    "acceptable_use": null,
+    "accepts_offer": false,
+    "ambiguity": [],
+    "budget_cop": null,
+    "budget_period": "absent",
+    "cancellation_request": false,
+    "check_in": "2026-11-19",
+    "check_in_source": "model_interpreted",
+    "check_in_status": "valid",
+    "check_out": "2027-01-19",
+    "check_out_source": "calculated",
+    "check_out_status": "valid",
+    "contact_route": {
+     "barrio": null,
+     "confidence": 1,
+     "route": "guest",
+     "summary": null
+    },
+    "corrections": [],
+    "duration_kind": "exact",
+    "exception_request": true,
+    "guest_composition": null,
+    "guest_name": null,
+    "guests": 1,
+    "intent": "lodging_search",
+    "knowledge_topics": [],
+    "language": "es",
+    "missing_fields": [],
+    "needs_clarification": false,
+    "nights": 61,
+    "payment_reported": false,
+    "preferences": [
+     "estudio amoblado",
+     "estadía por meses",
+     "Medellín"
+    ],
+    "price_objection": false,
+    "provided_fields": [
+     "check_in",
+     "nights",
+     "guests",
+     "preferences"
+    ],
+    "references": [],
+    "requested_apartment_code": null,
+    "requested_apartment_code_status": "absent",
+    "requests_human": false,
+    "requirements": [],
+    "uncertainty": 0.020000000000000018,
+    "unmapped_meaning": null,
+    "visitors_question": false
+   },
+   "paquete": {
+    "accepts": {
+     "media_max": 60,
+     "media_reason": true,
+     "media_url": true,
+     "superseded": true,
+     "superseded_reason": true,
+     "writer_provenance": true
+    },
+    "action": "PROPUESTA PRESENTADA",
+    "action_result": {
+     "action": "PROPUESTA PRESENTADA",
+     "summary": "Se presentaron opciones reales con disponibilidad y precio autorizado. Para dejar una en trámite el huésped debe elegirla (sin dinero real todavía)."
+    },
+    "allowed_moves": [
+     "present_subset",
+     "compare_options",
+     "ask_one",
+     "advance_to_selection"
+    ],
+    "apartments": [
+     "LF-210"
+    ],
+    "building_facts": [
+     "Parqueadero para todos los apartamentos, incluido, cubierto y dentro del edificio; si lo necesitas, recepción te asigna el espacio al registrarte.",
+     "Check-in desde las 3:00 p. m. y check-out hasta las 11:00 a. m.",
+     "Todos los apartamentos de Miu La Frontera son estudios: un solo ambiente, entero y privado, sin dormitorio independiente. No hay apartamentos de una o dos alcobas.",
+     "Recepción (front desk) atendida las 24 horas, todos los días.",
+     "El edificio tiene una terraza común en la azotea, en el piso 14 (equivale a una planta 15), con vista de 360° sobre la ciudad; no tiene dotación. Horario de 8:00 a. m. a 5:00 p. m., pidiendo autorización en recepción.",
+     "Todos los apartamentos tienen TV, cocina equipada e internet propio de buena calidad (cada apartamento tiene el suyo), por wifi o por cable.",
+     "Miu La Frontera está en El Poblado, Medellín, cerca del Mall La Frontera. Por ahora es nuestra única ubicación: no tenemos apartamentos en otras zonas.",
+     "Por el momento solo ofrecemos estudios completos; no alquilamos habitaciones.",
+     "En estadías de 30 noches o más, para separar se paga un anticipo de COP 600.000.",
+     "En estadías de 30 noches o más, antes de la llegada se paga el primer mes, sin descontar el anticipo; en más de 30 noches el resto se puede pagar mes a mes.",
+     "En estadías de 30 noches o más, al pagar el primer mes el anticipo queda como depósito por posibles daños y se devuelve al finalizar la estadía si todo está bien.",
+     "El piso de cada apartamento se lee en su número: LF-210 piso 2, LF-404 piso 4, LF-510 piso 5, LF-904 piso 9, LF-1109 piso 11, LF-1208 piso 12. El primer piso del edificio es de parqueaderos, así que cada apartamento queda una planta más arriba de lo que indica su piso.",
+     "Visitas antes de reservar: entre semana lo ideal es de 11:00 a. m. a 3:00 p. m., pero se puede en otros horarios porque la recepción es 24 horas. José Manuel, que envía la autorización, la coordina de 8:00 a. m. a 9:00 p. m. por este medio.",
+     "Sobre el ruido: los estudios son enteros y privados, en un edificio residencial con horarios de silencio. No se permiten fiestas.",
+     "Visitas: desde 28 noches la estadía es una renta larga y el inquilino decide quién entra de visita o se queda a dormir, sin superar la capacidad del apartamento. En reservas de menos de 28 noches el edificio no permite visitantes: solo entran las personas autorizadas en la reserva. Si quieres que alguien te visite, avísanos antes de tu llegada para autorizarlo; la reserva queda registrada con esas personas y al hacer el check-in debes dar sus nombres. Quien no se nombre en el check-in no puede agregarse después.",
+     "Todos los estudios tienen unos 32 m².",
+     "Los bebés no cuentan en la capacidad del apartamento. No tenemos cuna.",
+     "Para el ingreso se pide identificación: cédula o pasaporte.",
+     "Los estudios son solo para alojamiento: no se permite usarlos para actividades comerciales (por ejemplo, masajes), sesiones de fotos ni fiestas.",
+     "Si necesitas factura electrónica a nombre de una empresa, se requiere el RUT; si la empresa es nacional, se factura con IVA. Con el pago y el RUT, la factura se envía al siguiente día hábil.",
+     "Servicios públicos en estadías mensuales: en el LF-510 se incluyen hasta $300.000 COP al mes y en el LF-1208 hasta $380.000 COP al mes; si el consumo de un mes supera ese valor, el excedente se cobra con la factura del período.",
+     "Para grupos que no caben en un solo estudio podemos ofrecer dos estudios en el mismo edificio.",
+     "El aeropuerto internacional José María Córdova (Rionegro) queda a unos 45–60 minutos en taxi por el Túnel de Oriente, según el tráfico. El aeropuerto Olaya Herrera, de vuelos nacionales, queda a unos 15–20 minutos.",
+     "Accesibilidad: el edificio tiene ascensores que llegan a todos los pisos, y también se puede entrar desde el parqueadero en los sótanos, con ascensor y sin escalones. Una silla de ruedas entra por la puerta principal de los apartaestudios, pero no por la puerta del baño. El baño es pequeño y estándar: la ducha no tiene escalón, pero no tiene barras de apoyo. Todos los apartaestudios tienen el mismo acceso por ascensor.",
+     "Si preguntan si hablan con una persona o con un bot: Soy Cami, la asistente virtual de Miu La Frontera. Detrás hay un equipo de personas que revisa cada conversación, y si prefieres, José Manuel te atiende directamente.",
+     "Oferta de lanzamiento (temporal, para las 3 primeras reservas): estadías de 30 noches o más con llegada hasta el 30 de noviembre, a $3.000.000 al mes todo incluido y sin póliza, separando hasta el 18 de noviembre.",
+     "Con la oferta de lanzamiento se separa con $50.000; el día de la llegada, después de ver el apartamento, se paga el primer mes y el depósito de $600.000 por posibles daños, y los $50.000 se abonan a ese pago.",
+     "Teléfono de la recepción del edificio (atendida las 24 horas): [telefono].",
+     "Internet: cada apartamento tiene su propio router y la velocidad es buena. Si necesitas más velocidad, puedes conectar tu computador por cable directamente al router. Si el internet falla, escríbenos y lo revisamos lo antes posible.",
+     "Televisión: el televisor es Smart TV con Chromecast. Puedes ver YouTube y Netflix con tu propia cuenta, y la televisión colombiana en vivo en YouTube (por ejemplo, buscando \"Caracol en vivo\").",
+     "Mini-mercado a domicilio: [telefono]. También hay domicilios por la app Rappi.",
+     "Cerca del edificio: para el desayuno, Buñuelos de Oriente, a una cuadra y media (en la bomba de gasolina); para almuerzo, cena, cafés y cajeros, el Mall La Frontera (a 3 cuadras) y la plazoleta de comidas del Mall São Paulo (a 4 cuadras); los supermercados Euro y Carulla quedan a unas 5 cuadras.",
+     "Agua caliente (calentador a gas): verifica que el paso de gas esté abierto, deja la perilla de presión casi al mínimo y la de temperatura casi al máximo. Si hay algún inconveniente, avísanos.",
+     "Transporte y tours: no tenemos alianzas con empresas de transporte ni de tours; para moverte puedes usar las apps de movilidad.",
+     "Guardado de maletas: sin costo hasta las 9:00 p. m. del día del check-out (el check-out es hasta las 11:00 a. m.).",
+     "Lavandería en el primer piso, de 7:00 a. m. a 9:00 p. m. Se activa con tarjeta de crédito (las instrucciones están en el lugar).",
+     "Limpieza adicional durante la estadía: se puede pedir, sujeta a disponibilidad. Cami le pasa la solicitud a Operaciones y se confirma el valor y el horario.",
+     "Medidas de las camas: la cama queen mide 160 × 190 cm y la cama doble mide 140 × 190 cm (la doble solo está en el LF-510). El tamaño del sofá cama no está confirmado.",
+     "El edificio queda a cuadra y media de la Avenida El Poblado (Carrera 43A), cerca del Mall La Frontera y del Mall São Paulo.",
+     "Domicilios: la portería deja subir los domicilios al apartamento. Al pedir, da siempre el número de tu apartamento (por ejemplo, 904). A veces el domiciliario prefiere no subir; si pasa, puedes bajar a recibirlo en la portería. Una propina ayuda."
+    ],
+    "case_state": "proposal_presented",
+    "components": [
+     "search"
+    ],
+    "dates": [
+     {
+      "formatted": "2026-11-19",
+      "id": "check_in"
+     },
+     {
+      "formatted": "2027-01-19",
+      "id": "check_out"
+     }
+    ],
+    "deterministic_text": "Esta es una de las opciones que tenemos del 19 de noviembre al 19 de enero de 2027 para 1 persona:\nLF-210: $3.736.297 al mes · 61 noches\n\nValor fijo durante tu estadía; en estadías de más de 3 meses se revisa cada 3 meses.\nPara reservar pagas una confirmación de $300.000 por Wompi, que se descuenta de tu primer mes; con ese pago las fechas quedan bloqueadas a tu nombre. Antes de entrar pagas el primer mes y un depósito de $600.000 que se te devuelve al check-out si todo está bien.\n\nTarifa MIU Flex, limpieza incluida.\n\nResponde con el código del apartamento que prefieras para dejarlo en trámite (sin dinero real todavía).\n\nSí, emitimos factura electrónica a nombre de tu empresa; los datos para la factura te los pido cuando hagas la reserva.",
+    "facts": [],
+    "first_contact": false,
+    "forbidden_claims": [
+     "reserva_confirmada",
+     "disponibilidad_confirmada_sin_cotizar",
+     "excepcion_aprobada",
+     "excepcion_rechazada",
+     "precio_distinto_a_numbers",
+     "accion_interna_ejecutada",
+     "eleccion_afirmada",
+     "logica_interna_revelada",
+     "precio_no_disponible",
+     "anticipo_descontado_del_total"
+    ],
+    "knowledge_sources": [],
+    "notes": [],
+    "numbers": [
+     {
+      "formatted": "$3.736.297",
+      "id": "precio.bloque.1",
+      "label": "cifra del bloque de precios (solo dentro del bloque)"
+     },
+     {
+      "formatted": "$300.000",
+      "id": "precio.bloque.2",
+      "label": "cifra del bloque de precios (solo dentro del bloque)"
+     },
+     {
+      "formatted": "$600.000",
+      "id": "precio.bloque.3",
+      "label": "cifra del bloque de precios (solo dentro del bloque)"
+     },
+     {
+      "formatted": "$300.000",
+      "id": "confirmacion_sin_bloqueo",
+      "label": "pago de confirmación (se descuenta del primer mes)"
+     },
+     {
+      "formatted": "$600.000",
+      "id": "deposito_reembolsable",
+      "label": "depósito reembolsable"
+     }
+    ],
+    "packet_version": 2,
+    "pending": [],
+    "presentation": {
+     "candidates": [
+      {
+       "bookable_now": true,
+       "code": "LF-210",
+       "options": [
+        {
+         "deposit": "$600.000",
+         "price_text": "$3.736.297 al mes · 61 noches",
+         "requires_policy": false,
+         "total": "$3.736.297 al mes · 61 noches"
+        }
+       ]
+      }
+     ],
+     "cover_codes": [
+      "LF-210"
+     ],
+     "max": 1,
+     "min": 1,
+     "mode": "candidates",
+     "phrase": "Esta es una de las opciones que tenemos",
+     "phrasing": "some"
+    },
+    "presentation_source": "deterministic",
+    "price_presentation": {
+     "amounts": [
+      "$3.736.297",
+      "$300.000",
+      "$600.000"
+     ],
+     "block_codes": [
+      "LF-210"
+     ],
+     "block_text": "LF-210: $3.736.297 al mes · 61 noches\n\nValor fijo durante tu estadía; en estadías de más de 3 meses se revisa cada 3 meses.\nPara reservar pagas una confirmación de $300.000 por Wompi, que se descuenta de tu primer mes; con ese pago las fechas quedan bloqueadas a tu nombre. Antes de entrar pagas el primer mes y un depósito de $600.000 que se te devuelve al check-out si todo está bien.",
+     "blocks": [
+      {
+       "codes": [
+        "LF-210"
+       ],
+       "text": "LF-210: $3.736.297 al mes · 61 noches\n\nValor fijo durante tu estadía; en estadías de más de 3 meses se revisa cada 3 meses.\nPara reservar pagas una confirmación de $300.000 por Wompi, que se descuenta de tu primer mes; con ese pago las fechas quedan bloqueadas a tu nombre. Antes de entrar pagas el primer mes y un depósito de $600.000 que se te devuelve al check-out si todo está bien."
+      }
+     ],
+     "hidden_totals": [
+      "$7.597.138"
+     ],
+     "placeholder": "[[PRECIOS]]",
+     "version": "presentacion_precios_v2"
+    },
+    "questions_to_ask": [],
+    "required_disclosures": [
+     {
+      "id": "options_some",
+      "text": "Esta es una de las opciones que tenemos"
+     },
+     {
+      "id": "no_real_money",
+      "text": "sin dinero real todavía"
+     }
+    ],
+    "required_facts": [
+     {
+      "id": "options_some",
+      "patterns": [
+       "algunas de (las|nuestras) opciones",
+       "una de (las|nuestras) opciones",
+       "some of (our|the) options",
+       "one of (our|the) options"
+      ],
+      "statement": "Se presentan una o dos opciones diciendo \"esta es una de las opciones\" o \"estas son algunas de las opciones\"."
+     },
+     {
+      "id": "no_real_money",
+      "patterns": [
+       "sin dinero",
+       "no hay dinero",
+       "todav[ií]a no (te |se )?(cobr|pag)",
+       "sin (ning[uú]n )?(pago|cobro|anticipo por ahora)",
+       "no (se )?(te )?cobra",
+       "no pagas nada",
+       "no te cobro",
+       "nada de dinero",
+       "sin compromiso de pago",
+       "no money",
+       "no payment",
+       "nothing to pay",
+       "no charge"
+      ],
+      "statement": "Todavía no hay dinero real de por medio: por ahora no se cobra nada."
+     },
+     {
+      "id": "factura_prospecto",
+      "statement": "Sí, emitimos factura electrónica a nombre de su empresa; los datos de facturación se piden al reservar. No pidas NIT, RUT ni correo ahora y no digas que la factura está en trámite.",
+      "patterns": [
+       "factur",
+       "invoice"
+      ]
+     }
+    ],
+    "semantic_claims": [
+     {
+      "concept": "availability",
+      "id": "availability",
+      "state": "affirmative"
+     }
+    ],
+    "suggested_goals": [],
+    "ui": {
+     "message_kind": "text",
+     "photo_target_codes": []
+    },
+    "unit_comparison": {
+     "attributes": [
+      {
+       "key": "capacity",
+       "label_es": "capacidad máxima",
+       "values": {
+        "LF-210": 2
+       }
+      },
+      {
+       "key": "beds",
+       "label_es": "camas",
+       "values": {
+        "LF-210": [
+         "cama queen"
+        ]
+       }
+      },
+      {
+       "key": "floor",
+       "label_es": "piso",
+       "values": {
+        "LF-210": 2
+       }
+      },
+      {
+       "key": "approx_area_m2",
+       "label_es": "área aproximada en m²",
+       "values": {
+        "LF-210": 32
+       }
+      },
+      {
+       "key": "air_conditioning",
+       "label_es": "aire acondicionado",
+       "values": {
+        "LF-210": false
+       }
+      },
+      {
+       "key": "fan",
+       "label_es": "ventilador",
+       "values": {
+        "LF-210": true
+       }
+      },
+      {
+       "key": "balcony",
+       "label_es": "balcón",
+       "values": {
+        "LF-210": true
+       }
+      },
+      {
+       "key": "floor_to_ceiling_window",
+       "label_es": "ventanal de piso a techo",
+       "values": {
+        "LF-210": false
+       }
+      },
+      {
+       "key": "panoramic_view",
+       "label_es": "vista panorámica",
+       "values": {
+        "LF-210": false
+       }
+      },
+      {
+       "key": "private_laundry",
+       "label_es": "lavadora-secadora privada",
+       "values": {
+        "LF-210": false
+       }
+      },
+      {
+       "key": "shared_paid_laundry",
+       "label_es": "lavandería compartida de pago",
+       "values": {
+        "LF-210": true
+       }
+      },
+      {
+       "key": "workspace",
+       "label_es": "espacio de trabajo",
+       "values": {
+        "LF-210": true
+       }
+      }
+     ],
+     "exclusive_true": {
+      "LF-210": []
+     }
+    },
+    "unit_context": [
+     {
+      "capacity": 2,
+      "code": "LF-210",
+      "extras": [],
+      "facts": {
+       "air_conditioning": false,
+       "approx_area_m2": 32,
+       "balcony": true,
+       "beds": [
+        "cama queen"
+       ],
+       "capacity": 2,
+       "fan": true,
+       "floor": 2,
+       "floor_to_ceiling_window": false,
+       "panoramic_view": false,
+       "private_laundry": false,
+       "shared_paid_laundry": true,
+       "workspace": true
+      },
+      "highlights_es": [
+       "Balcón",
+       "Cama queen, para 1 o 2 personas"
+      ],
+      "informative": [
+       {
+        "label_es": "Vista limitada",
+        "value": true
+       }
+      ],
+      "profile_facts": [
+       "Estudio de un solo ambiente, entero y privado, sin dormitorio independiente.",
+       "Baño completo privado.",
+       "Cocina equipada con nevera (refrigerador y congelador) y hervidor; el inventario de utensilios puede variar entre apartamentos.",
+       "Internet Wi-Fi y cableado.",
+       "Smart TV con Chromecast, para YouTube y streaming; el streaming de pago usa las cuentas del huésped.",
+       "Agua caliente, lencería, toallas, almohadas y cobijas.",
+       "Clóset y ganchos; secador y plancha por solicitud.",
+       "La limpieza incluida es la de entrega del apartamento; las limpiezas adicionales tienen costo y se agendan según disponibilidad.",
+       "Siempre se dejan jabón lavaloza, jabón de baño y papel higiénico como dotación inicial, sin reposición incluida."
+      ],
+      "public_title": "Estudio con balcón y cama queen",
+      "published_sheet": true,
+      "summary": "Estudio privado de aproximadamente 32 m² en el piso 2, con cama queen, balcón, ventilador, cocina equipada y espacio de trabajo.",
+      "unknown": []
+     }
+    ]
+   },
+   "real": [],
+   "real_anulado": false,
+   "afirmaciones": {
+    "contiene_alguno": [
+     "factura"
+    ],
+    "contiene_alguno_2": [
+     "3.736.297"
+    ],
+    "no_contiene": [
+     "nit",
+     "razon social",
+     "rut ",
+     "contadora",
+     "en tramite"
+    ]
+   },
+   "conocimiento": {
+    "direccion": "aproximada",
+    "oferta": true
+   }
+  },
+  {
+   "id": "S1102",
+   "capa": "cami",
+   "grupo": "simulados:factura_antes_de_cotizar",
+   "origen": {
+    "tipo": "simulado",
+    "fuente": "docs/08_AUDITORIAS/PRUEBAS_CAMI_SIMULADOS_20261111.md",
+    "fecha": "2026-11-11",
+    "caso": "ejecutivo #12"
+   },
+   "hoy": "2026-11-11",
+   "texto": "Hola, ¿tienen apartamentos amoblados por meses? ¿Emiten factura electrónica a empresa?",
+   "antes": [
+    {
+     "role": "guest",
+     "text": "hola buenas tardes como estas?"
+    },
+    {
+     "role": "cami",
+     "text": "¡Hola! Soy Cami, la asistente virtual de José Manuel, anfitrión de Miu La Frontera con más de 2.000 reseñas y 9 años de experiencia. ¡Muy bien, gracias! ¿En qué te puedo ayudar? ¿Buscas un lugar para quedarte o tienes un apartamento para rentar con nosotros?"
+    }
+   ],
+   "interpretacion": {
+    "acceptable_use": null,
+    "accepts_offer": false,
+    "ambiguity": [],
+    "budget_cop": null,
+    "budget_period": "absent",
+    "cancellation_request": false,
+    "check_in": null,
+    "check_in_source": "none",
+    "check_in_status": "absent",
+    "check_out": null,
+    "check_out_source": "none",
+    "check_out_status": "absent",
+    "contact_route": {
+     "barrio": null,
+     "confidence": 0.99,
+     "route": "guest",
+     "summary": null
+    },
+    "corrections": [],
+    "duration_kind": "none",
+    "exception_request": true,
+    "guest_composition": null,
+    "guest_name": null,
+    "guests": null,
+    "intent": "lodging_search",
+    "knowledge_topics": [],
+    "language": "es",
+    "missing_fields": [
+     "check_in",
+     "check_out_or_nights",
+     "guests"
+    ],
+    "needs_clarification": true,
+    "nights": null,
+    "payment_reported": false,
+    "preferences": [],
+    "price_objection": false,
+    "provided_fields": [],
+    "references": [],
+    "requested_apartment_code": null,
+    "requested_apartment_code_status": "absent",
+    "requests_human": false,
+    "requirements": [],
+    "uncertainty": 0,
+    "unmapped_meaning": null,
+    "visitors_question": false
+   },
+   "paquete": {
+    "accepts": {
+     "media_max": 60,
+     "media_reason": true,
+     "media_url": true,
+     "superseded": true,
+     "superseded_reason": true,
+     "writer_provenance": true
+    },
+    "action": "RESPONDER FACTURA A PROSPECTO",
+    "action_result": {
+     "action": "CLARIFICAR SOLICITUD",
+     "summary": "Faltan datos para cotizar; ver suggested_goals."
+    },
+    "allowed_moves": [],
+    "apartments": [],
+    "building_facts": [],
+    "case_state": "created",
+    "components": [
+     "search"
+    ],
+    "dates": [],
+    "deterministic_text": "Sí, emitimos factura electrónica a nombre de tu empresa; los datos para la factura te los pido cuando hagas la reserva. ¿Qué fechas necesitas y para cuántas personas?",
+    "facts": [],
+    "first_contact": false,
+    "forbidden_claims": [
+     "reserva_confirmada",
+     "disponibilidad_confirmada_sin_cotizar",
+     "excepcion_aprobada",
+     "excepcion_rechazada",
+     "precio_distinto_a_numbers",
+     "accion_interna_ejecutada",
+     "eleccion_afirmada",
+     "logica_interna_revelada",
+     "cotizacion_prometida_sin_propuesta"
+    ],
+    "knowledge_sources": [],
+    "notes": [],
+    "numbers": [],
+    "packet_version": 2,
+    "pending": [],
+    "presentation": null,
+    "presentation_source": "deterministic",
+    "questions_to_ask": [
+     {
+      "id": "check_in",
+      "text": "¿Qué fecha de llegada tienes prevista?"
+     },
+     {
+      "id": "check_out_or_nights",
+      "text": "¿Qué fecha de salida o cuántas noches necesitas?"
+     },
+     {
+      "id": "guests",
+      "text": "¿Para cuántas personas sería?"
+     }
+    ],
+    "required_disclosures": [],
+    "required_facts": [
+     {
+      "id": "factura_prospecto",
+      "statement": "Sí, emitimos factura electrónica a nombre de su empresa; los datos de facturación se piden al reservar. No pidas NIT, RUT ni correo ahora y no digas que la factura está en trámite.",
+      "patterns": [
+       "factur",
+       "invoice"
+      ]
+     }
+    ],
+    "semantic_claims": [],
+    "suggested_goals": [
+     {
+      "goal": "¿Qué fecha de llegada tienes prevista?",
+      "id": "check_in"
+     },
+     {
+      "goal": "¿Qué fecha de salida o cuántas noches necesitas?",
+      "id": "check_out_or_nights"
+     },
+     {
+      "goal": "¿Para cuántas personas sería?",
+      "id": "guests"
+     }
+    ],
+    "supersedable": true,
+    "ui": {
+     "message_kind": "text",
+     "photo_target_codes": []
+    },
+    "unit_comparison": null,
+    "unit_context": []
+   },
+   "real": [],
+   "real_anulado": false,
+   "afirmaciones": {
+    "contiene_alguno": [
+     "factura"
+    ],
+    "pregunta": true,
+    "no_contiene": [
+     "nit",
+     "razon social",
+     "rut ",
+     "contadora",
+     "en tramite"
+    ]
+   },
+   "conocimiento": {
+    "direccion": "aproximada",
+    "oferta": true
+   }
+  },
+  {
+   "id": "S1103",
+   "capa": "cami",
+   "grupo": "simulados:lavadora",
+   "origen": {
+    "tipo": "simulado",
+    "fuente": "docs/08_AUDITORIAS/PRUEBAS_CAMI_SIMULADOS_20261111.md",
+    "fecha": "2026-11-11",
+    "caso": "familia #0"
+   },
+   "hoy": "2026-11-10",
+   "texto": "Gracias! La lavadora solo está en LF-510 o las otras también tienen?",
+   "antes": [
+    {
+     "role": "guest",
+     "text": "Hola Cami, busco un estudio amoblado por meses en Medellín"
+    },
+    {
+     "role": "cami",
+     "text": "¡Hola! Soy Cami, la asistente virtual de José Manuel, anfitrión de Miu La Frontera con más de 2.000 reseñas y 9 años de experiencia. ¿Qué fechas necesitas y para cuántas personas?"
+    },
+    {
+     "role": "guest",
+     "text": "Dos personas"
+    },
+    {
+     "role": "guest",
+     "text": "16 diciembre"
+    },
+    {
+     "role": "guest",
+     "text": "Puedes mostrarme disponibilidad"
+    },
+    {
+     "role": "cami",
+     "text": "¿Qué fecha de salida necesitas o cuántas noches serían?"
+    },
+    {
+     "role": "guest",
+     "text": "?"
+    },
+    {
+     "role": "cami",
+     "text": "Claro. Para mostrarte las opciones necesito saber la fecha de salida o cuántas noches serían. ¿Cuántas noches necesitas desde el 16 de diciembre?"
+    },
+    {
+     "role": "cami",
+     "text": "¿Qué fecha de salida necesitas o cuántas noches serían?"
+    },
+    {
+     "role": "guest",
+     "text": "Fecha salida 15 enero"
+    },
+    {
+     "role": "cami",
+     "text": "Estas son algunas de las opciones que tenemos para tus fechas del 16 de diciembre al 15 de enero:\n\n• LF-210: estudio con balcón, cama queen y espacio de trabajo.\n• LF-510: estudio con lavadora propia, vista panorámica y espacio de trabajo.\n\nEstos dos apartaestudios tienen el mismo valor: $4.152.720 al mes · 30 noches\n• LF-210\n• LF-510: vista panorámica, lavadora-secadora privada\n\nValor fijo durante tu estadía; en estadías de más de 3 meses se revisa cada 3 meses.\nPara reservar no pagas nada ahora: te la dejamos pre-confirmada. 21 días antes de tu llegada pagas una confirmación de $300.000 por Wompi, que se descuenta de tu primer mes, y con ese pago las fechas quedan bloqueadas a tu nombre. Antes de entrar pagas el primer mes y un depósito de $600.000 que se te devuelve al check-out si todo está bien.\n\nEsas fechas exactas todavía no se pueden confirmar. Si quieres avanzar, te las dejamos pre-confirmadas con el precio cotizado, sin pago, y las confirmamos a más tardar 15 días antes de tu llegada. Por ahora no se cobra nada. ¿Cuál de los dos te gusta más?"
+    },
+    {
+     "role": "cami",
+     "text": "Si lo prefieres, José Manuel te atiende personalmente: te puede llamar desde este mismo número o escribirte él directamente."
+    },
+    {
+     "role": "cami",
+     "text": "Aquí puedes conocer el edificio y la zona antes de decidir: https://miolafrontera.com.co/conoce-el-edificio/"
+    }
+   ],
+   "interpretacion": {
+    "acceptable_use": null,
+    "accepts_offer": false,
+    "ambiguity": [],
+    "budget_cop": null,
+    "budget_period": "absent",
+    "cancellation_request": false,
+    "check_in": "2026-12-16",
+    "check_in_source": "model_interpreted",
+    "check_in_status": "valid",
+    "check_out": "2027-01-15",
+    "check_out_source": "calculated",
+    "check_out_status": "valid",
+    "contact_route": {
+     "barrio": "El Poblado",
+     "confidence": 0.99,
+     "route": "guest",
+     "summary": null
+    },
+    "corrections": [],
+    "duration_kind": "exact",
+    "exception_request": false,
+    "guest_composition": null,
+    "guest_name": null,
+    "guests": 2,
+    "intent": "lodging_question",
+    "knowledge_topics": [
+     "laundry"
+    ],
+    "language": "es",
+    "missing_fields": [],
+    "needs_clarification": false,
+    "nights": 30,
+    "payment_reported": false,
+    "preferences": [
+     "estudio amoblado",
+     "estadía por meses"
+    ],
+    "price_objection": false,
+    "provided_fields": [],
+    "references": [],
+    "requested_apartment_code": null,
+    "requested_apartment_code_status": "absent",
+    "requests_human": false,
+    "requirements": [],
+    "uncertainty": 0.050000000000000044,
+    "unmapped_meaning": null,
+    "visitors_question": false
+   },
+   "paquete": {
+    "accepts": {
+     "media_max": 60,
+     "media_reason": true,
+     "media_url": true,
+     "superseded": true,
+     "superseded_reason": true,
+     "writer_provenance": true
+    },
+    "action": "RESPONDER INFORMACIÓN APROBADA",
+    "action_result": {
+     "action": "RESPONDER INFORMACIÓN APROBADA",
+     "summary": "Se respondió con información aprobada; lo sin fuente queda pendiente de José Manuel."
+    },
+    "allowed_moves": [],
+    "apartments": [],
+    "building_facts": [],
+    "case_state": "proposal_presented",
+    "components": [
+     "knowledge"
+    ],
+    "dates": [],
+    "deterministic_text": "LF-510: tiene lavadora propia en el apartamento.\nLF-210: tiene acceso a lavandería compartida de pago.",
+    "facts": [
+     {
+      "source": {
+       "content_hash": "bf3fa093c7bbceedc19c43830b4a1e8b3c433106909bd5b76ebfc3afdc580ed8",
+       "content_version_id": 57
+      },
+      "text": "Miu La Frontera está en El Poblado, Medellín, cerca del Mall La Frontera. Por ahora solo tenemos apartamentos en este lugar de El Poblado; no tenemos otras ubicaciones ni otras zonas. Alrededor del edificio hay de todo: a pocos minutos a pie están el Parque Bosques de La Frontera, La Frontera Mall, Sao Paulo Plaza y supermercados; a pocos minutos en carro hay zonas de restaurantes en Envigado, centros comerciales grandes y el Metro.",
+      "topic": "location"
+     }
+    ],
+    "first_contact": false,
+    "forbidden_claims": [
+     "reserva_confirmada",
+     "disponibilidad_confirmada_sin_cotizar",
+     "excepcion_aprobada",
+     "excepcion_rechazada",
+     "precio_distinto_a_numbers",
+     "accion_interna_ejecutada",
+     "eleccion_afirmada",
+     "logica_interna_revelada"
+    ],
+    "knowledge_sources": [
+     {
+      "content_hash": "bf3fa093c7bbceedc19c43830b4a1e8b3c433106909bd5b76ebfc3afdc580ed8",
+      "content_version_id": 57
+     },
+     {
+      "content_hash": "80da5da1a1cb316cf918d1bfb057e01f76ba0991a1c93649a14cf9bb6f85e70d",
+      "content_version_id": 20
+     }
+    ],
+    "notes": [],
+    "numbers": [],
+    "packet_version": 2,
+    "pending": [],
+    "presentation": null,
+    "presentation_source": "deterministic",
+    "questions_to_ask": [],
+    "required_disclosures": [],
+    "required_facts": [],
+    "semantic_claims": [],
+    "suggested_goals": [],
+    "ui": {
+     "message_kind": "text",
+     "photo_target_codes": []
+    },
+    "unit_comparison": null,
+    "unit_context": []
+   },
+   "real": [],
+   "real_anulado": false,
+   "afirmaciones": {
+    "contiene_alguno": [
+     "lavadora"
+    ],
+    "contiene_alguno_2": [
+     "510"
+    ],
+    "no_contiene": [
+     "lo confirmo",
+     "te respondo en unos minutos",
+     "te confirmo en unos minutos"
+    ]
+   },
+   "conocimiento": {
+    "direccion": "exacta",
+    "oferta": true
+   }
+  },
+  {
+   "id": "S1104",
+   "capa": "cami",
+   "grupo": "simulados:repeticion",
+   "origen": {
+    "tipo": "simulado",
+    "fuente": "docs/08_AUDITORIAS/PRUEBAS_CAMI_SIMULADOS_20261111.md",
+    "fecha": "2026-11-11",
+    "caso": "repite #6"
+   },
+   "hoy": "2026-11-11",
+   "texto": "Y cuánto vale?",
+   "antes": [
+    {
+     "role": "guest",
+     "text": "Hola Cami, busco un estudio amoblado por meses en Medellín"
+    },
+    {
+     "role": "cami",
+     "text": "¡Hola! Soy Cami, la asistente virtual de José Manuel, anfitrión de Miu La Frontera con más de 2.000 reseñas y 9 años de experiencia. ¿Qué fechas necesitas y para cuántas personas?"
+    },
+    {
+     "role": "guest",
+     "text": "Una del 19 Nov 2026 al 19 enero 2027"
+    },
+    {
+     "role": "cami",
+     "text": "Perfecto, sería del 19 de noviembre de 2026 al 19 de enero de 2027. ¿Para cuántas personas sería?"
+    },
+    {
+     "role": "guest",
+     "text": "Qué opciones tienen?"
+    }
+   ],
+   "interpretacion": {
+    "acceptable_use": null,
+    "accepts_offer": false,
+    "ambiguity": [],
+    "budget_cop": null,
+    "budget_period": "absent",
+    "cancellation_request": false,
+    "check_in": "2026-11-19",
+    "check_in_source": "model_interpreted",
+    "check_in_status": "valid",
+    "check_out": "2027-01-19",
+    "check_out_source": "calculated",
+    "check_out_status": "valid",
+    "contact_route": {
+     "barrio": null,
+     "confidence": 1,
+     "route": "guest",
+     "summary": null
+    },
+    "corrections": [],
+    "duration_kind": "exact",
+    "exception_request": false,
+    "guest_composition": null,
+    "guest_name": null,
+    "guests": null,
+    "intent": "lodging_question",
+    "knowledge_topics": [],
+    "language": "es",
+    "missing_fields": [],
+    "needs_clarification": false,
+    "nights": 61,
+    "payment_reported": false,
+    "preferences": [
+     "estudio amoblado",
+     "estadía por meses",
+     "Medellín"
+    ],
+    "price_objection": false,
+    "provided_fields": [],
+    "references": [],
+    "requested_apartment_code": null,
+    "requested_apartment_code_status": "absent",
+    "requests_human": false,
+    "requirements": [],
+    "uncertainty": 0.020000000000000018,
+    "unmapped_meaning": null,
+    "visitors_question": false
+   },
+   "paquete": {
+    "accepts": {
+     "media_max": 60,
+     "media_reason": true,
+     "media_url": true,
+     "superseded": true,
+     "superseded_reason": true,
+     "writer_provenance": true
+    },
+    "action": "PROPUESTA PRESENTADA",
+    "action_result": {
+     "action": "PROPUESTA PRESENTADA",
+     "summary": "Se presentaron opciones reales con disponibilidad y precio autorizado. Para dejar una en trámite el huésped debe elegirla (sin dinero real todavía)."
+    },
+    "allowed_moves": [
+     "present_subset",
+     "compare_options",
+     "ask_one",
+     "advance_to_selection"
+    ],
+    "apartments": [
+     "LF-210"
+    ],
+    "building_facts": [
+     "Parqueadero para todos los apartamentos, incluido, cubierto y dentro del edificio; si lo necesitas, recepción te asigna el espacio al registrarte.",
+     "Check-in desde las 3:00 p. m. y check-out hasta las 11:00 a. m.",
+     "Todos los apartamentos de Miu La Frontera son estudios: un solo ambiente, entero y privado, sin dormitorio independiente. No hay apartamentos de una o dos alcobas.",
+     "Recepción (front desk) atendida las 24 horas, todos los días.",
+     "El edificio tiene una terraza común en la azotea, en el piso 14 (equivale a una planta 15), con vista de 360° sobre la ciudad; no tiene dotación. Horario de 8:00 a. m. a 5:00 p. m., pidiendo autorización en recepción.",
+     "Todos los apartamentos tienen TV, cocina equipada e internet propio de buena calidad (cada apartamento tiene el suyo), por wifi o por cable.",
+     "Miu La Frontera está en El Poblado, Medellín, cerca del Mall La Frontera. Por ahora es nuestra única ubicación: no tenemos apartamentos en otras zonas.",
+     "Por el momento solo ofrecemos estudios completos; no alquilamos habitaciones.",
+     "En estadías de 30 noches o más, para separar se paga un anticipo de COP 600.000.",
+     "En estadías de 30 noches o más, antes de la llegada se paga el primer mes, sin descontar el anticipo; en más de 30 noches el resto se puede pagar mes a mes.",
+     "En estadías de 30 noches o más, al pagar el primer mes el anticipo queda como depósito por posibles daños y se devuelve al finalizar la estadía si todo está bien.",
+     "El piso de cada apartamento se lee en su número: LF-210 piso 2, LF-404 piso 4, LF-510 piso 5, LF-904 piso 9, LF-1109 piso 11, LF-1208 piso 12. El primer piso del edificio es de parqueaderos, así que cada apartamento queda una planta más arriba de lo que indica su piso.",
+     "Visitas antes de reservar: entre semana lo ideal es de 11:00 a. m. a 3:00 p. m., pero se puede en otros horarios porque la recepción es 24 horas. José Manuel, que envía la autorización, la coordina de 8:00 a. m. a 9:00 p. m. por este medio.",
+     "Sobre el ruido: los estudios son enteros y privados, en un edificio residencial con horarios de silencio. No se permiten fiestas.",
+     "Visitas: desde 28 noches la estadía es una renta larga y el inquilino decide quién entra de visita o se queda a dormir, sin superar la capacidad del apartamento. En reservas de menos de 28 noches el edificio no permite visitantes: solo entran las personas autorizadas en la reserva. Si quieres que alguien te visite, avísanos antes de tu llegada para autorizarlo; la reserva queda registrada con esas personas y al hacer el check-in debes dar sus nombres. Quien no se nombre en el check-in no puede agregarse después.",
+     "Todos los estudios tienen unos 32 m².",
+     "Los bebés no cuentan en la capacidad del apartamento. No tenemos cuna.",
+     "Para el ingreso se pide identificación: cédula o pasaporte.",
+     "Los estudios son solo para alojamiento: no se permite usarlos para actividades comerciales (por ejemplo, masajes), sesiones de fotos ni fiestas.",
+     "Si necesitas factura electrónica a nombre de una empresa, se requiere el RUT; si la empresa es nacional, se factura con IVA. Con el pago y el RUT, la factura se envía al siguiente día hábil.",
+     "Servicios públicos en estadías mensuales: en el LF-510 se incluyen hasta $300.000 COP al mes y en el LF-1208 hasta $380.000 COP al mes; si el consumo de un mes supera ese valor, el excedente se cobra con la factura del período.",
+     "Para grupos que no caben en un solo estudio podemos ofrecer dos estudios en el mismo edificio.",
+     "El aeropuerto internacional José María Córdova (Rionegro) queda a unos 45–60 minutos en taxi por el Túnel de Oriente, según el tráfico. El aeropuerto Olaya Herrera, de vuelos nacionales, queda a unos 15–20 minutos.",
+     "Accesibilidad: el edificio tiene ascensores que llegan a todos los pisos, y también se puede entrar desde el parqueadero en los sótanos, con ascensor y sin escalones. Una silla de ruedas entra por la puerta principal de los apartaestudios, pero no por la puerta del baño. El baño es pequeño y estándar: la ducha no tiene escalón, pero no tiene barras de apoyo. Todos los apartaestudios tienen el mismo acceso por ascensor.",
+     "Si preguntan si hablan con una persona o con un bot: Soy Cami, la asistente virtual de Miu La Frontera. Detrás hay un equipo de personas que revisa cada conversación, y si prefieres, José Manuel te atiende directamente.",
+     "Oferta de lanzamiento (temporal, para las 3 primeras reservas): estadías de 30 noches o más con llegada hasta el 30 de noviembre, a $3.000.000 al mes todo incluido y sin póliza, separando hasta el 18 de noviembre.",
+     "Con la oferta de lanzamiento se separa con $50.000; el día de la llegada, después de ver el apartamento, se paga el primer mes y el depósito de $600.000 por posibles daños, y los $50.000 se abonan a ese pago.",
+     "Teléfono de la recepción del edificio (atendida las 24 horas): [telefono].",
+     "Internet: cada apartamento tiene su propio router y la velocidad es buena. Si necesitas más velocidad, puedes conectar tu computador por cable directamente al router. Si el internet falla, escríbenos y lo revisamos lo antes posible.",
+     "Televisión: el televisor es Smart TV con Chromecast. Puedes ver YouTube y Netflix con tu propia cuenta, y la televisión colombiana en vivo en YouTube (por ejemplo, buscando \"Caracol en vivo\").",
+     "Mini-mercado a domicilio: [telefono]. También hay domicilios por la app Rappi.",
+     "Cerca del edificio: para el desayuno, Buñuelos de Oriente, a una cuadra y media (en la bomba de gasolina); para almuerzo, cena, cafés y cajeros, el Mall La Frontera (a 3 cuadras) y la plazoleta de comidas del Mall São Paulo (a 4 cuadras); los supermercados Euro y Carulla quedan a unas 5 cuadras.",
+     "Agua caliente (calentador a gas): verifica que el paso de gas esté abierto, deja la perilla de presión casi al mínimo y la de temperatura casi al máximo. Si hay algún inconveniente, avísanos.",
+     "Transporte y tours: no tenemos alianzas con empresas de transporte ni de tours; para moverte puedes usar las apps de movilidad.",
+     "Guardado de maletas: sin costo hasta las 9:00 p. m. del día del check-out (el check-out es hasta las 11:00 a. m.).",
+     "Lavandería en el primer piso, de 7:00 a. m. a 9:00 p. m. Se activa con tarjeta de crédito (las instrucciones están en el lugar).",
+     "Limpieza adicional durante la estadía: se puede pedir, sujeta a disponibilidad. Cami le pasa la solicitud a Operaciones y se confirma el valor y el horario.",
+     "Medidas de las camas: la cama queen mide 160 × 190 cm y la cama doble mide 140 × 190 cm (la doble solo está en el LF-510). El tamaño del sofá cama no está confirmado.",
+     "El edificio queda a cuadra y media de la Avenida El Poblado (Carrera 43A), cerca del Mall La Frontera y del Mall São Paulo.",
+     "Domicilios: la portería deja subir los domicilios al apartamento. Al pedir, da siempre el número de tu apartamento (por ejemplo, 904). A veces el domiciliario prefiere no subir; si pasa, puedes bajar a recibirlo en la portería. Una propina ayuda."
+    ],
+    "case_state": "proposal_presented",
+    "components": [
+     "search"
+    ],
+    "dates": [
+     {
+      "formatted": "2026-11-19",
+      "id": "check_in"
+     },
+     {
+      "formatted": "2027-01-19",
+      "id": "check_out"
+     }
+    ],
+    "deterministic_text": "Esta es una de las opciones que tenemos del 19 de noviembre al 19 de enero de 2027 para 2 personas:\nLF-210: $3.736.297 al mes · 61 noches\n\nValor fijo durante tu estadía; en estadías de más de 3 meses se revisa cada 3 meses.\nPara reservar pagas una confirmación de $300.000 por Wompi, que se descuenta de tu primer mes; con ese pago las fechas quedan bloqueadas a tu nombre. Antes de entrar pagas el primer mes y un depósito de $600.000 que se te devuelve al check-out si todo está bien.\n\nTarifa MIU Flex, limpieza incluida.\n\nResponde con el código del apartamento que prefieras para dejarlo en trámite (sin dinero real todavía).\n\nTe coticé para 2 personas; si son más, dímelo y ajusto la cotización.",
+    "facts": [],
+    "first_contact": false,
+    "forbidden_claims": [
+     "reserva_confirmada",
+     "disponibilidad_confirmada_sin_cotizar",
+     "excepcion_aprobada",
+     "excepcion_rechazada",
+     "precio_distinto_a_numbers",
+     "accion_interna_ejecutada",
+     "eleccion_afirmada",
+     "logica_interna_revelada",
+     "precio_no_disponible",
+     "anticipo_descontado_del_total"
+    ],
+    "knowledge_sources": [],
+    "notes": [],
+    "numbers": [
+     {
+      "formatted": "$3.736.297",
+      "id": "precio.bloque.1",
+      "label": "cifra del bloque de precios (solo dentro del bloque)"
+     },
+     {
+      "formatted": "$300.000",
+      "id": "precio.bloque.2",
+      "label": "cifra del bloque de precios (solo dentro del bloque)"
+     },
+     {
+      "formatted": "$600.000",
+      "id": "precio.bloque.3",
+      "label": "cifra del bloque de precios (solo dentro del bloque)"
+     },
+     {
+      "formatted": "$300.000",
+      "id": "confirmacion_sin_bloqueo",
+      "label": "pago de confirmación (se descuenta del primer mes)"
+     },
+     {
+      "formatted": "$600.000",
+      "id": "deposito_reembolsable",
+      "label": "depósito reembolsable"
+     }
+    ],
+    "packet_version": 2,
+    "pending": [],
+    "presentation": {
+     "candidates": [
+      {
+       "bookable_now": true,
+       "code": "LF-210",
+       "options": [
+        {
+         "deposit": "$600.000",
+         "price_text": "$3.736.297 al mes · 61 noches",
+         "requires_policy": false,
+         "total": "$3.736.297 al mes · 61 noches"
+        }
+       ]
+      }
+     ],
+     "cover_codes": [
+      "LF-210"
+     ],
+     "max": 1,
+     "min": 1,
+     "mode": "candidates",
+     "phrase": "Esta es una de las opciones que tenemos",
+     "phrasing": "some"
+    },
+    "presentation_source": "deterministic",
+    "price_presentation": {
+     "amounts": [
+      "$3.736.297",
+      "$300.000",
+      "$600.000"
+     ],
+     "block_codes": [
+      "LF-210"
+     ],
+     "block_text": "LF-210: $3.736.297 al mes · 61 noches\n\nValor fijo durante tu estadía; en estadías de más de 3 meses se revisa cada 3 meses.\nPara reservar pagas una confirmación de $300.000 por Wompi, que se descuenta de tu primer mes; con ese pago las fechas quedan bloqueadas a tu nombre. Antes de entrar pagas el primer mes y un depósito de $600.000 que se te devuelve al check-out si todo está bien.",
+     "blocks": [
+      {
+       "codes": [
+        "LF-210"
+       ],
+       "text": "LF-210: $3.736.297 al mes · 61 noches\n\nValor fijo durante tu estadía; en estadías de más de 3 meses se revisa cada 3 meses.\nPara reservar pagas una confirmación de $300.000 por Wompi, que se descuenta de tu primer mes; con ese pago las fechas quedan bloqueadas a tu nombre. Antes de entrar pagas el primer mes y un depósito de $600.000 que se te devuelve al check-out si todo está bien."
+      }
+     ],
+     "hidden_totals": [
+      "$7.597.138"
+     ],
+     "placeholder": "[[PRECIOS]]",
+     "version": "presentacion_precios_v2"
+    },
+    "questions_to_ask": [],
+    "required_disclosures": [
+     {
+      "id": "options_some",
+      "text": "Esta es una de las opciones que tenemos"
+     },
+     {
+      "id": "no_real_money",
+      "text": "sin dinero real todavía"
+     }
+    ],
+    "required_facts": [
+     {
+      "id": "options_some",
+      "patterns": [
+       "algunas de (las|nuestras) opciones",
+       "una de (las|nuestras) opciones",
+       "some of (our|the) options",
+       "one of (our|the) options"
+      ],
+      "statement": "Se presentan una o dos opciones diciendo \"esta es una de las opciones\" o \"estas son algunas de las opciones\"."
+     },
+     {
+      "id": "no_real_money",
+      "patterns": [
+       "sin dinero",
+       "no hay dinero",
+       "todav[ií]a no (te |se )?(cobr|pag)",
+       "sin (ning[uú]n )?(pago|cobro|anticipo por ahora)",
+       "no (se )?(te )?cobra",
+       "no pagas nada",
+       "no te cobro",
+       "nada de dinero",
+       "sin compromiso de pago",
+       "no money",
+       "no payment",
+       "nothing to pay",
+       "no charge"
+      ],
+      "statement": "Todavía no hay dinero real de por medio: por ahora no se cobra nada."
+     },
+     {
+      "id": "personas_supuestas",
+      "statement": "Coticé para 2 personas; si son más, dímelo y ajusto la cotización.",
+      "patterns": [
+       "2 personas",
+       "dos personas",
+       "2 people",
+       "two people",
+       "2 guests",
+       "two guests"
+      ]
+     }
+    ],
+    "semantic_claims": [
+     {
+      "concept": "availability",
+      "id": "availability",
+      "state": "affirmative"
+     }
+    ],
+    "suggested_goals": [],
+    "ui": {
+     "message_kind": "text",
+     "photo_target_codes": []
+    },
+    "unit_comparison": {
+     "attributes": [
+      {
+       "key": "capacity",
+       "label_es": "capacidad máxima",
+       "values": {
+        "LF-210": 2
+       }
+      },
+      {
+       "key": "beds",
+       "label_es": "camas",
+       "values": {
+        "LF-210": [
+         "cama queen"
+        ]
+       }
+      },
+      {
+       "key": "floor",
+       "label_es": "piso",
+       "values": {
+        "LF-210": 2
+       }
+      },
+      {
+       "key": "approx_area_m2",
+       "label_es": "área aproximada en m²",
+       "values": {
+        "LF-210": 32
+       }
+      },
+      {
+       "key": "air_conditioning",
+       "label_es": "aire acondicionado",
+       "values": {
+        "LF-210": false
+       }
+      },
+      {
+       "key": "fan",
+       "label_es": "ventilador",
+       "values": {
+        "LF-210": true
+       }
+      },
+      {
+       "key": "balcony",
+       "label_es": "balcón",
+       "values": {
+        "LF-210": true
+       }
+      },
+      {
+       "key": "floor_to_ceiling_window",
+       "label_es": "ventanal de piso a techo",
+       "values": {
+        "LF-210": false
+       }
+      },
+      {
+       "key": "panoramic_view",
+       "label_es": "vista panorámica",
+       "values": {
+        "LF-210": false
+       }
+      },
+      {
+       "key": "private_laundry",
+       "label_es": "lavadora-secadora privada",
+       "values": {
+        "LF-210": false
+       }
+      },
+      {
+       "key": "shared_paid_laundry",
+       "label_es": "lavandería compartida de pago",
+       "values": {
+        "LF-210": true
+       }
+      },
+      {
+       "key": "workspace",
+       "label_es": "espacio de trabajo",
+       "values": {
+        "LF-210": true
+       }
+      }
+     ],
+     "exclusive_true": {
+      "LF-210": []
+     }
+    },
+    "unit_context": [
+     {
+      "capacity": 2,
+      "code": "LF-210",
+      "extras": [],
+      "facts": {
+       "air_conditioning": false,
+       "approx_area_m2": 32,
+       "balcony": true,
+       "beds": [
+        "cama queen"
+       ],
+       "capacity": 2,
+       "fan": true,
+       "floor": 2,
+       "floor_to_ceiling_window": false,
+       "panoramic_view": false,
+       "private_laundry": false,
+       "shared_paid_laundry": true,
+       "workspace": true
+      },
+      "highlights_es": [
+       "Balcón",
+       "Cama queen, para 1 o 2 personas"
+      ],
+      "informative": [
+       {
+        "label_es": "Vista limitada",
+        "value": true
+       }
+      ],
+      "profile_facts": [
+       "Estudio de un solo ambiente, entero y privado, sin dormitorio independiente.",
+       "Baño completo privado.",
+       "Cocina equipada con nevera (refrigerador y congelador) y hervidor; el inventario de utensilios puede variar entre apartamentos.",
+       "Internet Wi-Fi y cableado.",
+       "Smart TV con Chromecast, para YouTube y streaming; el streaming de pago usa las cuentas del huésped.",
+       "Agua caliente, lencería, toallas, almohadas y cobijas.",
+       "Clóset y ganchos; secador y plancha por solicitud.",
+       "La limpieza incluida es la de entrega del apartamento; las limpiezas adicionales tienen costo y se agendan según disponibilidad.",
+       "Siempre se dejan jabón lavaloza, jabón de baño y papel higiénico como dotación inicial, sin reposición incluida."
+      ],
+      "public_title": "Estudio con balcón y cama queen",
+      "published_sheet": true,
+      "summary": "Estudio privado de aproximadamente 32 m² en el piso 2, con cama queen, balcón, ventilador, cocina equipada y espacio de trabajo.",
+      "unknown": []
+     }
+    ]
+   },
+   "real": [],
+   "real_anulado": false,
+   "afirmaciones": {
+    "contiene_alguno": [
+     "2 personas",
+     "dos personas"
+    ],
+    "contiene_alguno_2": [
+     "3.736.297"
+    ],
+    "no_contiene": [
+     "cuantas personas"
+    ]
+   },
+   "conocimiento": {
+    "direccion": "aproximada",
+    "oferta": true
+   }
   }
  ]
 }
