@@ -165,3 +165,9 @@ test('equipos_outbox: la salida con plantilla llega al enviador con la plantilla
   const res3 = posts.find((p) => p.url === `http://pms${rutaEqResultado(3)}`).body;
   assert.deepEqual(res3, { resultado: 'error', error: 'plantilla_invalida' });
 });
+
+test('plantilla con botón URL: el sufijo (token del seguimiento) va como parámetro del botón; uno raro no sale', () => {
+  const t = cuerpoPlantilla('57300', { nombre: 'seguimiento_visita_en_camino', idioma: 'es', parametros: ['Quedó Bien', 'QB-0001-V1', 'Brayan'], boton_url: 'Xk3mP9qR2vT8wY1zA4bC6dE0fG5hJ7kL9mN2pQ4rS6t' }).template;
+  assert.deepEqual(t.components[1], { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: 'Xk3mP9qR2vT8wY1zA4bC6dE0fG5hJ7kL9mN2pQ4rS6t' }] });
+  assert.equal(cuerpoPlantilla('57300', { nombre: 'a', parametros: ['x'], boton_url: 'https://otro/sitio' }).template.components.length, 1);
+});
