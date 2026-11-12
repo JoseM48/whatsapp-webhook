@@ -104,3 +104,13 @@ test('ruta conversacional: el filtro de campos del enrutador deja pasar acceptab
   const { PMS_INTERPRETATION_FIELDS } = require('../lib/pilot/llm/interpretation-router');
   assert.ok(PMS_INTERPRETATION_FIELDS.includes('acceptable_use'));
 });
+
+// CASO REAL lead 378 (2026-11-12): pedir trabajo quedó RESTRINGIDO (empleo). Quien NOS pide trabajo no
+// es un anuncio de empleo; la regla de José Manuel (2026-11-11) es agradecer y "apenas tengamos una
+// oportunidad te contactamos". Paridad: chat/nota de voz (intérprete) y llamada (instrucción de voz).
+test('aspirante a trabajo: el intérprete y la llamada no lo marcan como empleo restringido', () => {
+  const ua = require('../lib/pilot/uso-aceptable');
+  assert.match(ua.INSTRUCCION_CHAT, /asking US for a job[^.]*NOT empleo: that is permitido/);
+  assert.match(ua.INSTRUCCION_VOZ, /ASPIRANTES[^']*NO es restringido[^']*apenas tengamos una oportunidad/);
+  assert.match(ua.INSTRUCCION_VOZ, /quien NOS pide trabajo no es restringido/);
+});

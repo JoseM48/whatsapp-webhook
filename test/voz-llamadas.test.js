@@ -1423,3 +1423,12 @@ test('primero Teo: pedir_persona y las instrucciones de ventas no prometen a Jos
   assert.match(ins, /usa pedir_persona y dile que una persona del equipo le escribe por este chat en unos minutos/);
   assert.doesNotMatch(ins, /José Manuel o el equipo le escribe/);
 });
+
+// CASO REAL lead 360 (2026-11-12; paridad con el chat): con reserva confirmada, un cambio de fechas
+// no se confirma ni se cotiza por llamada: pedir_persona y el equipo responde por el chat.
+test('reserva confirmada: la llamada manda el cambio de fechas a una persona', () => {
+  const { instruccionesCamiVoz } = require('../lib/voz/cami-voz');
+  const con = instruccionesCamiVoz({ hoy: '2026-11-12', direccionEstadia: { apartamento: 'LF-1109', texto: 'Cra 41 AA # 18 B Sur 3' } });
+  assert.match(con, /cambiar las fechas de su reserva[^']*NO lo confirmes ni cotices: usa pedir_persona/);
+  assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-12' }), /cambiar las fechas de su reserva/);
+});
