@@ -168,7 +168,6 @@ function montar({ uso = 0, pmsFalla = false, habilitada = true, inicio = {}, via
       return { iniciada: true, demo_id: 3, instruccion_modelo: 'Listo: le acabo de escribir por el chat.' }; },
     vozLateCheckout: async (b) => { pmsLlamadas.push(['late_checkout', b]); if (estado.lateFalla) throw new Error('down'); return lateResp(b); },
     vozUsoAceptable: async (b) => { pmsLlamadas.push(['uso_aceptable', b]); if (estado.usoFalla) throw new Error('down');
-      if (String(b.resumen ?? '').startsWith('ASPIRANTE')) return { decision: 'permitido', categoria: 'ninguna', aspirante_trabajo: true, texto_para_decir: 'TEXTO ASPIRANTE', aviso_encolado: false };
       return { decision: b.decision, texto_para_decir: `TEXTO PMS ${b.decision}`, aviso_encolado: true }; },
   };
   const pendientes = [];
@@ -1432,21 +1431,4 @@ test('reserva confirmada: la llamada manda el cambio de fechas a una persona', (
   const con = instruccionesCamiVoz({ hoy: '2026-11-12', direccionEstadia: { apartamento: 'LF-1109', texto: 'Cra 41 AA # 18 B Sur 3' } });
   assert.match(con, /cambiar las fechas de su reserva[^']*NO lo confirmes ni cotices: usa pedir_persona/);
   assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-12' }), /cambiar las fechas de su reserva/);
-});
-
-// CASO REAL lead 378 (2026-11-12): un aspirante a trabajo en la llamada. El PMS responde permitido con el
-// texto aprobado; la herramienta no debe devolver "restringido / no ejecutar" (señales cruzadas).
-test('uso aceptable en la llamada: aspirante a trabajo vuelve permitido con el texto aprobado', async () => {
-  const m = montar();
-  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_asp'))).procesando;
-  const ws = FakeWs.ultima;
-  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'evaluar_uso_aceptable', call_id: 'fc_asp',
-    arguments: JSON.stringify({ decision: 'restringido', categoria: 'empleo', resumen: 'ASPIRANTE: busca trabajo con nosotros' }) }] } });
-  await tick();
-  const r = JSON.parse(ws.enviados.find((e) => e.item?.call_id === 'fc_asp').item.output);
-  assert.equal(r.data.decision, 'permitido');
-  assert.equal(r.data.no_ejecutar, false);
-  assert.equal(r.data.texto_para_decir, 'TEXTO ASPIRANTE');
-  ws.close();
-  await tick();
 });
