@@ -1432,3 +1432,22 @@ test('reserva confirmada: la llamada manda el cambio de fechas a una persona', (
   assert.match(con, /cambiar las fechas de su reserva[^']*NO lo confirmes ni cotices: usa pedir_persona/);
   assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-12' }), /cambiar las fechas de su reserva/);
 });
+
+// teo-cola #68 (paridad con el chat, caso lead 360): con una PRE-RESERVA viva aún sin confirmar, la
+// llamada tampoco confirma ni cotiza un cambio de fechas; el PMS la manda en pre_reserva_viva.
+test('pre-reserva sin confirmar: la llamada manda el cambio de fechas a una persona', () => {
+  const { instruccionesCamiVoz } = require('../lib/voz/cami-voz');
+  const pre = { confirmada: false, estado: 'pre_reserved', apartamento: 'LF-1109', check_in: '2026-12-01', check_out: '2027-01-01' };
+  const con = instruccionesCamiVoz({ hoy: '2026-11-12', preReservaViva: pre });
+  assert.match(con, /PRE-RESERVA \(aún no confirmada\) del apartamento 1109 del 2026-12-01 al 2027-01-01/);
+  assert.match(con, /cambiar las fechas de su pre-reserva[^\n]*NO lo confirmes ni cotices: usa pedir_persona[^\n]*su pre-reserva sigue igual/);
+  // Confirmada sin dirección: "su reserva", sin el contexto de pre-reserva.
+  const conf = instruccionesCamiVoz({ hoy: '2026-11-12', preReservaViva: { ...pre, confirmada: true } });
+  assert.match(conf, /cambiar las fechas de su reserva[^\n]*NO lo confirmes/);
+  assert.doesNotMatch(conf, /PRE-RESERVA/);
+  // Con dirección y pre-reserva: una sola línea de cambio de fechas.
+  const ambos = instruccionesCamiVoz({ hoy: '2026-11-12', preReservaViva: { ...pre, confirmada: true }, direccionEstadia: { apartamento: 'LF-1109', texto: 'Cra 41' } });
+  assert.equal((ambos.match(/cambiar las fechas de/g) || []).length, 1);
+  // Formas inválidas se ignoran.
+  for (const malo of ['texto', { confirmada: 'no' }, null]) assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-12', preReservaViva: malo }), /cambiar las fechas de/);
+});
