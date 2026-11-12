@@ -60,8 +60,8 @@ const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, ate
   whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS, clasificarFalloEnvio } = require('./lib/pilot/numero-entrante');
 const { leerConfigReenvio, configReenvioParaLog, despacharReenvios, crearPostAxios } = require('./lib/pilot/reenvio-numeros');
 // QUEDÓ BIEN / NÚMEROS DE MARCA (GO José Manuel 2026-11-11; PMS migraciones 1201-1207).
-const { atenderMarca, separarMarca, crearCacheNumerosMarca, crearMemoriaRemitentesMarca, cuerpoSalidaMarca, despacharSalidasMarca, debeEsperarMarca } = require('./lib/pilot/numero-marca');
-const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, debeReintentar, debeEsperarEquipos, crearMemoriaRemitentes, RUTA_RECLAMAR: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado } = require('./lib/pilot/numero-equipos');
+const { atenderMarca, separarMarca, crearCacheNumerosMarca, crearMemoriaRemitentesMarca, cuerpoSalidaMarca, despacharSalidasMarca, debeEsperarMarca, crearSubirMedia } = require('./lib/pilot/numero-marca');
+const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, cuerpoSalidaEquipos, debeReintentar, debeEsperarEquipos, crearMemoriaRemitentes, RUTA_RECLAMAR: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado } = require('./lib/pilot/numero-equipos');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
 const { InboundMediaDownloader, capturarConRespaldo, audioDelEquipo } = require('./lib/pilot/inbound-media');
 const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarTextoEnRafaga, registrarEntrega, turnoSinNombre } = require('./lib/pilot/inbound-image-reader');
@@ -257,6 +257,16 @@ async function enviarMarca(phoneNumberId, to, salida) {
   const phone = normalizePhone(to);
   if (!phone || !phoneNumberId) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
   const response = await axios.post(whatsappMessagesUrl(phoneNumberId), cuerpoSalidaMarca(phone, salida || {}), {
+    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' }, timeout: 15000 });
+  return response.data?.messages?.[0]?.id || null;
+}
+// Fotos de la cola qb_outbox: se suben a Meta desde el número de marca (multipart) y salen por media id.
+const subirMediaMarca = (phoneNumberId, foto) => crearSubirMedia({ post: (u, d, o) => axios.post(u, d, o), token: process.env.ACCESS_TOKEN })(phoneNumberId, foto);
+// Equipos, cola equipos_outbox: plantilla (fuera de 24 h) o texto, desde el número de la salida.
+async function enviarSalidaEquipos(phoneNumberId, to, salida) {
+  const phone = normalizePhone(to);
+  if (!phone || !phoneNumberId) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
+  const response = await axios.post(whatsappMessagesUrl(phoneNumberId), cuerpoSalidaEquipos(phone, salida || {}), {
     headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' }, timeout: 15000 });
   return response.data?.messages?.[0]?.id || null;
 }
@@ -1086,7 +1096,8 @@ startM0ObservationLoop({ enabled: Boolean(TENGOCAMELLO_DEMO_PHONE_NUMBER_ID && P
 startM0ObservationLoop({ enabled: Boolean(PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_SECRET), intervalMs: 20_000,
   name: 'equipos_outbox_poll', observe: async () => {
     const r = await despacharSalidasTengoCamello({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL, rutaReclamar: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado, etiqueta: '[equipos]',
-      enviarTexto: (to, body, salida) => sendWhatsAppTextFrom(salida.phone_number_id, to, body) });
+      // Fuera de 24 h el PMS entrega {plantilla} (migración 1380): sale como plantilla de Meta.
+      enviarTexto: (to, body, salida) => (salida?.plantilla ? enviarSalidaEquipos(salida.phone_number_id, to, salida) : sendWhatsAppTextFrom(salida.phone_number_id, to, body)) });
     if (r.enviados || r.fallidos || r.inciertos) console.log('[equipos] outbox_poll', r);
   } });
 
@@ -1095,7 +1106,7 @@ startM0ObservationLoop({ enabled: Boolean(PMS_LITE_BASE_URL && PMS_LITE_WEBHOOK_
   name: 'marca_outbox_poll', observe: async () => {
     await cacheNumerosMarca.refrescarSiVencio();
     const r = await despacharSalidasMarca({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL, enviar: enviarMarca, numerosMarca: cacheNumerosMarca,
-      clasificarFallo: clasificarFalloEnvio });
+      clasificarFallo: clasificarFalloEnvio, subirMedia: subirMediaMarca });
     if (r.enviados || r.fallidos || r.inciertos) console.log('[marca] outbox_poll', r);
   } });
 

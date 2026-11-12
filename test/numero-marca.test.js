@@ -116,7 +116,7 @@ test('cuerpo de salida: texto, botones (máx. 3) e imagen https; plantilla e ima
   assert.equal(img.type, 'image');
   assert.equal(img.image.caption, 'Antes');
   assert.throws(() => cuerpoSalidaMarca('57300', { imagen: { url: 'http://inseguro/x.jpg' } }), /imagen_invalida/);
-  assert.throws(() => cuerpoSalidaMarca('57300', { plantilla: 'qb_cotizacion' }), /plantilla_no_soportada/);
+  assert.throws(() => cuerpoSalidaMarca('57300', { plantilla: 'qb_cotizacion' }), /plantilla_invalida/);
 });
 
 test('cola qb_outbox: envía desde el número de cada salida y reporta; nunca desde uno que no es de marca', async () => {
@@ -129,14 +129,14 @@ test('cola qb_outbox: envía desde el número de cada salida y reporta; nunca de
     return {}; } };
   const r = await despacharSalidasMarca({ pms, pmsBaseUrl: 'http://pms', logger: silencio, clasificarFallo: clasificarFalloEnvio,
     numerosMarca: { ids: () => new Set([QB]), cargada: () => true },
-    enviar: async (id, to, s) => { if (s.plantilla) throw Object.assign(new Error('p'), { code: 'plantilla_no_soportada' }); enviados.push({ id, to, s }); return 'wamid.out'; } });
+    enviar: async (id, to, s) => { cuerpoSalidaMarca(to, s); enviados.push({ id, to, s }); return 'wamid.out'; } });
   assert.deepEqual(r, { enviados: 1, fallidos: 2, inciertos: 0 });
   assert.equal(enviados.length, 1);
   assert.equal(enviados[0].id, QB);
   const res = (id) => posts.find((p) => p.url === `http://pms${rutaResultado(id)}`).body;
   assert.equal(res(1).resultado, 'enviado');
   assert.equal(res(2).error, 'numero_no_es_de_marca');
-  assert.equal(res(3).error, 'plantilla_no_soportada');
+  assert.equal(res(3).error, 'plantilla_invalida');
 });
 
 test('cola qb_outbox: sin la lista leída o sin números de marca no se reclama nada', async () => {
