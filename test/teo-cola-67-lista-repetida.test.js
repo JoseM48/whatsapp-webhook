@@ -29,3 +29,10 @@ test('un código que no está en el bloque no se toca', () => {
 test('el redactor recibe la regla de no enumerar lo que trae el bloque (chat y nota de voz usan el mismo texto)', () => {
   assert.match(WRITER_SYSTEM_PROMPT, /never list or enumerate the apartments yourself/);
 });
+
+test('revisión: sin viñeta suelta y una palabra de descripción se deja', () => {
+  const uno = { price_presentation: { block_text: 'LF-1109: $3.577.200 al mes · 30 noches' } };
+  const t = insertarBloquePrecios(uno, 'Te propongo:\n• LF-1109\n[[PRECIOS]]\n¿Te sirve?');
+  assert.equal(t, 'Te propongo:\nLF-1109: $3.577.200 al mes · 30 noches\n¿Te sirve?');
+  assert.match(insertarBloquePrecios(pk, '- LF-1109 (balcón)\n[[PRECIOS]]'), /\(balcón\)/);
+});

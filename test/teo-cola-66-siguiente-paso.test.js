@@ -42,3 +42,8 @@ test('una frase de siguiente paso con variantes agotadas se deja; la cortesía p
   const r2 = sinTextosFijosRepetidos(`Te mando el resumen de la llamada por aquí mismo. ${gracias}`, [gracias, 'Gracias de nuevo por tu llamada.']);
   assert.doesNotMatch(r2.texto, /Gracias por llamar/);
 });
+
+test('revisión: "¿cuándo pagué?" también cuenta como pregunta por pagos', () => {
+  const r = sinTextosFijosRepetidos(`Claro. ${DEP}`, [DEP], { mensajeHuesped: 'y cuando pague eso?' });
+  assert.equal(r.texto, `Claro. ${DEP}`);
+});
