@@ -165,3 +165,36 @@ test('memoria de falla: es por número de marca y teléfono', async () => {
   await atenderMarca([cambio('888000222', msg({ type: 'text', text: { body: 'otra marca' } }))], { ...f.deps, memoria });
   assert.deepEqual(f.enviados, []);
 });
+
+// Carta de Pipa y Mima (2026-11-12): lista interactiva de salida y la fila elegida de entrada.
+test('lista: el PMS manda salida.lista y sale como lista interactiva de Meta (máx. 10 filas, títulos recortados)', () => {
+  const filas = Array.from({ length: 12 }, (_, k) => ({ id: `dm:5:it_${k + 1}`, title: `Plato con un nombre muy largo número ${k + 1}`, description: `$${k + 1}.000 · descripción` }));
+  const c = cuerpoSalidaMarca(FROM, { texto: '¿Qué le gustaría pedir?', lista: { boton: 'Ver la carta', secciones: [{ titulo: 'Almuerzos', filas: filas.slice(0, 6) }, { titulo: '', filas: filas.slice(6) }] } });
+  assert.equal(c.type, 'interactive');
+  assert.equal(c.interactive.type, 'list');
+  assert.equal(c.interactive.body.text, '¿Qué le gustaría pedir?');
+  assert.equal(c.interactive.action.button, 'Ver la carta');
+  const rows = c.interactive.action.sections.flatMap((s) => s.rows);
+  assert.equal(rows.length, 10);
+  assert.ok(rows.every((r) => r.title.length <= 24 && r.description.length <= 72));
+  assert.equal(c.interactive.action.sections[0].title, 'Almuerzos');
+  assert.equal(c.interactive.action.sections[1].title, 'Opciones 2');   // Meta exige título con varias secciones
+  // Sin filas válidas: texto normal. Los botones siguen igual.
+  assert.deepEqual(cuerpoSalidaMarca(FROM, { texto: 'Hola', lista: { secciones: [{ filas: [] }] } }), { messaging_product: 'whatsapp', to: FROM, text: { body: 'Hola' } });
+  assert.equal(cuerpoSalidaMarca(FROM, { texto: 'x', botones: [{ id: 'a', title: 'A' }] }).interactive.type, 'button');
+});
+
+test('lista: la fila elegida llega como listaId (botonId no cambia) y va al PMS como boton_id', async () => {
+  const lista = msg({ type: 'interactive', interactive: { type: 'list_reply', list_reply: { id: 'dm:5:it_3', title: 'Limonada natural' } } });
+  const [e] = extractMetaMessages({ entry: [{ changes: [cambio(QB, lista)] }] });
+  assert.equal(e.listaId, 'dm:5:it_3');
+  assert.equal(e.botonId, null);
+  const m = montar();
+  await atenderMarca([cambio(QB, lista)], m.deps);
+  assert.equal(m.posts[0].body.boton_id, 'dm:5:it_3');
+  // Un botón de respuesta sigue como siempre.
+  const boton = msg({ type: 'interactive', interactive: { type: 'button_reply', button_reply: { id: 'dm:5:si_asi', title: 'Sí, así' } } });
+  const [b] = extractMetaMessages({ entry: [{ changes: [cambio(QB, boton)] }] });
+  assert.equal(b.botonId, 'dm:5:si_asi');
+  assert.equal(b.listaId, null);
+});
