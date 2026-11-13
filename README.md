@@ -37,3 +37,5 @@ con Miu o con el 7355, se ignora y esos caminos no cambian. Sus eventos
 `calls` se ignoran: el número demo tampoco debe tener llamadas ni SIP; si se
 activaran, agregar su número a `TENGOCAMELLO_DISPLAY_PHONE_NUMBER` (acepta
 varios, separados por coma).
+
+<!-- prueba del despliegue controlado de Teo (PR de prueba, no fusionar) -->
