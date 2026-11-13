@@ -281,3 +281,18 @@ test('telefonoEsEquipo pregunta firmado con plazo corto; solo true cuenta', asyn
   assert.equal(posts[0].cfg.timeout, 3000);
   assert.ok(posts[0].cfg.headers['X-PMS-Signature']);
 });
+
+// MANDE (2026-11-12): el número de marca acepta el video del daño hasta 16 MB; lo demás sigue en el tope de siempre.
+test('el tope de una descarga se puede subir solo para esa llamada (video de marca, 16 MB)', async () => {
+  const MB = 1024 * 1024;
+  const grande = { url: 'https://lookaside.example/file', mime_type: 'video/mp4', file_size: 12 * MB };
+  const video = { tipo: 'video', id: 'media.video.1', mimeType: 'video/mp4' };
+  const d = new InboundMediaDownloader({ http: fakeHttp({ meta: grande, bytes: Buffer.alloc(12 * MB, 1) }), accessToken: 't' });
+  assert.equal((await d.adjunto(video)).estado, 'demasiado_grande');
+  const http = fakeHttp({ meta: grande, bytes: Buffer.alloc(12 * MB, 1) });
+  const ok = await new InboundMediaDownloader({ http, accessToken: 't' }).adjunto(video, { maxBytes: 16 * MB });
+  assert.equal(ok.estado, 'guardado');
+  assert.equal(http.calls[1].maxContentLength, 16 * MB);
+  const enorme = { ...grande, file_size: 17 * MB };
+  assert.equal((await new InboundMediaDownloader({ http: fakeHttp({ meta: enorme }), accessToken: 't' }).adjunto(video, { maxBytes: 16 * MB })).estado, 'demasiado_grande');
+});

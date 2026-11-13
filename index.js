@@ -60,6 +60,7 @@ const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, ate
   whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS, clasificarFalloEnvio } = require('./lib/pilot/numero-entrante');
 const { leerConfigReenvio, configReenvioParaLog, despacharReenvios, crearPostAxios } = require('./lib/pilot/reenvio-numeros');
 // QUEDÓ BIEN / NÚMEROS DE MARCA (GO José Manuel 2026-11-11; PMS migraciones 1201-1207).
+const VIDEO_MARCA_MAX_BYTES = 16 * 1024 * 1024;
 const { atenderMarca, separarMarca, crearCacheNumerosMarca, crearMemoriaRemitentesMarca, cuerpoSalidaMarca, despacharSalidasMarca, debeEsperarMarca, crearSubirMedia } = require('./lib/pilot/numero-marca');
 const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, cuerpoSalidaEquipos, debeReintentar, debeEsperarEquipos, crearMemoriaRemitentes, RUTA_RECLAMAR: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado } = require('./lib/pilot/numero-equipos');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
@@ -1802,7 +1803,8 @@ app.post('/webhook', async (req, res) => {
     if (ruteo.marcaChanges.length) {
       const atencionMarca = atenderMarca(ruteo.marcaChanges, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL, enviar: enviarMarca, extractMetaMessages, memoria: memoriaRemitentesMarca,
         transcribirAudio: M0_AUDIO_TRANSCRIPTION_ENABLED ? (mediaId) => inboundAudioTranscriber.transcribe(mediaId) : null,
-        descargarAdjunto: (media) => inboundMediaDownloader.adjunto(media) })
+        // MANDE (2026-11-12): el video del daño llega hasta 16 MB (tope de WhatsApp); lo demás, el tope de siempre.
+        descargarAdjunto: (media) => inboundMediaDownloader.adjunto(media, media?.tipo === 'video' ? { maxBytes: VIDEO_MARCA_MAX_BYTES } : {}) })
         .catch((error) => console.error('[marca] fallo', { code: error?.code || 'unknown' }));
       if (debeEsperarMarca(ruteo)) await atencionMarca;
     }
