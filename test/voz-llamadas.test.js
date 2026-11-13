@@ -374,19 +374,29 @@ test('P1-1: el resumen que detecta una queja la manda como alerta al cerrar', as
   assert.equal(fin.siguiente_paso, 'persona');
 });
 
-test('P2-4: huesped de Airbnb: sin quote_stay ni check_availability, y el PMS no las ejecuta aunque las pidan', async () => {
+test('huesped de Airbnb (2026-11-13): puede cotizar si ELLA lo pide (check_availability y quote_stay), sin ofertas por iniciativa (fotos, video, opciones)', async () => {
   const m = montar({ inicio: { huesped_airbnb: true } });
   await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_7'))).procesando;
   const accept = m.posts.find((p) => p.url.endsWith('/accept'));
   const nombres = accept.body.tools.map((t) => t.name);
-  assert.equal(nombres.includes('quote_stay'), false);
-  assert.equal(nombres.includes('check_availability'), false);
+  assert.equal(nombres.includes('quote_stay'), true);
+  assert.equal(nombres.includes('check_availability'), true);
   assert.equal(nombres.includes('get_policy'), true);
+  for (const n of ['enviar_opciones_al_chat', 'enviar_video_al_chat', 'registrar_ruta_contacto']) assert.equal(nombres.includes(n), false, n);
+  assert.match(accept.body.instructions, /EXCEPCIÓN \(decisión de José Manuel, 2026-11-13\)/);
   const ws = FakeWs.ultima;
-  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'quote_stay', call_id: 'fc_q', arguments: '{}' }] } });
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'check_availability', call_id: 'fc_q', arguments: JSON.stringify({ arrival_date: '2026-12-01', nights: 5, guests: 2 }) }] } });
   await tick();
-  assert.equal(m.herramientas.length, 0);
+  assert.equal(m.herramientas.length, 1, 'el PMS sí ejecuta la consulta pedida por el huésped de Airbnb');
   ws.close();
+  await tick();
+  assert.equal(m.de('fin')[0].siguiente_paso, 'cotizacion');
+});
+
+test('huesped de Airbnb sin consultar disponibilidad: el siguiente paso sigue siendo estadia', async () => {
+  const m = montar({ inicio: { huesped_airbnb: true } });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_7b'))).procesando;
+  FakeWs.ultima.close();
   await tick();
   assert.equal(m.de('fin')[0].siguiente_paso, 'estadia');
 });
