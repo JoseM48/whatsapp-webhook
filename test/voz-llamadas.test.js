@@ -1230,6 +1230,19 @@ test('Paquete Magia (2026-10-24): Cami voz ofrece la demo, la arranca por el cha
   assert.equal(d.de('fin')[0].enviar_seguimiento, false);
 });
 
+test('CATEGORÍA DEL CLIENTE (2026-11-12): get_policy recibe el lead de la llamada (VIP sin precio de early/late)', async () => {
+  const m = montar();
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_vip'))).procesando;
+  const ws = FakeWs.ultima;
+  ws.emit('open');
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'get_policy', call_id: 'fc_p',
+    arguments: JSON.stringify({ policy_key: 'salida_late_checkout_v1' }) }] } });
+  await tick();
+  const p = m.herramientas.find((h) => h.name === 'get_policy');
+  assert.ok(p, 'get_policy no se llamó');
+  assert.equal(p.ctx.lead_id, 7);
+});
+
 test('LEAD 256 (paridad): search_commercial_knowledge recibe las noches que la llamada cotizo y el lead, no las del modelo', async () => {
   const m = montar();
   await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_256'))).procesando;
