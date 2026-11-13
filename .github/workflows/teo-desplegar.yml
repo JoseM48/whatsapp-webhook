@@ -1,0 +1,283 @@
+name: Teo desplegar
+
+# Despliegue controlado de los arreglos del Teo de la nube para el WEBHOOK
+# (decision de Jose Manuel, 2026-11-13, DECISIONES_LOG.md "Lo que la nube no
+# podia hacer", punto 1). Gemelo de `.github/workflows/teo-desplegar.yml` de
+# pms-lite; lea ese archivo para el razonamiento completo.
+#
+# FLUJO. PR `fix/teo-cola-*` -> rama de despliegue + etiqueta `teo-listo`:
+# pruebas sobre la fusion; si pasan y hay secreto, fusiona; llama al deploy
+# hook de Render; espera el resultado (si hay RENDER_API_KEY); comenta en el PR.
+# Si fallan: no fusiona, comenta, quita la etiqueta y deja un issue `teo-cola`.
+#
+# SEGURIDAD. `pull_request_target` (se ejecuta el workflow de la rama de
+# despliegue, no el del PR); el job que corre codigo del PR no recibe secretos
+# y solo lee; se rechaza todo PR que toque `.github/`; sin el secreto
+# RENDER_DEPLOY_HOOK_WEBHOOK no fusiona ni despliega.
+#
+# PRUEBAS. `npm test` (node --test, ~10 s, sin base de datos). La punta de la
+# rama ya trae fallas previas que dependen del repositorio pms-lite (validador
+# real del PMS), asi que solo cuentan las fallas NUEVAS: se corre la suite en
+# la fusion y en la punta y se comparan por nombre.
+
+on:
+  pull_request_target:
+    types: [labeled]
+    branches:
+      - codex/pilot-ingress-20260816
+
+concurrency:
+  # Las etiquetas ajenas a teo-listo van a su propio grupo para no cancelar un
+  # despliegue en cola.
+  group: teo-desplegar-webhook-${{ github.event.label.name == 'teo-listo' && 'cola' || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  RENDER_SERVICE_ID: srv-d25mkgh5pdvs73dosdf0
+  DEPLOY_BRANCH: codex/pilot-ingress-20260816
+
+jobs:
+  pruebas:
+    name: Pruebas del PR
+    if: >-
+      github.event.label.name == 'teo-listo' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'fix/teo-cola-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      base_tip: ${{ steps.fusion.outputs.base_tip }}
+      resumen: ${{ steps.suite.outputs.resumen }}
+    steps:
+      - name: Traer el resultado de la fusion (PR + punta actual)
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Comprobar la fusion y que no toque el despliegue
+        id: fusion
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # El merge ref debe ser una fusion real de la cabeza del PR que se etiqueto.
+          if [ "$(git rev-parse HEAD^2 2>/dev/null)" != "$HEAD_SHA" ]; then
+            echo "::error::La fusion no corresponde a la cabeza del PR (el PR cambio despues de la etiqueta o aun no hay fusion). Vuelve a poner la etiqueta."
+            exit 1
+          fi
+          echo "base_tip=$(git rev-parse HEAD^1)" >> "$GITHUB_OUTPUT"
+          git diff --no-renames --name-only HEAD^1 HEAD > "$RUNNER_TEMP/cambios.txt"
+          if grep -q '^\.github/' "$RUNNER_TEMP/cambios.txt"; then
+            echo "::error::El PR toca .github/: un arreglo de Teo no puede cambiar el despliegue."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar dependencias
+        run: npm ci --no-audit --no-fund
+
+      - name: Suite en la fusion y en la punta; solo cuentan las fallas nuevas
+        id: suite
+        run: |
+          set -uo pipefail
+          fallas() {
+            node --test --test-reporter=tap test/*.test.js > "$1.tap" 2>&1 || true
+            sed -nE 's/^ *not ok [0-9]+ - //p' "$1.tap" | sort -u > "$1"
+            grep -E '^# (tests|pass|fail)' "$1.tap" | tr '\n' ' ' || true
+            echo
+          }
+          echo "== Fusion"
+          fallas "$RUNNER_TEMP/fusion.txt"
+          resumen_fusion=$(grep -E '^# (tests|pass|fail)' "$RUNNER_TEMP/fusion.txt.tap" | tr '\n' ' ' || true)
+          if ! grep -q '^# tests' "$RUNNER_TEMP/fusion.txt.tap"; then
+            echo "::error::La suite no produjo resultado (error de carga)."
+            tail -30 "$RUNNER_TEMP/fusion.txt.tap"
+            exit 1
+          fi
+          git checkout --quiet --detach HEAD^1
+          npm ci --no-audit --no-fund > /dev/null 2>&1 || true
+          echo "== Punta de la rama de despliegue"
+          fallas "$RUNNER_TEMP/base.txt"
+          comm -23 "$RUNNER_TEMP/fusion.txt" "$RUNNER_TEMP/base.txt" > "$RUNNER_TEMP/nuevas.txt"
+          if [ -s "$RUNNER_TEMP/nuevas.txt" ]; then
+            echo "::error::Fallas NUEVAS respecto a la punta de la rama de despliegue:"
+            cat "$RUNNER_TEMP/nuevas.txt"
+            exit 1
+          fi
+          previas=$(wc -l < "$RUNNER_TEMP/fusion.txt")
+          echo "resumen=npm test sin fallas nuevas ($previas falla(s) previa(s) ya presentes en la punta; $resumen_fusion)" >> "$GITHUB_OUTPUT"
+
+  desplegar:
+    name: Fusionar y desplegar
+    needs: pruebas
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      BASE_TIP_PROBADA: ${{ needs.pruebas.outputs.base_tip }}
+      RESUMEN: ${{ needs.pruebas.outputs.resumen }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_WEBHOOK }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+    steps:
+      - name: Sin secreto, solo probar
+        id: secreto
+        run: |
+          set -euo pipefail
+          if [ -z "${HOOK:-}" ]; then
+            gh pr comment "$PR_NUMBER" --body "Teo desplegar: pruebas en verde ($RESUMEN). NO se fusiono ni se desplego: falta el secreto \`RENDER_DEPLOY_HOOK_WEBHOOK\` en GitHub (Settings > Secrets and variables > Actions). Cuando exista, quita y vuelve a poner la etiqueta \`teo-listo\`. $RUN_URL"
+            echo "hay_hook=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "hay_hook=si" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comprobar que la punta no se movio desde las pruebas
+        if: steps.secreto.outputs.hay_hook == 'si'
+        run: |
+          set -euo pipefail
+          actual=$(gh api "repos/$GH_REPO/branches/$DEPLOY_BRANCH" --jq .commit.sha)
+          if [ "$actual" != "$BASE_TIP_PROBADA" ]; then
+            gh pr comment "$PR_NUMBER" --body "Teo desplegar: la rama de despliegue avanzo mientras se probaba ($BASE_TIP_PROBADA -> $actual). No se fusiono. Quita y vuelve a poner \`teo-listo\` para probar de nuevo. $RUN_URL"
+            gh pr edit "$PR_NUMBER" --remove-label teo-listo || true
+            echo "::error::La punta se movio; hay que reprobar."
+            exit 1
+          fi
+
+      - name: Fusionar el PR
+        if: steps.secreto.outputs.hay_hook == 'si'
+        id: fusionar
+        run: |
+          set -euo pipefail
+          if ! gh pr merge "$PR_NUMBER" --merge --match-head-commit "$HEAD_SHA"; then
+            gh pr comment "$PR_NUMBER" --body "Teo desplegar: las pruebas pasaron pero GitHub no dejo fusionar (conflicto, el PR cambio despues de probarlo, o falta permiso). No se desplego. $RUN_URL"
+            gh pr edit "$PR_NUMBER" --remove-label teo-listo || true
+            exit 1
+          fi
+          sha=""
+          for _ in 1 2 3 4 5; do
+            sha=$(gh pr view "$PR_NUMBER" --json mergeCommit --jq '.mergeCommit.oid // empty')
+            [ -n "$sha" ] && break
+            sleep 3
+          done
+          [ -n "$sha" ] || { echo "::error::No se obtuvo el commit de la fusion."; exit 1; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Llamar al deploy hook de Render
+        if: steps.fusionar.outcome == 'success'
+        id: hook
+        run: |
+          set -uo pipefail
+          echo "::add-mask::$HOOK"
+          codigo=$(curl --silent --show-error --max-time 60 -X POST -o "$RUNNER_TEMP/hook.json" -w '%{http_code}' "$HOOK" 2>/dev/null || echo 000)
+          echo "Respuesta del hook: HTTP $codigo"
+          if [ "${codigo:0:1}" != "2" ]; then
+            echo "resultado=hook_fallo" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "resultado=pedido" >> "$GITHUB_OUTPUT"
+
+      - name: Esperar el despliegue (solo si hay RENDER_API_KEY)
+        if: steps.hook.outputs.resultado == 'pedido'
+        id: espera
+        env:
+          MERGE_SHA: ${{ steps.fusionar.outputs.sha }}
+        run: |
+          set -uo pipefail
+          if [ -z "${RENDER_API_KEY:-}" ]; then
+            echo "estado=sin_api" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::add-mask::$RENDER_API_KEY"
+          limite=$(( $(date +%s) + 1500 ))
+          estado=""
+          while [ "$(date +%s)" -lt "$limite" ]; do
+            sleep 20
+            lista=$(curl --silent --max-time 30 -H "Authorization: Bearer $RENDER_API_KEY" \
+              "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys?limit=5" || echo "[]")
+            estado=$(echo "$lista" | node -e '
+              let s = "";
+              process.stdin.on("data", (d) => (s += d)).on("end", () => {
+                try {
+                  const l = JSON.parse(s);
+                  const d = l.map((x) => x.deploy || x).find((x) => x.commit && x.commit.id === process.argv[1]);
+                  process.stdout.write(d ? d.status : "");
+                } catch {}
+              });' "$MERGE_SHA")
+            echo "estado Render: ${estado:-aun no aparece}"
+            case "$estado" in
+              live|build_failed|update_failed|pre_deploy_failed|canceled|deactivated) break ;;
+            esac
+          done
+          echo "estado=${estado:-sin_respuesta}" >> "$GITHUB_OUTPUT"
+
+      - name: Comentar el resultado
+        if: always() && steps.fusionar.outcome == 'success'
+        env:
+          MERGE_SHA: ${{ steps.fusionar.outputs.sha }}
+          HOOK_RESULTADO: ${{ steps.hook.outputs.resultado }}
+          ESTADO: ${{ steps.espera.outputs.estado }}
+        run: |
+          set -uo pipefail
+          corto="${MERGE_SHA:0:8}"
+          revertir="Para revertir: \`git revert -m 1 $corto\` sobre la punta de \`$DEPLOY_BRANCH\` y volver a desplegar."
+          problema=0
+          if [ "${HOOK_RESULTADO:-}" != "pedido" ]; then
+            msg="Fusionado ($corto) pero el deploy hook de Render FALLO. Hay que desplegar a mano. $revertir"; problema=1
+          else
+            case "${ESTADO:-}" in
+              live) msg="Fusionado ($corto) y DESPLEGADO: Render dice \`live\`. Pruebas: $RESUMEN. $revertir" ;;
+              build_failed|update_failed|pre_deploy_failed|canceled) msg="Fusionado ($corto) pero el despliegue termino en \`$ESTADO\`. Render sigue con la version anterior. $revertir"; problema=1 ;;
+              deactivated) msg="Fusionado ($corto). Otro despliegue lo reemplazo (\`deactivated\`); verificar que la punta actual esta \`live\`." ;;
+              sin_api) msg="Fusionado ($corto) y despliegue PEDIDO a Render. No se pudo esperar el resultado porque no hay secreto \`RENDER_API_KEY\`: verificar en Render. Pruebas: $RESUMEN. $revertir" ;;
+              *) msg="Fusionado ($corto) y despliegue pedido, pero no se obtuvo el estado final en 25 minutos (\`${ESTADO:-sin respuesta}\`). Verificar en Render. $revertir"; problema=1 ;;
+            esac
+          fi
+          gh pr comment "$PR_NUMBER" --body "Teo desplegar: $msg $RUN_URL"
+          if [ "$problema" -eq 1 ]; then
+            gh label create teo-cola --color 5319e7 --description "Cola de Teo" 2>/dev/null || true
+            gh issue create --label teo-cola --title "Despliegue con problema tras fusionar PR #$PR_NUMBER" \
+              --body "El PR #$PR_NUMBER se fusiono ($corto) pero el despliegue no quedo confirmado: $msg Ejecucion: $RUN_URL"
+            exit 1
+          fi
+
+  fallo:
+    name: Pruebas fallidas o sin correr
+    needs: pruebas
+    if: always() && needs.pruebas.result != 'success' && needs.pruebas.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Comentar, quitar la etiqueta y dejar el issue de la cola
+        run: |
+          set -uo pipefail
+          gh pr comment "$PR_NUMBER" --body "Teo desplegar: las pruebas NO pasaron (o no pudieron correr: conflicto con la punta, o el PR toca \`.github/\`). No se fusiono ni se desplego nada. Detalle: $RUN_URL . Se quito \`teo-listo\`; al corregir, vuelve a ponerla."
+          gh pr edit "$PR_NUMBER" --remove-label teo-listo || true
+          gh label create teo-cola --color 5319e7 --description "Cola de Teo" 2>/dev/null || true
+          existente=$(gh issue list --label teo-cola --state open --search "\"PR #$PR_NUMBER\" in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existente" ]; then
+            gh issue comment "$existente" --body "Nueva falla de pruebas del PR #$PR_NUMBER: $RUN_URL"
+          else
+            gh issue create --label teo-cola --title "Pruebas fallan en PR #$PR_NUMBER (teo-listo)" \
+              --body "El PR #$PR_NUMBER (rama fix/teo-cola-*) no paso las pruebas del despliegue controlado. Corregir en la misma rama y volver a poner la etiqueta teo-listo. Detalle: $RUN_URL"
+          fi
