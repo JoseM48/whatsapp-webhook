@@ -1433,7 +1433,9 @@ test('2026-10-29: el chat saluda igual que la llamada (asistente virtual de Jos�
   assert.match(txt, /CERRAR TRAS UN SÍ/);
   assert.match(txt, /Wompi, la pasarela de pagos de Bancolombia/);
   assert.match(txt, /No recibimos pagos en efectivo/);
-  assert.match(txt, /depósito por posibles daños que se devuelve al check-out/);
+  // Ensayo sin depósito (José Manuel, 2026-11-14): el anticipo se descuenta y no hay depósito.
+  assert.match(txt, /anticipo por el link de pago que se descuenta de lo que se paga después/);
+  assert.doesNotMatch(txt, /depósito por posibles daños que se devuelve al check-out/);
 });
 
 // "Hablar con una persona": primero Teo (José Manuel, 2026-11-07; paridad con el

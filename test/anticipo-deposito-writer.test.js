@@ -10,7 +10,8 @@ const assert = require('node:assert/strict');
 const { writerViewOfPacket, WRITER_SYSTEM_PROMPT } = require('../lib/pilot/llm/writer.js');
 
 test('el prompt del redactor explica la regla y prohíbe "se descuenta del total"', () => {
-  assert.match(WRITER_SYSTEM_PROMPT, /ADVANCE AND DEPOSIT \(decision 2026-10-06\)/);
+  // Desde el ensayo sin depósito (2026-11-14) la regla aplica solo a cotizaciones que aún la traen.
+  assert.match(WRITER_SYSTEM_PROMPT, /ADVANCE AND DEPOSIT \(decision 2026-10-06; since 2026-11-14 it applies ONLY to quotes that still carry it/);
   assert.match(WRITER_SYSTEM_PROMPT, /NOT deducted from the total/);
   assert.match(WRITER_SYSTEM_PROMPT, /refunded when the stay ends/);
   assert.match(WRITER_SYSTEM_PROMPT, /first month/);

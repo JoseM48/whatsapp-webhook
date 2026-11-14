@@ -15,12 +15,15 @@ test('llamada: con reserva_30_mas del PMS se dice esa regla y no la del anticipo
   const t = instruccionesCamiVoz({ hoy: '2026-10-29', reserva30: { regla: REGLA } });
   assert.match(t, /PRE-CONFIRMADA sin pago/);
   assert.match(t, /Nunca digas que hubo problemas con un apartamento/);
-  assert.doesNotMatch(t, /- ANTICIPO: si en 30 noches o más se paga anticipo/);
+  assert.doesNotMatch(t, /- ANTICIPO \(ensayo de José Manuel, 2026-11-14\)/);
 });
 
-test('llamada: sin la regla (política apagada) queda la del anticipo de siempre', () => {
+// Ensayo sin depósito (José Manuel, 2026-11-14): la regla de respaldo ya no habla de depósito.
+test('llamada: sin la regla (política apagada) queda la del anticipo del ensayo, sin depósito', () => {
   const t = instruccionesCamiVoz({ hoy: '2026-10-29' });
-  assert.match(t, /- ANTICIPO: si en 30 noches o más se paga anticipo/);
+  assert.match(t, /- ANTICIPO \(ensayo de José Manuel, 2026-11-14\): para reservar se paga un anticipo por el link de pago que se descuenta/);
+  assert.match(t, /No se pide depósito por daños/);
+  assert.doesNotMatch(t, /explícalo como depósito/);
   assert.doesNotMatch(t, /PRE-CONFIRMADA sin pago/);
 });
 
