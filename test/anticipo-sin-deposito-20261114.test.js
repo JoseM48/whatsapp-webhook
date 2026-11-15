@@ -27,4 +27,6 @@ test('llamada sin regla del PMS: anticipo que se descuenta y sin depósito', () 
   const t = instruccionesCamiVoz({ hoy: '2026-11-14' });
   assert.match(t, /se descuenta de lo que se paga después/);
   assert.doesNotMatch(t, /depósito por posibles daños/);
+  // Revisión 2026-11-14 (P2-3): Miu Canal conserva su régimen y su forma de pago.
+  assert.match(t, /red Miu Canal el anticipo y la forma de pago son los que trae la cotización/);
 });
