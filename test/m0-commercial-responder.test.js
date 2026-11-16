@@ -209,3 +209,80 @@ test('la recuperación 429 conserva el wamid y sólo crea un acuse lógico', asy
   assert.equal(beginCalls, 1);
   assert.deepEqual(result.acknowledgement_outboxes, [{ id: 91 }]);
 });
+
+// teo-cola #245 (2026-11-16): el log del error de admisión debe decir en qué
+// paso falló, el status HTTP y el código de error del PMS (nunca texto libre),
+// para poder diagnosticar después con los logs de Render (caso teo-cola #240).
+test('teo-cola #245: admission_error registra etapa, status HTTP y código del PMS sin datos personales', async () => {
+  const logs = [];
+  const pmsError = Object.assign(new Error('Request failed with status code 409'), {
+    code: 'ERR_BAD_REQUEST',
+    response: { status: 409, data: { error: 'm0_commercial_inbound_not_captured' } }
+  });
+  const responder = createM0CommercialResponder({
+    async capture() { return { captured: true, interaction_id: 10 }; },
+    ai: { async interpret() {} },
+    closedPilot: {
+      async beginCommercial() { throw pmsError; },
+      async deliverCommercialOutboxes(outboxes) { return outboxes.map(() => ({ status: 'submitted' })); }
+    },
+    pms: {
+      async processingFailure() {
+        throw Object.assign(new Error('Request failed with status code 404'), {
+          code: 'ERR_BAD_REQUEST', response: { status: 404, data: { error: 'processing_not_found' } }
+        });
+      },
+      async recordM0AdmissionError() { return { first_occurrence: true, outboxes: [] }; }
+    },
+    logger: { error(tag, data) { logs.push([tag, data]); }, info(tag, data) { logs.push([tag, data]); } }
+  });
+  await responder.captureAndAcknowledge(input);
+  const admission = logs.find(([tag]) => tag === '[m0-commercial] admission_error')[1];
+  assert.equal(admission.code, 'ERR_BAD_REQUEST');
+  assert.equal(admission.etapa, 'begin');
+  assert.equal(admission.http_status, 409);
+  assert.equal(admission.pms_error, 'm0_commercial_inbound_not_captured');
+  const persist = logs.find(([tag]) => tag === '[m0-commercial] processing_failure_persistence_failed')[1];
+  assert.equal(persist.http_status, 404);
+  assert.equal(persist.pms_error, 'processing_not_found');
+  const todo = JSON.stringify(logs);
+  assert.equal(todo.includes(input.from), false, 'el teléfono no va al log');
+});
+
+test('teo-cola #245: un error de captura se registra con etapa capture y un error del PMS con texto libre no se copia', async () => {
+  const logs = [];
+  const responder = createM0CommercialResponder({
+    async capture() {
+      throw Object.assign(new Error('x'), {
+        code: 'ERR_BAD_REQUEST',
+        response: { status: 400, data: { error: 'Teléfono 573146892662 inválido para Ana' } }
+      });
+    },
+    ai: { async interpret() {} },
+    closedPilot: { async beginCommercial() {}, async deliverCommercialOutboxes() { return []; } },
+    pms: { async processingFailure() {}, async recordM0AdmissionError() { return { first_occurrence: false }; } },
+    logger: { error(tag, data) { logs.push([tag, data]); }, info() {} }
+  });
+  await responder.captureAndAcknowledge(input);
+  const admission = logs.find(([tag]) => tag === '[m0-commercial] admission_error')[1];
+  assert.equal(admission.etapa, 'capture');
+  assert.equal(admission.http_status, 400);
+  assert.equal(admission.pms_error, 'texto_no_codigo');
+  assert.equal(JSON.stringify(logs).includes('573146892662'), false);
+});
+
+test('teo-cola #245: un código con un teléfono dentro tampoco se copia al log', async () => {
+  const logs = [];
+  const responder = createM0CommercialResponder({
+    async capture() {
+      throw Object.assign(new Error('x'), { code: 'ERR_BAD_REQUEST', response: { status: 409, data: { error: 'telefono:573146892662' } } });
+    },
+    ai: { async interpret() {} },
+    closedPilot: { async beginCommercial() {}, async deliverCommercialOutboxes() { return []; } },
+    pms: { async processingFailure() {}, async recordM0AdmissionError() { return { first_occurrence: false }; } },
+    logger: { error(tag, data) { logs.push([tag, data]); }, info() {} }
+  });
+  await responder.captureAndAcknowledge(input);
+  assert.equal(logs.find(([tag]) => tag === '[m0-commercial] admission_error')[1].pms_error, 'texto_no_codigo');
+  assert.equal(JSON.stringify(logs).includes('573146892662'), false);
+});
