@@ -270,3 +270,19 @@ test('teo-cola #245: un error de captura se registra con etapa capture y un erro
   assert.equal(admission.pms_error, 'texto_no_codigo');
   assert.equal(JSON.stringify(logs).includes('573146892662'), false);
 });
+
+test('teo-cola #245: un código con un teléfono dentro tampoco se copia al log', async () => {
+  const logs = [];
+  const responder = createM0CommercialResponder({
+    async capture() {
+      throw Object.assign(new Error('x'), { code: 'ERR_BAD_REQUEST', response: { status: 409, data: { error: 'telefono:573146892662' } } });
+    },
+    ai: { async interpret() {} },
+    closedPilot: { async beginCommercial() {}, async deliverCommercialOutboxes() { return []; } },
+    pms: { async processingFailure() {}, async recordM0AdmissionError() { return { first_occurrence: false }; } },
+    logger: { error(tag, data) { logs.push([tag, data]); }, info() {} }
+  });
+  await responder.captureAndAcknowledge(input);
+  assert.equal(logs.find(([tag]) => tag === '[m0-commercial] admission_error')[1].pms_error, 'texto_no_codigo');
+  assert.equal(JSON.stringify(logs).includes('573146892662'), false);
+});
