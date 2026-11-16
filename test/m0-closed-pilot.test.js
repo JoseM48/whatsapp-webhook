@@ -242,6 +242,17 @@ test('a guest outbox item with no resolvable phone is rejected instead of silent
   assert.equal(textSends,0);
 });
 
+test('a guest outbox row with no resolvable phone is closed as failed, never left in submitting (teo-cola #239)',async()=>{
+  const completed=[];
+  const pms={async closedPilotInbound(){return {outboxes:[{id:13}]};},
+    async claimClosedPilotOutbound(){return {outbox_id:13,claimable:true,recipient_kind:'guest',recipient_phone:null,message_text:'x'};},
+    async completeClosedPilotOutbound(x){completed.push(x);}};
+  const dispatcher=createM0ClosedPilotDispatcher({config,pms,async sendText(){},logger:{error(){}}});
+  await assert.rejects(()=>dispatcher.process({phone:guest,text:'x',messageId:'wamid.no-phone-2',occurredAt:new Date().toISOString()}),
+    /m0_closed_recipient_missing_or_invalid/);
+  assert.deepEqual(completed,[{outbox_id:13,status:'failed'}]);
+});
+
 test('an internal escalation can never fall back to free-form text',async()=>{
   let textSends=0;
   const pms={async closedPilotInbound(){return {outboxes:[{id:31}]};},
