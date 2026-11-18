@@ -1253,6 +1253,21 @@ test('CATEGORÍA DEL CLIENTE (2026-11-12): get_policy recibe el lead de la llama
   assert.equal(p.ctx.lead_id, 7);
 });
 
+test('CASO-0165 (caso Ana, paridad con el chat): check_availability recibe el lead de la llamada para reconocer su propia reserva', async () => {
+  const m = montar();
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_0165'))).procesando;
+  const ws = FakeWs.ultima;
+  ws.emit('open');
+  mensaje(ws, { type: 'response.done', response: { output: [{ type: 'function_call', name: 'check_availability', call_id: 'fc_ana',
+    arguments: JSON.stringify({ nights: 30, arrival_date: '2026-11-20', guests: 1 }) }] } });
+  await tick();
+  const c = m.herramientas.find((h) => h.name === 'check_availability');
+  assert.ok(c, 'check_availability no se llamó');
+  assert.equal(c.ctx.lead_id, 7);
+  ws.close();
+  await tick();
+});
+
 test('LEAD 256 (paridad): search_commercial_knowledge recibe las noches que la llamada cotizo y el lead, no las del modelo', async () => {
   const m = montar();
   await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_256'))).procesando;
