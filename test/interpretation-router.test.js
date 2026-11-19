@@ -149,6 +149,27 @@ test('la ruta nueva pasa a las tools las propuestas de la conversacion (proposal
   assert.equal(vistos[0].context.proposal_snapshot, null);
 });
 
+// TRAMO DE RESERVA PARTIDA (PMS, 2026-11-19, punto 28): el lead del turno viaja solo a las tools.
+test('el lead del contexto del PMS va a las tools como tramo_lead_id y nunca a la legacy ni al modelo', async () => {
+  const vistos = [];
+  let n = 0;
+  const pedidos = [];
+  const provider = { name: 'openai', model: 'modelo-de-prueba', structured: async (req) => { pedidos.push(JSON.stringify(req)); return (++n === 1
+    ? { output: null, tool_calls: [{ id: 't1', name: 'quote_stay', arguments: { arrival_date: '2026-11-24', nights: 1 }, _raw: {} }], usage: {}, meta: {} }
+    : { output: V2_MINIMO, tool_calls: [], usage: { input_tokens: 1, output_tokens: 1 } }); } };
+  const router = createInterpretationRouter({ legacyAi: legacySpy(), provider,
+    pmsClient: { conversationalTool: async (tool, args, context) => { vistos.push({ tool, context }); return { status: 'ok', data: {} }; } },
+    env: ON, logger: silencio });
+  await router.interpret({ text: 'sí, la noche del 24 en el 210', phone: TEST_PHONE, today: '2026-11-19', context: { lead_id: 285 } });
+  assert.equal(vistos[0].context.tramo_lead_id, 285);
+  assert.ok(pedidos.every((p) => !p.includes('285')), 'el modelo no ve el lead');
+  // La legacy tampoco lo recibe.
+  const legacy = legacySpy();
+  const apagada = createInterpretationRouter({ legacyAi: legacy, provider, pmsClient: {}, env: {}, logger: silencio });
+  await apagada.interpret({ text: 'hola', phone: TEST_PHONE, today: '2026-11-19', context: { lead_id: 285, x: 1 } });
+  assert.deepEqual(legacy.calls[0].context, { x: 1 });
+});
+
 test('el ejecutor pasa el contexto del llamante, no el del modelo', async () => {
   let visto = null;
   const executor = createPmsToolExecutor({
