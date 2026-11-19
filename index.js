@@ -64,7 +64,7 @@ const VIDEO_MARCA_MAX_BYTES = 16 * 1024 * 1024;
 const { atenderMarca, separarMarca, crearCacheNumerosMarca, crearMemoriaRemitentesMarca, cuerpoSalidaMarca, despacharSalidasMarca, debeEsperarMarca, crearSubirMedia } = require('./lib/pilot/numero-marca');
 const { atenderEquipos, crearCacheNumeros, cuerpoInteractivo, cuerpoSalidaEquipos, debeReintentar, debeEsperarEquipos, crearMemoriaRemitentes, RUTA_RECLAMAR: RUTA_EQUIPOS_RECLAMAR, rutaResultado: rutaEquiposResultado } = require('./lib/pilot/numero-equipos');
 const { InboundAudioTranscriber } = require('./lib/pilot/inbound-audio');
-const { InboundMediaDownloader, capturarConRespaldo, audioDelEquipo } = require('./lib/pilot/inbound-media');
+const { InboundMediaDownloader, capturarConRespaldo, audioDelEquipo, adjuntoConTopeEquipo } = require('./lib/pilot/inbound-media');
 const { InboundImageReader, createImageBurst, prepararTurnoImagen, iniciarLectura, registrarTextoEnRafaga, registrarEntrega, turnoSinNombre } = require('./lib/pilot/inbound-image-reader');
 const { parseFlowResponse, flowResponseToText } = require('./lib/pilot/flow-response');
 const { toFile } = require('openai');
@@ -2027,7 +2027,10 @@ app.post('/webhook', async (req, res) => {
           // Solo mensajes de huesped: el numero interno ya salio arriba.
           let adjunto = null;
           if (M0_INBOUND_MEDIA_ENABLED && incoming.media) {
-            adjunto = await inboundMediaDownloader.adjunto(incoming.media);
+            // CASO-0203: un video del equipo puede pesar hasta 25 MB (adjuntoConTopeEquipo).
+            adjunto = await adjuntoConTopeEquipo({ media: incoming.media, from: normalizePhone(incoming.from),
+              esEquipo: (telefono) => pmsPilotClient.telefonoEsEquipo(telefono),
+              descargar: (media, opciones) => inboundMediaDownloader.adjunto(media, opciones) });
             console.info('[m0-media] inbound', { phone: maskPilotPhone(incoming.from), tipo: adjunto.tipo,
               estado: adjunto.estado, bytes: adjunto.size_bytes ?? null, motivo: adjunto.motivo ?? null });
           }

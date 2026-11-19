@@ -296,3 +296,61 @@ test('el tope de una descarga se puede subir solo para esa llamada (video de mar
   const enorme = { ...grande, file_size: 17 * MB };
   assert.equal((await new InboundMediaDownloader({ http: fakeHttp({ meta: enorme }), accessToken: 't' }).adjunto(video, { maxBytes: 16 * MB })).estado, 'demasiado_grande');
 });
+
+// CASO-0203 (José Manuel, 2026-11-19): video del equipo hasta 25 MB; huésped sigue en 10 MB.
+{
+  const { adjuntoConTopeEquipo, VIDEO_EQUIPO_MAX_BYTES } = require('../lib/pilot/inbound-media');
+  const MB = 1024 * 1024;
+  const video = { tipo: 'video', id: 'vid.1', mimeType: 'video/mp4', filename: null, caption: null };
+  const descargador = (bytes) => {
+    const http = fakeHttp({ meta: { url: 'https://lookaside.example/v', mime_type: 'video/mp4', file_size: bytes.length }, bytes });
+    return new InboundMediaDownloader({ http, accessToken: 't' });
+  };
+
+  test('CASO-0203: video de 12 MB de una persona del equipo se baja con tope de 25 MB', async () => {
+    assert.equal(VIDEO_EQUIPO_MAX_BYTES, 25 * MB);
+    const d = descargador(Buffer.alloc(12 * MB, 1));
+    const preguntas = [];
+    const a = await adjuntoConTopeEquipo({ media: video, from: '573001112233', esEquipo: async (t) => { preguntas.push(t); return true; },
+      descargar: (m, o) => d.adjunto(m, o) });
+    assert.equal(a.estado, 'guardado');
+    assert.equal(a.size_bytes, 12 * MB);
+    assert.deepEqual(preguntas, ['573001112233']);
+  });
+
+  test('CASO-0203: el mismo video de un huésped sigue en 10 MB', async () => {
+    const d = descargador(Buffer.alloc(12 * MB, 1));
+    const a = await adjuntoConTopeEquipo({ media: video, from: '573000000000', esEquipo: async () => false, descargar: (m, o) => d.adjunto(m, o) });
+    assert.equal(a.estado, 'demasiado_grande');
+    assert.equal(a.contenido_base64, undefined);
+  });
+
+  test('CASO-0203: un video de más de 25 MB no se baja ni se pregunta al PMS', async () => {
+    const d = descargador(Buffer.alloc(26 * MB, 1));
+    let pregunto = false;
+    const a = await adjuntoConTopeEquipo({ media: video, from: '573001112233', esEquipo: async () => { pregunto = true; return true; }, descargar: (m, o) => d.adjunto(m, o) });
+    assert.equal(a.estado, 'demasiado_grande');
+    assert.equal(a.size_bytes, 26 * MB);
+    assert.equal(pregunto, false);
+  });
+
+  test('CASO-0203: una foto grande o un video pequeño no preguntan al PMS', async () => {
+    let preguntas = 0;
+    const esEquipo = async () => { preguntas += 1; return true; };
+    const chico = descargador(Buffer.alloc(2 * MB, 1));
+    assert.equal((await adjuntoConTopeEquipo({ media: video, from: 'x', esEquipo, descargar: (m, o) => chico.adjunto(m, o) })).estado, 'guardado');
+    const foto = descargador(Buffer.alloc(12 * MB, 1));
+    const a = await adjuntoConTopeEquipo({ media: { ...video, tipo: 'image', mimeType: 'image/jpeg' }, from: 'x', esEquipo, descargar: (m, o) => foto.adjunto(m, o) });
+    assert.equal(a.estado, 'demasiado_grande');
+    assert.equal(preguntas, 0);
+  });
+
+  test('CASO-0203: si el PMS no responde, queda el resultado de 10 MB y no lanza', async () => {
+    const d = descargador(Buffer.alloc(12 * MB, 1));
+    const errores = [];
+    const a = await adjuntoConTopeEquipo({ media: video, from: 'x', esEquipo: async () => { throw Object.assign(new Error('x'), { code: 'ECONNRESET' }); },
+      descargar: (m, o) => d.adjunto(m, o), logger: { error: (...e) => errores.push(e) } });
+    assert.equal(a.estado, 'demasiado_grande');
+    assert.equal(errores.length, 1);
+  });
+}
