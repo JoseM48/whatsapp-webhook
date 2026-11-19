@@ -198,3 +198,18 @@ test('lista: la fila elegida llega como listaId (botonId no cambia) y va al PMS 
   assert.equal(b.botonId, 'dm:5:si_asi');
   assert.equal(b.listaId, null);
 });
+
+test('agenda del técnico: un mensaje reenviado llega al PMS con reenviado=true; uno normal no lo lleva', async () => {
+  const reenviado = msg({ type: 'text', text: { body: 'Servicio asignado: jueves 10 a. m.' }, context: { forwarded: true } });
+  const [e] = extractMetaMessages({ entry: [{ changes: [cambio(QB, reenviado)] }] });
+  assert.equal(e.reenviado, true);
+  const m = montar();
+  await atenderMarca([cambio(QB, reenviado)], m.deps);
+  assert.equal(m.posts[0].body.reenviado, true);
+  const normal = msg({ id: 'wamid.qb-normal', type: 'text', text: { body: 'Hola' } });
+  const m2 = montar();
+  await atenderMarca([cambio(QB, normal)], m2.deps);
+  assert.equal('reenviado' in m2.posts[0].body, false);
+  const muy = msg({ id: 'wamid.qb-muy', type: 'text', text: { body: 'x' }, context: { frequently_forwarded: true } });
+  assert.equal(extractMetaMessages({ entry: [{ changes: [cambio(QB, muy)] }] })[0].reenviado, true);
+});
