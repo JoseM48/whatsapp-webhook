@@ -284,5 +284,5 @@ test('ampliar una reserva: la voz usa regla_extension de quote_stay (paridad, 20
   assert.match(texto, /AMPLIAR SU RESERVA \(2026-11-21\)/);
   assert.match(texto, /regla_extension/);
   assert.match(texto, /se paga completa al confirmarla/);
-  assert.match(texto, /como mínimo/);
+  assert.match(texto, /valor_ampliacion_cop \(NO price\.total_price/);
 });
