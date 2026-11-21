@@ -273,3 +273,16 @@ test('marca: perfil declarado, sus herramientas, excepción de fotos y nada de M
   assert.match(t, /FOTOS: por teléfono no se toman fotos/);
   assert.match(t, /no ofrece alojamiento/);
 });
+
+// AMPLIAR UNA RESERVA (José Manuel, 2026-11-21; DECISIONES_LOG "Ampliar una reserva: se cobra de una vez la
+// extensión; mínimo el anticipo"). El chat y las notas de voz la dicen desde el motor del PMS (m0, misma frase
+// que quote_stay.regla_extension); la llamada la recibe en quote_stay y esta regla le dice que la use.
+test('ampliar una reserva: la voz usa regla_extension de quote_stay (paridad, 2026-11-21)', () => {
+  const { instruccionesCamiVoz } = require('../lib/voz/cami-voz');
+  const t = instruccionesCamiVoz({ hoy: '2026-11-21' });
+  const texto = Array.isArray(t) ? t.join('\n') : String(t);
+  assert.match(texto, /AMPLIAR SU RESERVA \(2026-11-21\)/);
+  assert.match(texto, /regla_extension/);
+  assert.match(texto, /se paga completa al confirmarla/);
+  assert.match(texto, /como mínimo/);
+});
