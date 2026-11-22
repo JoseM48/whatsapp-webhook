@@ -294,7 +294,14 @@ test('ampliar una reserva: la voz usa regla_extension de quote_stay (paridad, 20
 // (/voz/llamada/inicio -> confianza) en las instrucciones y las mismas herramientas (search_commercial_knowledge
 // con address_disclosure y airbnb_listing). EXCEPCIÓN DECLARADA (propia_del_canal): por voz no se envía la foto
 // de José (no hay imágenes en la llamada); se dice su presentación y, si la piden, las reseñas.
-const PARIDAD_CONFIANZA = { excepciones: { foto_de_jose_por_voz: 'propia_del_canal' } };
+const PARIDAD_CONFIANZA = { excepciones: {
+  foto_de_jose_por_voz: { tipo: 'propia_del_canal', motivo: 'En la llamada no hay imágenes; se dice la presentación y, si las piden, las reseñas.' },
+  // Revisión 2026-11-22 (punto 10): la variante B por voz sale SOLO ante duda; en el chat también al presentar la
+  // primera propuesta. En la llamada no hay "presentar la propuesta" como mensaje (el precio se dice con quote_stay
+  // y la cotización escrita llega al chat después) y la voz no puede dar el enlace del anuncio: la oferta con
+  // enlace queda en el chat, donde la persona la recibe con la propuesta. Mismas condiciones: menos de 30 noches,
+  // sin pre-reserva viva, con anuncio, una vez, nunca primera noche.
+  variante_b_solo_ante_duda_por_voz: { tipo: 'propia_del_canal', motivo: 'Ver comentario: sin propuesta escrita ni enlace en la llamada.' } } };
 test('confianza primero: la llamada recibe presentación, dirección, anuncio y variante B (paridad, 2026-11-22)', () => {
   const { instruccionesCamiVoz } = require('../lib/voz/cami-voz');
   const conf = { presentacion: { anfitrion: 'José Manuel', anos_anfitrion: 8, resenas_mas_de: 2000, resenas: [] },
@@ -306,7 +313,8 @@ test('confianza primero: la llamada recibe presentación, dirección, anuncio y 
   assert.match(t, /PRIMERA VEZ \(prueba de José Manuel, 2026-11-22\)/);
   // Huésped de Airbnb o persona al mando: sin contexto comercial de confianza.
   assert.doesNotMatch(String(instruccionesCamiVoz({ hoy: '2026-11-22', confianza: conf, huespedAirbnb: true })), /PRIMERA VEZ \(prueba/);
-  assert.ok(TIPOS.has(PARIDAD_CONFIANZA.excepciones.foto_de_jose_por_voz));
+  for (const e of Object.values(PARIDAD_CONFIANZA.excepciones)) { assert.ok(TIPOS.has(e.tipo)); assert.ok(e.motivo.length > 20); }
+  assert.match(t, /SOLO en estadías de menos de 30 noches, si la persona duda o desconfía/);
   // La herramienta que usa la voz para dirección y anuncio existe en los dos canales.
   const chat = new Set(toolsForModel().map((x) => x.name));
   const voz = new Set(herramientasDeVoz({}).map((x) => x.name));
