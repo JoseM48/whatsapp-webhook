@@ -120,7 +120,7 @@ test('instrucciones: IA, sin cobro por telefono y regla de Airbnb', () => {
   assert.match(t, /Nunca reservas, apartas, cobras/);
   assert.match(t, /huésped de una reserva de Airbnb/);
   const nombres = herramientasDeVoz().map((h) => h.name);
-  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'enviar_video_al_chat', 'anotar_lista_espera', 'consultar_al_equipo', 'evaluar_uso_aceptable', 'registrar_ruta_contacto', 'ofrecer_paquete_magia', 'solicitar_late_checkout', 'solicitar_early_checkin'].includes(n)).sort(),
+  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'enviar_video_al_chat', 'enviar_wifi_al_chat', 'anotar_lista_espera', 'consultar_al_equipo', 'evaluar_uso_aceptable', 'registrar_ruta_contacto', 'ofrecer_paquete_magia', 'solicitar_late_checkout', 'solicitar_early_checkin'].includes(n)).sort(),
     ['check_availability', 'get_policy', 'get_public_apartment_attributes', 'quote_stay', 'search_commercial_knowledge']);
   assert.equal(nombres.includes('prepare_pre_reservation'), false);
 });
@@ -1490,4 +1490,17 @@ test('pre-reserva sin confirmar: la llamada manda el cambio de fechas a una pers
   assert.equal((ambos.match(/cambiar las fechas de/g) || []).length, 1);
   // Formas inválidas se ignoran.
   for (const malo of ['texto', { confirmada: 'no' }, null]) assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-12', preReservaViva: malo }), /cambiar las fechas de/);
+});
+
+// WI-FI (caso Ximena, lead 366, 2026-11-21): solo a quien tiene estadía; la clave nunca pasa por la voz.
+test('enviar_wifi_al_chat: solo con estadía (aunque la salida esté apagada), nunca en la demo; la instrucción lo pide', () => {
+  const n = (o) => herramientasDeVoz(o).map((t) => t.name);
+  assert.equal(n({ sinEstadia: false, salida: null }).includes('enviar_wifi_al_chat'), true);
+  assert.equal(n({ sinEstadia: true, salida: null }).includes('enviar_wifi_al_chat'), false);
+  assert.equal(n({ sinEstadia: false, paqueteMagia: true }).includes('enviar_wifi_al_chat'), false);
+  assert.equal(n({ aliado: true }).includes('enviar_wifi_al_chat'), false);
+  const con = instruccionesCamiVoz({ hoy: '2026-11-21', lateCheckout: true });
+  const sin = instruccionesCamiVoz({ hoy: '2026-11-21', lateCheckout: false });
+  assert.match(con, /enviar_wifi_al_chat/);
+  assert.doesNotMatch(sin, /enviar_wifi_al_chat/);
 });

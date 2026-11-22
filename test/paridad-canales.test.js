@@ -34,6 +34,8 @@ const SOLO_VOZ = {
   terminar_llamada: { tipo: 'propia_del_canal', motivo: 'Colgar la llamada; no existe en el chat.' },
   enviar_opciones_al_chat: { tipo: 'propia_del_canal',
     motivo: 'Durante la llamada las opciones y fotos se mandan al WhatsApp; en el chat el motor del PMS las presenta en el propio mensaje.' },
+  enviar_wifi_al_chat: { tipo: 'propia_del_canal',
+    motivo: 'WI-FI (2026-11-21, caso lead 366): en el chat y la nota de voz el PMS responde la red y la clave sin el modelo (huesped-estadia: menú y responderWifiAlojado); en la llamada esta herramienta llama a la MISMA función (wifiDelHuesped) y el texto va al chat, nunca a la voz.' },
   enviar_video_al_chat: { tipo: 'propia_del_canal',
     motivo: 'Durante la llamada el video se manda al WhatsApp; en el chat y la nota de voz lo envía el motor del PMS con el tema "video" de la interpretación (2026-11-04).' },
   registrar_ruta_contacto: { tipo: 'propia_del_canal',
