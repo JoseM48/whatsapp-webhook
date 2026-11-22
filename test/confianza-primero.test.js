@@ -122,3 +122,14 @@ test('llamada: los años salen del PMS; sin valor, ningún número', () => {
   const fuente = fs.readFileSync(path.join(__dirname, '..', 'lib', 'voz', 'cami-voz.js'), 'utf8');
   assert.doesNotMatch(fuente, /9 años/);
 });
+
+test('8 años en todos lados (José Manuel, 2026-11-22): ningún archivo del webhook dice 9 años', () => {
+  const lista = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => e.isDirectory()
+    ? (['node_modules', 'public', '.git'].includes(e.name) ? [] : lista(path.join(dir, e.name))) : [path.join(dir, e.name)]);
+  const raiz = path.join(__dirname, '..');
+  const con9 = [...lista(path.join(raiz, 'lib')), path.join(raiz, 'index.js')]
+    .filter((f) => /\.js$/.test(f) && /\b9 años\b/.test(fs.readFileSync(f, 'utf8')));
+  assert.deepEqual(con9, []);
+  const { presentacionCamiVoz } = require('../lib/voz/cami-voz');
+  assert.match(presentacionCamiVoz(8), /y 8 años de experiencia/);
+});
