@@ -11,7 +11,7 @@ const { writerViewOfPacket, WRITER_SYSTEM_PROMPT } = require('../lib/pilot/llm/w
 
 test('canal directo: solo el mapa y el enlace de pago, y solo si vienen en el paquete', () => {
   assert.match(WRITER_SYSTEM_PROMPT, /never include links to other platforms/);
-  assert.match(WRITER_SYSTEM_PROMPT, /Only two links are allowed, and only when they appear in this packet/);
+  assert.match(WRITER_SYSTEM_PROMPT, /Only these links are allowed, and only when they appear in this packet/);
   assert.match(WRITER_SYSTEM_PROMPT, /Google Maps link of our address/);
   assert.match(WRITER_SYSTEM_PROMPT, /card payment link \(it comes in "payment_instructions"\)/);
 });
@@ -36,4 +36,10 @@ test('el redactor ve la dirección (general_knowledge) y las instrucciones de pa
   });
   assert.deepEqual(view.general_knowledge, [{ topic: 'address', text: 'Estamos en El Poblado, cerca del Mall La Frontera y del Mall Sao Paulo.' }]);
   assert.equal(view.facts.find((f) => f.topic === 'payment_instructions').text, 'en el enlace escribe COP 618.000');
+});
+
+test('Confianza primero (2026-11-22): dirección para todos y enlace del anuncio de Airbnb solo si lo pide', () => {
+  assert.match(WRITER_SYSTEM_PROMPT, /the exact address and how to get there go to anyone who asks, without waiting for the advance payment/);
+  assert.match(WRITER_SYSTEM_PROMPT, /ONLY when the guest asks how to find us on Airbnb, the link of our own Airbnb listing/);
+  assert.match(WRITER_SYSTEM_PROMPT, /Never offer to pay part of a stay \(for example the first night\) on Airbnb/);
 });
