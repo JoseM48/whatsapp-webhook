@@ -657,11 +657,17 @@ test('P2-4: con otras fechas la lista se reemplaza', async () => {
 });
 
 // ---------------------------------------------------------------- naturalidad (José Manuel, 2026-10-19)
-test('saludo paisa: calido, corto, dice asistente virtual de José Manuel (2.000 reseñas, 9 años) y que se transcribe', () => {
-  const { PRESENTACION } = require('../lib/voz/cami-voz');
+test('saludo paisa: calido, corto, dice asistente virtual de José Manuel (2.000 reseñas, años del PMS) y que se transcribe', () => {
+  const { PRESENTACION, presentacionCamiVoz, instruccionSaludo } = require('../lib/voz/cami-voz');
   // José Manuel, 2026-10-29: Cami se presenta como asistente virtual de José Manuel (paridad con el chat).
-  assert.equal(PRESENTACION, '¡Hola! Qué bueno que llamas a Miu La Frontera. Te habla Cami, la asistente virtual de José Manuel, anfitrión con más de 2.000 reseñas y 9 años de experiencia. '
+  // Revisión 2026-11-22: los años vienen de UNA fuente (PMS confianza_v1.anos_anfitrion); sin valor, sin número.
+  assert.equal(presentacionCamiVoz(8), '¡Hola! Qué bueno que llamas a Miu La Frontera. Te habla Cami, la asistente virtual de José Manuel, anfitrión con más de 2.000 reseñas y 8 años de experiencia. '
     + 'Te cuento que la llamada se transcribe para seguirte ayudando por el chat. ¿En qué te puedo ayudar?');
+  assert.equal(PRESENTACION, '¡Hola! Qué bueno que llamas a Miu La Frontera. Te habla Cami, la asistente virtual de José Manuel, anfitrión con más de 2.000 reseñas. '
+    + 'Te cuento que la llamada se transcribe para seguirte ayudando por el chat. ¿En qué te puedo ayudar?');
+  assert.doesNotMatch(PRESENTACION, /años/);
+  assert.match(instruccionSaludo(null, null, 8), /2\.000 reseñas y 8 años de experiencia/);
+  assert.doesNotMatch(instruccionSaludo(null, null, null), /años/);
 });
 
 test('instrucciones: disponibilidad primero, sin prometer cotizacion, sin LF, sin relleno, despedida y marca', () => {
@@ -1442,7 +1448,9 @@ test('2026-10-29: el chat saluda igual que la llamada (asistente virtual de Jos�
   const fs = require('fs');
   const path = require('path');
   const writer = fs.readFileSync(path.join(__dirname, '../lib/pilot/llm/writer.js'), 'utf8');
-  assert.match(writer, /¡Hola! Soy Cami, la asistente virtual de José Manuel, anfitrión de Miu La Frontera con más de 2\.000 reseñas y 9 años de experiencia\. ¿Qué fechas necesitas y para cuántas personas\?/);
+  // Revisión 2026-11-22: la frase sale del hecho "trust" del PMS (años de confianza_v1.anos_anfitrion).
+  assert.match(writer, /"¡Hola! <INTRO> ¿Qué fechas necesitas y para cuántas personas\?"/);
+  assert.match(writer, /Soy Cami, la asistente virtual de José Manuel, anfitrión de Miu La Frontera con más de 2\.000 reseñas/);
   const { instruccionesCamiVoz } = require('../lib/voz/cami-voz');
   const txt = instruccionesCamiVoz({ hoy: '2026-10-29' });
   assert.match(txt, /CERRAR TRAS UN SÍ/);

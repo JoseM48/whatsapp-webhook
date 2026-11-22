@@ -171,6 +171,8 @@ app.use(express.json({
 // attaches to WhatsApp messages (Meta's image API needs a plain public link).
 app.use('/media/photos', express.static(path.join(__dirname, 'public', 'photos'), { maxAge: '7d' }));
 app.use('/media/videos', express.static(path.join(__dirname, 'public', 'videos'), { maxAge: '7d' }));
+// CONFIANZA PRIMERO (2026-11-22): foto del anfitrión para la presentación (lib/pilot/host-photos.js).
+app.use('/media/anfitrion', express.static(path.join(__dirname, 'public', 'anfitrion'), { maxAge: '7d' }));
 
 // ===============================
 // Helpers comunes
