@@ -120,7 +120,7 @@ test('instrucciones: IA, sin cobro por telefono y regla de Airbnb', () => {
   assert.match(t, /Nunca reservas, apartas, cobras/);
   assert.match(t, /huésped de una reserva de Airbnb/);
   const nombres = herramientasDeVoz().map((h) => h.name);
-  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'enviar_video_al_chat', 'enviar_wifi_al_chat', 'anotar_lista_espera', 'consultar_al_equipo', 'evaluar_uso_aceptable', 'registrar_ruta_contacto', 'ofrecer_paquete_magia', 'solicitar_late_checkout', 'solicitar_early_checkin'].includes(n)).sort(),
+  assert.deepEqual(nombres.filter((n) => !['terminar_llamada', 'pedir_persona', 'enviar_opciones_al_chat', 'enviar_video_al_chat', 'enviar_wifi_al_chat', 'reportar_problema_estadia', 'anotar_lista_espera', 'consultar_al_equipo', 'evaluar_uso_aceptable', 'registrar_ruta_contacto', 'ofrecer_paquete_magia', 'solicitar_late_checkout', 'solicitar_early_checkin'].includes(n)).sort(),
     ['check_availability', 'get_policy', 'get_public_apartment_attributes', 'quote_stay', 'search_commercial_knowledge']);
   assert.equal(nombres.includes('prepare_pre_reservation'), false);
 });
@@ -1503,4 +1503,18 @@ test('enviar_wifi_al_chat: solo con estadía (aunque la salida esté apagada), n
   const sin = instruccionesCamiVoz({ hoy: '2026-11-21', lateCheckout: false });
   assert.match(con, /enviar_wifi_al_chat/);
   assert.doesNotMatch(sin, /enviar_wifi_al_chat/);
+});
+
+// RESEÑAS (José Manuel, 2026-11-22): el reporte de la estadía por llamada, solo a quien tiene estadía.
+test('reportar_problema_estadia: solo con estadía, nunca en la demo ni a un aliado; la instrucción prohíbe ofrecer algo a cambio', () => {
+  const n = (o) => herramientasDeVoz(o).map((t) => t.name);
+  assert.equal(n({ sinEstadia: false, salida: null }).includes('reportar_problema_estadia'), true);
+  assert.equal(n({ sinEstadia: true, salida: null }).includes('reportar_problema_estadia'), false);
+  assert.equal(n({ sinEstadia: false, paqueteMagia: true }).includes('reportar_problema_estadia'), false);
+  assert.equal(n({ aliado: true }).includes('reportar_problema_estadia'), false);
+  const con = instruccionesCamiVoz({ hoy: '2026-11-22', lateCheckout: true });
+  const sin = instruccionesCamiVoz({ hoy: '2026-11-22', lateCheckout: false });
+  assert.match(con, /reportar_problema_estadia/);
+  assert.match(con, /Nunca ofrezcas nada a cambio/);
+  assert.doesNotMatch(sin, /reportar_problema_estadia/);
 });
