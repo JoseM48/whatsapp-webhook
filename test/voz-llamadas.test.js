@@ -1333,6 +1333,26 @@ test('voz: con saldo_estadia del PMS, Cami dice el saldo exacto de Cartera; sin 
   assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-11', saldoEstadia: 'texto suelto' }), /saldo de Cartera/);
 });
 
+// ¿YA ESTÁ LISTO? (teo-cola #487; paridad dominio 25 con el chat, PMS #483): con el "Listo"
+// de Operaciones de hoy, la voz dice que sí; sin él, nada.
+test('voz: con apartamento_listo del PMS, Cami dice que el apartamento ya está listo; sin él, nada', () => {
+  const con = instruccionesCamiVoz({ hoy: '2026-11-23', apartamentoListo: { apartamento: 'LF-904', hora: '1:40 p. m.' } });
+  assert.match(con, /Operaciones ya reportó LISTO su apartamento 904 \(a las 1:40 p\. m\.\)/);
+  assert.match(con, /no las prometas/);
+  assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-23' }), /reportó LISTO/);
+  assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-23', apartamentoListo: 'listo' }), /reportó LISTO/);
+  assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-23', apartamentoListo: { hora: '1 p. m.' } }), /reportó LISTO/);
+});
+
+test('voz (teo-cola #487): el apartamento_listo del inicio del PMS llega a las instrucciones de la llamada', async () => {
+  const m = montar({ inicio: { apartamento_listo: { apartamento: 'LF-904', hora: '1:40 p. m.' } } });
+  await m.manager.handleWebhook(firmado(eventoEntrante('rtc_test_listo'))).procesando;
+  const accept = m.posts.find((p) => p.url.endsWith('/accept'));
+  assert.match(accept.body.instructions, /reportó LISTO su apartamento 904/);
+  FakeWs.ultima.close();
+  await tick();
+});
+
 // SALIDA Y LATE CHECK-OUT (José Manuel, 2026-10-26; PMS migración 1032; paridad, dominio 25).
 const REGLA_PMS = 'La salida (check-out) es a más tardar a las 11:00 a. m. Si necesitas más tiempo, el late check-out hasta las 12:00 m. cuesta COP 100.000 y está sujeto a disponibilidad.';
 const REGLA_EARLY = 'El check-in es desde las 3:00 p. m. Si necesitas entrar antes, el early check-in desde las 2:00 p. m. cuesta COP 100.000 y está sujeto a disponibilidad.';
