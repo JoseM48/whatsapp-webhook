@@ -1339,6 +1339,7 @@ test('voz: con apartamento_listo del PMS, Cami dice que el apartamento ya está 
   const con = instruccionesCamiVoz({ hoy: '2026-11-23', apartamentoListo: { apartamento: 'LF-904', hora: '1:40 p. m.' } });
   assert.match(con, /Operaciones ya reportó LISTO su apartamento 904 \(a las 1:40 p\. m\.\)/);
   assert.match(con, /no las prometas/);
+  assert.match(con, /su hora de entrada sigue igual/);
   assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-23' }), /reportó LISTO/);
   assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-23', apartamentoListo: 'listo' }), /reportó LISTO/);
   assert.doesNotMatch(instruccionesCamiVoz({ hoy: '2026-11-23', apartamentoListo: { hora: '1 p. m.' } }), /reportó LISTO/);
