@@ -55,6 +55,7 @@ const { interpretManagerMessage, commandForAction, offerAvailableActions,
   isLiteralCommand } = require('./lib/pilot/llm/manager-intent');
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText, textoDeContactos, avisoNoLeido } = require('./lib/pilot/meta-inbound');
+const { crearCacheNumerosPropiedad, crearSalidaPorNumero } = require('./lib/pilot/numero-propiedad');
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo,
   demoIdEfectivo,
   whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS, clasificarFalloEnvio } = require('./lib/pilot/numero-entrante');
@@ -212,6 +213,16 @@ function parseAptoFromText(t) {
 // WhatsApp helpers
 // ===============================
 const WHATSAPP_API_URL = `https://graph.facebook.com/v20.0/${process.env.PHONE_NUMBER_ID}/messages`;
+// CAMI MULTIPROPIEDAD (P5, A22): números de otras propiedades que atiende la misma
+// Cami. Son datos del PMS (propiedad_numeros), sin variable de entorno. Hasta que el
+// PMS tenga la ruta del contrato (lib/pilot/numero-propiedad.js) el cargador es
+// vacío: la lista no trae nada y todo se comporta como hoy (el 7379 se descarta).
+// Para conectarlo: cargar: cargarDesdePms({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL }).
+const cacheNumerosPropiedad = crearCacheNumerosPropiedad({ cargar: async () => [], miuId: process.env.PHONE_NUMBER_ID });
+// Cada envío a Meta pide su URL aquí: dentro de una fila de una propiedad sale por
+// su número; fuera (Miu, siempre hasta hoy) es exactamente WHATSAPP_API_URL.
+const salidaPorNumero = crearSalidaPorNumero({ miuId: process.env.PHONE_NUMBER_ID, numerosPropiedad: cacheNumerosPropiedad });
+const whatsappApiUrl = () => salidaPorNumero.url();
 // SEGUNDO NÚMERO (TenGo Camello, 2026-10-28): sin la variable, todo lo que no
 // sea de Miu se ignora (fail-closed). El envío de Miu (arriba) no cambia.
 const TENGOCAMELLO_PHONE_NUMBER_ID = (process.env.TENGOCAMELLO_PHONE_NUMBER_ID || '').trim();
@@ -430,7 +441,8 @@ const pmsWarmup = createPmsWarmup({
 
 const pilotTypingIndicator = createTypingIndicator({
   enabled: String(process.env.PILOT_TYPING_INDICATOR_ENABLED || 'false').toLowerCase() === 'true',
-  send: (payload) => axios.post(WHATSAPP_API_URL, payload, {
+  // P5: el "escribiendo" sale por el número que recibió el mensaje (A22) o por Miu.
+  send: (payload, { phoneNumberId = null } = {}) => axios.post(salidaPorNumero.urlParaEntrante(phoneNumberId), payload, {
     headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
     timeout: 15_000,
   }),
@@ -441,7 +453,7 @@ const pilotWaitAck = createWaitAck({
   send: async (recipient, text) => {
     const phone = normalizePhone(recipient);
     if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
-    await axios.post(WHATSAPP_API_URL, {
+    await axios.post(whatsappApiUrl(), {
       messaging_product: 'whatsapp', to: phone, text: { body: text },
     }, {
       headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
@@ -502,6 +514,10 @@ const vozCalls = createVozCallManager({
   // MARCA (Quedó Bien, 2026-11-11): lista de números del PMS; la línea sale desde el número llamado.
   numerosMarca: { ids: () => cacheNumerosMarca.ids(), refrescarSiVencio: () => cacheNumerosMarca.refrescarSiVencio(), cargada: () => cacheNumerosMarca.cargada() },
   sendTextMarca: (phoneNumberId, to, body) => sendWhatsAppTextFrom(phoneNumberId, to, body),
+  // CAMI MULTIPROPIEDAD (P5, I2): una llamada a un número de propiedad (A22) se
+  // rechaza en la fase 1. Sin la cabecera del número llamado, como hoy.
+  numerosPropiedad: { todosIds: () => cacheNumerosPropiedad.todosIds(), refrescarSiVencio: () => cacheNumerosPropiedad.refrescarSiVencio(),
+    propiedadDe: (id) => cacheNumerosPropiedad.propiedadDe(id) },
 });
 // Llamadas que quedaron abiertas tras un reinicio: al arrancar y cada 10 min.
 if (vozConfig.habilitada) {
@@ -514,7 +530,7 @@ if (vozConfig.habilitada) {
 async function sendPilotWhatsAppText(to, body) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
-  const response = await axios.post(WHATSAPP_API_URL, {
+  const response = await axios.post(whatsappApiUrl(), {
     messaging_product: 'whatsapp', to: phone, text: { body }
   }, {
     headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
@@ -527,7 +543,7 @@ async function sendPilotWhatsAppImage(to, link) {
   if (!MVP_LA_FRONTERA_MEDIA_ENABLED) return null;
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
-  const response = await axios.post(WHATSAPP_API_URL, {
+  const response = await axios.post(whatsappApiUrl(), {
     messaging_product: 'whatsapp', to: phone, type: 'image', image: { link }
   }, {
     headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
@@ -544,7 +560,7 @@ async function sendPilotWhatsAppImage(to, link) {
 async function sendM0ApartmentVideo(to, link, caption = null) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
-  const response = await axios.post(WHATSAPP_API_URL, {
+  const response = await axios.post(whatsappApiUrl(), {
     messaging_product: 'whatsapp', to: phone, type: 'video',
     video: caption ? { link, caption: String(caption).slice(0, 1024) } : { link }
   }, {
@@ -560,7 +576,7 @@ async function sendM0ApartmentPhoto(to, link, caption = null) {
   // Without an explicit type, Meta defaults to expecting a text message and
   // rejects the request with "(#100) Invalid parameter: the parameter 'text'
   // cannot be null" -- confirmed against a real 400 response, not guessed.
-  const response = await axios.post(WHATSAPP_API_URL, {
+  const response = await axios.post(whatsappApiUrl(), {
     messaging_product: 'whatsapp', to: phone, type: 'image',
     image: caption ? { link, caption: String(caption).slice(0, 1024) } : { link }
   }, {
@@ -577,7 +593,7 @@ async function sendM0ApartmentPhoto(to, link, caption = null) {
 async function sendM0GuestDocument(to, { link, filename, caption }) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
-  const response = await axios.post(WHATSAPP_API_URL, documentMessagePayload(phone, { link, filename, caption }), {
+  const response = await axios.post(whatsappApiUrl(), documentMessagePayload(phone, { link, filename, caption }), {
     headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
     timeout: 20000
   });
@@ -595,7 +611,7 @@ async function sendM0ClosedInternalTemplate(to, { name, language, parameters }) 
   }
   const components = parameters.length
     ? [{ type: 'body', parameters: parameters.map((text) => ({ type: 'text', text })) }] : [];
-  const response = await axios.post(WHATSAPP_API_URL, {
+  const response = await axios.post(whatsappApiUrl(), {
     messaging_product: 'whatsapp', to: phone, type: 'template',
     template: { name, language: { code: language }, ...(components.length ? { components } : {}) }
   }, {
@@ -616,7 +632,7 @@ async function sendPilotWhatsAppFlow(to, { flowId, flowToken, firstScreen, ctaTe
   // preview. Whoever is allowed to receive this Flow while it is new is
   // controlled entirely by the caller's restrictToTestPhones/testAllowlist
   // gate, not by anything sent to Meta.
-  const response = await axios.post(WHATSAPP_API_URL, {
+  const response = await axios.post(whatsappApiUrl(), {
     messaging_product: 'whatsapp', to: phone, type: 'interactive',
     interactive: {
       type: 'flow',
@@ -647,7 +663,7 @@ async function sendPilotWhatsAppFlow(to, { flowId, flowToken, firstScreen, ctaTe
 async function sendPilotWhatsAppButtons(to, { bodyText, buttons }) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
-  const response = await axios.post(WHATSAPP_API_URL, {
+  const response = await axios.post(whatsappApiUrl(), {
     messaging_product: 'whatsapp', to: phone, type: 'interactive',
     interactive: {
       type: 'button',
@@ -668,7 +684,7 @@ async function sendPilotWhatsAppButtons(to, { bodyText, buttons }) {
 async function sendPilotWhatsAppList(to, { bodyText, buttonText, rows }) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
-  const response = await axios.post(WHATSAPP_API_URL, {
+  const response = await axios.post(whatsappApiUrl(), {
     messaging_product: 'whatsapp', to: phone, type: 'interactive',
     interactive: {
       type: 'list',
@@ -690,7 +706,7 @@ async function sendPilotWhatsAppList(to, { bodyText, buttonText, rows }) {
 async function sendPilotWhatsAppReaction(to, { messageId, emoji }) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
-  const response = await axios.post(WHATSAPP_API_URL, {
+  const response = await axios.post(whatsappApiUrl(), {
     messaging_product: 'whatsapp', recipient_type: 'individual', to: phone, type: 'reaction',
     reaction: { message_id: messageId, emoji }
   }, {
@@ -711,7 +727,7 @@ async function sendPilotWhatsAppTemplate(to, templateName, parameters, documentP
     type: 'body',
     parameters: parameters.map((value) => ({ type: 'text', text: String(value) }))
   });
-  const response = await axios.post(WHATSAPP_API_URL, {
+  const response = await axios.post(whatsappApiUrl(), {
     messaging_product: 'whatsapp',
     to: phone,
     type: 'template',
@@ -780,6 +796,8 @@ const m0ClosedPilot = createM0ClosedPilotDispatcher({
     naturalPresentationTestAllowlist: M0_NATURAL_PRESENTATION_TEST_ALLOWLIST_PHONES
   },
   pms: pmsPilotClient,
+  // P5 (A22): cada fila sale por el número de su propiedad; sin número, por Miu.
+  numeroSalida: salidaPorNumero,
   sendText: sendPilotWhatsAppText,
   sendTemplate: sendM0ClosedInternalTemplate,
   sendFlow: sendPilotWhatsAppFlow,
@@ -1117,7 +1135,7 @@ async function enviarWhatsApp(to, body) {
   const phone = normalizePhone(to);
   if (!phone) { console.error('enviarWhatsApp → número inválido:', to); return { sent: false, providerReference: null }; }
   try {
-    const response = await axios.post(WHATSAPP_API_URL, {
+    const response = await axios.post(whatsappApiUrl(), {
       messaging_product: 'whatsapp',
       to: phone,
       text: { body }
@@ -1279,7 +1297,7 @@ async function enviarUbicacion(to, lat, lng, name, address = '') {
   const phone = normalizePhone(to);
   if (!phone) return;
   try {
-    await axios.post(WHATSAPP_API_URL, {
+    await axios.post(whatsappApiUrl(), {
       messaging_product: 'whatsapp',
       to: phone,
       location: {
@@ -1756,18 +1774,23 @@ app.post('/webhook', async (req, res) => {
     const opcionesRuteo = { miuId: process.env.PHONE_NUMBER_ID, tengoId: TENGOCAMELLO_PHONE_NUMBER_ID, demoId: TENGOCAMELLO_DEMO_PHONE_NUMBER_ID };
     // MARCA (Quedó Bien, 2026-11-11): sus números salen primero del cuerpo; el resto sigue el ruteo de siempre.
     const reservadosMarca = [opcionesRuteo.miuId, opcionesRuteo.tengoId, opcionesRuteo.demoId];
-    const rutear = (marcaIds, equiposIds) => {
+    // CAMI MULTIPROPIEDAD (P5): los números de propiedad (A22) solo entran con la Cami
+    // del piloto cerrado encendida; si no, se descartan como hoy.
+    const rutear = (marcaIds, equiposIds, propiedadIds) => {
       const m = separarMarca(cuerpoEntrante, { marcaIds, reservados: reservadosMarca });
-      const r = m.body ? separarPorNumero(m.body, { ...opcionesRuteo, equiposIds })
-        : { miuBody: null, tengoChanges: [], demoChanges: [], equiposChanges: [], desconocidos: 0, idsDesconocidos: [] };
-      return { ...r, marcaChanges: m.marcaChanges };
+      const pids = M0_CLOSED_PILOT_ENABLED && propiedadIds?.size ? propiedadIds : null;
+      const r = m.body ? separarPorNumero(m.body, { ...opcionesRuteo, equiposIds, propiedadIds: pids })
+        : { miuBody: null, tengoChanges: [], demoChanges: [], equiposChanges: [], desconocidos: 0, idsDesconocidos: [], propiedadChanges: 0 };
+      return { ...r, marcaChanges: m.marcaChanges, propiedadIds: pids };
     };
-    let ruteo = rutear(cacheNumerosMarca.ids(), cacheNumerosEquipos.ids());
-    // Solo un número desconocido espera a leer las listas de Equipos y de marca: Miu nunca espera.
+    let ruteo = rutear(cacheNumerosMarca.ids(), cacheNumerosEquipos.ids(), cacheNumerosPropiedad.ids());
+    // Solo un número desconocido espera a leer las listas de Equipos, de marca y de propiedades: Miu nunca espera.
     if (ruteo.desconocidos) {
-      const [marcaIds, equiposIds] = await Promise.all([cacheNumerosMarca.refrescarSiVencio(), cacheNumerosEquipos.refrescarSiVencio()]);
-      ruteo = rutear(marcaIds, equiposIds);
+      const [marcaIds, equiposIds, propiedadIds] = await Promise.all([cacheNumerosMarca.refrescarSiVencio(),
+        cacheNumerosEquipos.refrescarSiVencio(), cacheNumerosPropiedad.refrescarSiVencio()]);
+      ruteo = rutear(marcaIds, equiposIds, propiedadIds);
     }
+    if (ruteo.propiedadChanges) console.info('[propiedad] mensaje_entrante', { count: ruteo.propiedadChanges });
     if (ruteo.desconocidos) console.warn('[webhook] numero_desconocido_ignorado', { count: ruteo.desconocidos, phone_number_ids: ruteo.idsDesconocidos });
     if (ruteo.tengoChanges.length) {
       try {
@@ -1849,7 +1872,9 @@ app.post('/webhook', async (req, res) => {
       }
     }
 
-    const metaMessages = extractMetaMessages(req.body);
+    // P5: un mensaje que llegó a un número de propiedad lleva `phoneNumberId`; los de Miu no.
+    const metaMessages = ruteo.propiedadChanges ? extractMetaMessages(req.body, { propiedadIds: ruteo.propiedadIds })
+      : extractMetaMessages(req.body);
     if (M0_CLOSED_PILOT_ENABLED) {
       if (!metaMessages.length) return res.sendStatus(200);
       const pendingCommercial = [];
@@ -1880,7 +1905,7 @@ app.post('/webhook', async (req, res) => {
           // TARJETAS DE CONTACTO DEL INTERNO (José Manuel, 2026-11-06): antes se
           // apartaban sin leer y el número se perdía (dos tarjetas del 5-nov).
           // Se vuelven texto y siguen el camino de siempre (instrucción a Teo).
-          if (!incoming.text && incoming.contactos && m0ClosedPilot.isInternal(incoming.from)) {
+          if (!incoming.phoneNumberId && !incoming.text && incoming.contactos && m0ClosedPilot.isInternal(incoming.from)) {
             incoming.text = textoDeContactos(incoming.contactos);
           }
           const raw = m0CommercialText(incoming);
@@ -1888,7 +1913,9 @@ app.post('/webhook', async (req, res) => {
           // Fase 4 de avisos (2026-10-06): la Contadora (hoy el numero interno)
           // devuelve la factura como PDF o imagen. Antes todo archivo del
           // interno se descartaba aqui abajo.
-          if (M0_INBOUND_MEDIA_ENABLED && incoming.media && !incoming.text && m0ClosedPilot.isInternal(incoming.from)) {
+          // P5: lo que llega a un número de propiedad (A22) nunca entra a las funciones
+          // internas de Miu (factura de la Contadora, gerente conversacional).
+          if (!incoming.phoneNumberId && M0_INBOUND_MEDIA_ENABLED && incoming.media && !incoming.text && m0ClosedPilot.isInternal(incoming.from)) {
             try {
               const adjunto = await inboundMediaDownloader.adjunto(incoming.media);
               const doc = await m0ClosedPilot.internalDocument({ phone: incoming.from, messageId: incoming.messageId,
@@ -1914,7 +1941,7 @@ app.post('/webhook', async (req, res) => {
           // el `command` que trajo esa accion -- resuelto por el PMS. Despues
           // se envia por el MISMO camino de siempre, asi que la autoridad, la
           // validacion de rol y la auditoria no cambian.
-          if (managerRouteEnabled() && m0ClosedPilot.isInternal(incoming.from)
+          if (!incoming.phoneNumberId && managerRouteEnabled() && m0ClosedPilot.isInternal(incoming.from)
             && raw && !isLiteralCommand(raw)) {
             try {
               // FASE 1 -- LEER. Una lectura puede apoyarse en el cursor: leer
@@ -2005,7 +2032,8 @@ app.post('/webhook', async (req, res) => {
           if (!m0ClosedPilot.accepts(incoming.from) || m0ClosedPilot.isControl(incoming.from, raw)) {
             try {
               const closed = await m0ClosedPilot.process({ phone: incoming.from, text: raw,
-                messageId: incoming.messageId, occurredAt: incoming.timestamp, replyTo: incoming.replyTo || null });
+                messageId: incoming.messageId, occurredAt: incoming.timestamp, replyTo: incoming.replyTo || null,
+                ...(incoming.phoneNumberId ? { phoneNumberId: incoming.phoneNumberId } : {}) });
               if (closed.quarantined) console.warn('[m0-closed] phone_quarantined', { phone: maskPilotPhone(incoming.from) });
               else console.info('[m0-closed] control_processed', { case_key: closed.result?.case_key || null,
                 state: closed.result?.state || null, deduplicated: closed.result?.deduplicated === true,
@@ -2044,7 +2072,8 @@ app.post('/webhook', async (req, res) => {
           const closed = await m0CommercialResponder.captureAndAcknowledge({
             from: normalizePhone(incoming.from), text: raw, messageId: incoming.messageId,
             timestamp: incoming.timestamp, name: incoming.name, referral: incoming.referral,
-            landingRef: incoming.landingRef, adjunto, ubicacion: incoming.ubicacion || null, audioEquipo
+            landingRef: incoming.landingRef, adjunto, ubicacion: incoming.ubicacion || null, audioEquipo,
+            ...(incoming.phoneNumberId ? { phoneNumberId: incoming.phoneNumberId } : {})
           });
           console.info('[m0-commercial] inbound_captured', {
             deduplicated: closed.capture_result?.deduplicated === true,
@@ -2517,7 +2546,9 @@ async function recoverPilotQueues() {
         const begin = await m0ClosedPilot.beginCommercial({
           phone: record.telefono,
           messageId: record.external_message_id,
-          occurredAt: new Date(record.occurred_at).toISOString()
+          occurredAt: new Date(record.occurred_at).toISOString(),
+          // P5: el PMS devuelve el número de la propiedad en los registros de A22.
+          ...(record.phone_number_id ? { phoneNumberId: String(record.phone_number_id) } : {})
         });
         await m0CommercialResponder.processCaptured({
           from: record.telefono, text: record.mensaje, messageId: record.external_message_id,
