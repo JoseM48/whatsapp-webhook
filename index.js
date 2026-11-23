@@ -887,7 +887,9 @@ const m0CommercialResponder = createM0CommercialResponder({
   ai: m0InterpretationAi,
   closedPilot: m0ClosedPilot,
   pms: pmsPilotClient,
-  logger: console
+  logger: console,
+  // Cami multipropiedad (P6): propiedad del número que recibió el mensaje.
+  propiedadDeNumero: (id) => cacheNumerosPropiedad.propiedadDe(id)
 });
 
 let m0AttestationFreshUntil = 0;

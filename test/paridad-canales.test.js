@@ -322,3 +322,28 @@ test('confianza primero: la llamada recibe presentación, dirección, anuncio y 
   const voz = new Set(herramientasDeVoz({}).map((x) => x.name));
   assert.ok(chat.has('search_commercial_knowledge') && voz.has('search_commercial_knowledge'));
 });
+
+// CAMI MULTIPROPIEDAD (A22, Studio A22 Coliving; diseño DISENO_CAMI_MULTIPROPIEDAD.md §5 fase 1 y §8 I2).
+// EXCEPCIÓN TEMPORAL DECLARADA (I2): en la fase 1, A22 atiende por chat y nota de voz (mismo camino, con su
+// marca: lib/pilot/marca-propiedad.js, P6), pero sus LLAMADAS están apagadas: call-manager las rechaza
+// (P5, log [voz] llamada_a22_rechazada) hasta medir en logs que llega la cabecera SIP del número llamado.
+// El guion de voz sigue siendo solo de Miu. Al encender las llamadas de A22 (fase 2) hay que parametrizar
+// cami-voz.js con la misma marca y QUITAR esta excepción.
+const PARIDAD_A22 = { excepciones: {
+  llamadas_a22_apagadas_fase1: { tipo: 'pendiente de paridad',
+    motivo: 'Fase 1 de A22: chat y nota de voz con marca de A22; la llamada al número de A22 se rechaza (I2) y el guion de voz es solo de Miu.' } } };
+test('A22: llamadas apagadas en fase 1, excepción temporal de paridad declarada (I2, P6)', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  for (const e of Object.values(PARIDAD_A22.excepciones)) { assert.ok(TIPOS.has(e.tipo)); assert.ok(e.motivo.length > 20); }
+  // La llamada de A22 sigue rechazada (si alguien la enciende, esta excepción debe revisarse).
+  const callManager = fs.readFileSync(path.join(__dirname, '..', 'lib', 'voz', 'call-manager.js'), 'utf8');
+  assert.match(callManager, /llamada_a22_rechazada/);
+  // El chat y la nota de voz sí tienen la marca de A22 (sin Miu).
+  const { writerSystemPrompt } = require('../lib/pilot/llm/writer');
+  const { marcaDePropiedad } = require('../lib/pilot/marca-propiedad');
+  assert.doesNotMatch(writerSystemPrompt(marcaDePropiedad('a22', { nombre_marca: 'Studio A22 Coliving' })), /Miu|Frontera|Medell/);
+  // El guion de voz sigue siendo de Miu: mientras lo sea, la excepción aplica.
+  const { instruccionesCamiVoz } = require('../lib/voz/cami-voz');
+  assert.match(String(instruccionesCamiVoz({ hoy: '2026-11-23' })), /Miu La Frontera/);
+});
