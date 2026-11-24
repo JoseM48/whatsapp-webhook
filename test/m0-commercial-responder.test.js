@@ -112,6 +112,22 @@ test('un fallo de acuse posterior a la captura no pierde ni rechaza el inbound (
   assert.equal(delivered[0].length, 2);
 });
 
+test('teo-cola #834: el error de admisión de un mensaje a un número de propiedad lleva phone_number_id al PMS', async () => {
+  const bodies = [];
+  const mk = () => createM0CommercialResponder({
+    async capture() { throw new Error('pms_down'); },
+    ai: { async interpret() {} },
+    closedPilot: { async beginCommercial() {}, async deliverCommercialOutboxes() { return []; } },
+    pms: { async recordM0AdmissionError(b) { bodies.push(b); return { first_occurrence: false, outboxes: [] }; } },
+    logger: { error() {}, info() {} }
+  });
+  const base = { from: '573100000030', messageId: 'wamid.a22.834', timestamp: '2026-11-24T10:00:00.000Z', text: 'hola' };
+  await mk().captureAndAcknowledge({ ...base, phoneNumberId: '555000111' });
+  await mk().captureAndAcknowledge({ ...base, messageId: 'wamid.miu.834' });
+  assert.equal(bodies[0].phone_number_id, '555000111');
+  assert.equal('phone_number_id' in bodies[1], false);
+});
+
 test('Incremento 062: si el registro durable del error de admisión también falla, sí se relanza (5xx real)', async () => {
   const responder = createM0CommercialResponder({
     async capture() { throw Object.assign(new Error('pms_unreachable'), { code: 'ECONNREFUSED' }); },
