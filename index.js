@@ -55,7 +55,7 @@ const { interpretManagerMessage, commandForAction, offerAvailableActions,
   isLiteralCommand } = require('./lib/pilot/llm/manager-intent');
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText, textoDeContactos, avisoNoLeido } = require('./lib/pilot/meta-inbound');
-const { crearCacheNumerosPropiedad, crearSalidaPorNumero, cargarDesdePms } = require('./lib/pilot/numero-propiedad');
+const { crearCacheNumerosPropiedad, crearSalidaPorNumero, cargarDesdePms, rutaControlM0 } = require('./lib/pilot/numero-propiedad');
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo,
   demoIdEfectivo,
   whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS, clasificarFalloEnvio } = require('./lib/pilot/numero-entrante');
@@ -2025,7 +2025,10 @@ app.post('/webhook', async (req, res) => {
             }
           }
 
-          if (m0ClosedPilot.accepts(incoming.from) && !incoming.text && m0ClosedPilot.isControl(incoming.from, raw)) {
+          // TEO-COLA #827: lo que llega a un número de propiedad (A22) nunca va por el camino de control.
+          const rutaControl = rutaControlM0({ phoneNumberId: incoming.phoneNumberId || null, text: incoming.text,
+            raw, from: incoming.from, m0: m0ClosedPilot });
+          if (rutaControl === 'cuarentena') {
             console.warn('[m0-closed] internal_unsupported_quarantined', {
               phone: maskPilotPhone(incoming.from), message_type: incoming.messageType
             });
@@ -2036,7 +2039,7 @@ app.post('/webhook', async (req, res) => {
             }
             continue;
           }
-          if (!m0ClosedPilot.accepts(incoming.from) || m0ClosedPilot.isControl(incoming.from, raw)) {
+          if (rutaControl === 'control') {
             try {
               const closed = await m0ClosedPilot.process({ phone: incoming.from, text: raw,
                 messageId: incoming.messageId, occurredAt: incoming.timestamp, replyTo: incoming.replyTo || null,
