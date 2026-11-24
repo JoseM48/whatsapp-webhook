@@ -2064,7 +2064,7 @@ app.post('/webhook', async (req, res) => {
               phone: maskPilotPhone(incoming.from) });
             return res.sendStatus(503);
           }
-          // Solo mensajes de huesped: el numero interno ya salio arriba.
+          // Solo mensajes de huesped: el numero interno ya salio arriba (salvo si escribe a un numero de propiedad, teo-cola #827: ahi es huesped de esa propiedad).
           let adjunto = null;
           if (M0_INBOUND_MEDIA_ENABLED && incoming.media) {
             // CASO-0203: un video del equipo puede pesar hasta 25 MB (adjuntoConTopeEquipo).
