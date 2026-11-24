@@ -55,7 +55,7 @@ const { interpretManagerMessage, commandForAction, offerAvailableActions,
   isLiteralCommand } = require('./lib/pilot/llm/manager-intent');
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText, textoDeContactos, avisoNoLeido } = require('./lib/pilot/meta-inbound');
-const { crearCacheNumerosPropiedad, crearSalidaPorNumero } = require('./lib/pilot/numero-propiedad');
+const { crearCacheNumerosPropiedad, crearSalidaPorNumero, cargarDesdePms } = require('./lib/pilot/numero-propiedad');
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo,
   demoIdEfectivo,
   whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS, clasificarFalloEnvio } = require('./lib/pilot/numero-entrante');
@@ -214,11 +214,16 @@ function parseAptoFromText(t) {
 // ===============================
 const WHATSAPP_API_URL = `https://graph.facebook.com/v20.0/${process.env.PHONE_NUMBER_ID}/messages`;
 // CAMI MULTIPROPIEDAD (P5, A22): números de otras propiedades que atiende la misma
-// Cami. Son datos del PMS (propiedad_numeros), sin variable de entorno. Hasta que el
-// PMS tenga la ruta del contrato (lib/pilot/numero-propiedad.js) el cargador es
-// vacío: la lista no trae nada y todo se comporta como hoy (el 7379 se descarta).
-// Para conectarlo: cargar: cargarDesdePms({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL }).
-const cacheNumerosPropiedad = crearCacheNumerosPropiedad({ cargar: async () => [], miuId: process.env.PHONE_NUMBER_ID });
+// Cami. Son datos del PMS (propiedad_numeros), sin variable de entorno.
+// Cargador conectado (feat/a22-cargador): lee POST /api/supervised-pilot/propiedades/numeros
+// (ruta viva desde P2). Se lee al arrancar y luego con caché de 60 s; un 404 o una
+// lista vacía dejan todo como hoy (el 7379 se descarta). Solo atiende un número con
+// activo=true y modo distinto de 'apagada' (con 'prueba' el PMS decide por remitente).
+// pmsPilotClient y PMS_LITE_BASE_URL se declaran más abajo: el cargador los lee al
+// invocarse (nunca durante la carga del módulo).
+const cacheNumerosPropiedad = crearCacheNumerosPropiedad({
+  cargar: () => cargarDesdePms({ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL })(),
+  miuId: process.env.PHONE_NUMBER_ID });
 // Cada envío a Meta pide su URL aquí: dentro de una fila de una propiedad sale por
 // su número; fuera (Miu, siempre hasta hoy) es exactamente WHATSAPP_API_URL.
 const salidaPorNumero = crearSalidaPorNumero({ miuId: process.env.PHONE_NUMBER_ID, numerosPropiedad: cacheNumerosPropiedad });
@@ -2594,6 +2599,13 @@ if (MVP_LA_FRONTERA_ENABLED || PMS_LITE_M0_ENABLED) {
 const PORT = process.env.PORT || 3021;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor iniciado en el puerto ${PORT}`);
+  // CAMI MULTIPROPIEDAD (feat/a22-cargador): lectura inicial de los números de propiedad, en segundo plano.
+  // Si falla, la caché queda vacía (como hoy) y se reintenta en el siguiente mensaje de un número desconocido.
+  if (M0_CLOSED_PILOT_ENABLED) setImmediate(() => {
+    cacheNumerosPropiedad.refrescarSiVencio()
+      .then((ids) => console.info('[propiedad] numeros_cargados', { atienden: ids.size, conocidos: cacheNumerosPropiedad.todosIds().size }))
+      .catch(() => { /* el fallo ya lo registra la caché */ });
+  });
   if (PMS_LITE_M0_ENABLED || PMS_LITE_STARTUP_PREFLIGHT_ENABLED) {
     setImmediate(async () => {
       try {

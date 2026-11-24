@@ -284,12 +284,35 @@ test('llamada de Miu sin cambio: con su número o sin cabecera sigue a Cami de M
   assert.equal(sin.logs.some(([m]) => m === '[voz] llamada_a22_rechazada'), false);
 });
 
-test('index.js: el envío de Miu sigue siendo WHATSAPP_API_URL fuera de una fila de propiedad, y el cargador nace vacío', () => {
+test('index.js: el envío de Miu sigue siendo WHATSAPP_API_URL fuera de una fila de propiedad, y el cargador lee el PMS', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
-  assert.match(src, /crearCacheNumerosPropiedad\(\{ cargar: async \(\) => \[\]/);
+  // feat/a22-cargador: el cargador ya no es vacío; lee la ruta del PMS y se precarga al arrancar.
+  assert.doesNotMatch(src, /crearCacheNumerosPropiedad\(\{ cargar: async \(\) => \[\]/);
+  assert.match(src, /cargar: \(\) => cargarDesdePms\(\{ pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL \}\)\(\)/);
+  assert.match(src, /cacheNumerosPropiedad\.refrescarSiVencio\(\)\s*\.then/);
   assert.match(src, /numeroSalida: salidaPorNumero/);
   assert.doesNotMatch(src, /axios\.post\(WHATSAPP_API_URL,/);
   assert.match(src, /M0_CLOSED_PILOT_ENABLED && propiedadIds\?\.size \? propiedadIds : null/);
+});
+
+test('cargador conectado: con la fila del 7379 activa (prueba o activa) el webhook deja de descartarlo; apagada o inactiva lo sigue descartando', async () => {
+  const fila = (modo, activo = true) => ({ phone_number_id: A22, property_key: 'a22', modo, activo });
+  const pmsCon = (numeros) => ({ postUrl: async (url) => { assert.match(url, /\/api\/supervised-pilot\/propiedades\/numeros$/); return { numeros }; } });
+  const ruteo = async (numeros) => {
+    const c = crearCacheNumerosPropiedad({ cargar: cargarDesdePms({ pms: pmsCon(numeros), pmsBaseUrl: 'https://pms.test' }), miuId: MIU, logger: silencio });
+    const ids = await c.refrescarSiVencio();
+    return separarPorNumero(cuerpo(cambio(A22), cambio(MIU, 'hola miu', 'wamid.MIU001')), { miuId: MIU, tengoId: TC, propiedadIds: ids.size ? ids : null });
+  };
+  for (const modo of ['prueba', 'activa']) {
+    const r = await ruteo([fila(modo)]);
+    assert.equal(r.desconocidos, 0, modo);
+    assert.equal(r.propiedadChanges, 1, modo);
+  }
+  for (const numeros of [[fila('apagada')], [fila('prueba', false)], []]) {
+    const r = await ruteo(numeros);
+    assert.equal(r.desconocidos, 1);
+    assert.equal(r.propiedadChanges || 0, 0);
+  }
 });
