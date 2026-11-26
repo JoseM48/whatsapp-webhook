@@ -12,7 +12,9 @@ test('llamada: si quote_stay trae vigencia_precio, Cami dice que la cotización 
   const txt = instruccionesCamiVoz({ hoy: '2026-11-26' });
   assert.match(txt, /VIGENCIA DEL PRECIO \(José Manuel, 2026-11-26\)/);
   assert.match(txt, /si quote_stay trae vigencia_precio, dilo SOLO al despedirte/);
-  assert.match(txt, /el precio de la cotización escrita que te llega por el chat se mantiene 24 horas/);
+  assert.match(txt, /di el texto de vigencia_precio tal como viene/);
+  // Las horas las da el PMS (política): la regla de voz no las fija.
+  assert.doesNotMatch(txt, /VIGENCIA DEL PRECIO[^']*24 horas/);
   // Misma regla de la llamada: la cotización escrita llega por el chat y se dice al despedirse.
   assert.match(txt, /La cotización por escrito llega cuando la persona responde en el chat; dilo solo al despedirte\./);
   assert.match(txt, /Nunca prometas que el precio de esta llamada se mantiene hasta un día o una hora/);
