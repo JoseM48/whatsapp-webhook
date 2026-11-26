@@ -56,6 +56,7 @@ const { interpretManagerMessage, commandForAction, offerAvailableActions,
 const { createM0DeliveryReceiptHandler } = require('./lib/pilot/m0-delivery-receipts');
 const { extractMetaMessages, extractMetaStatuses, m0CommercialText, textoDeContactos, avisoNoLeido } = require('./lib/pilot/meta-inbound');
 const { crearCacheNumerosPropiedad, crearSalidaPorNumero, cargarDesdePms, rutaControlM0 } = require('./lib/pilot/numero-propiedad');
+const { configNumeroJose, numerosPropios: numerosPropiosJose, capacidades: capacidadesJose, reportarEntradas: reportarEntradasJose } = require('./lib/pilot/numero-jose');
 const { separarPorNumero, atenderTengoCamello, despacharSalidasTengoCamello, atenderTengoCamelloDemo, despacharSalidasTengoCamelloDemo,
   demoIdEfectivo,
   whatsappMessagesUrl, RUTA_PMS_TC_ESTADOS, clasificarFalloEnvio } = require('./lib/pilot/numero-entrante');
@@ -226,8 +227,15 @@ const cacheNumerosPropiedad = crearCacheNumerosPropiedad({
   miuId: process.env.PHONE_NUMBER_ID });
 // Cada envío a Meta pide su URL aquí: dentro de una fila de una propiedad sale por
 // su número; fuera (Miu, siempre hasta hoy) es exactamente WHATSAPP_API_URL.
-const salidaPorNumero = crearSalidaPorNumero({ miuId: process.env.PHONE_NUMBER_ID, numerosPropiedad: cacheNumerosPropiedad });
+// PORTERÍA DESDE EL NÚMERO DE JOSÉ (2026-11-26; lib/pilot/numero-jose.js): con WHATSAPP_TOKEN_JOSE_COEXISTENCE
+// las filas que el PMS entrega con el phone_number_id de José salen por su número y con su token.
+const NUMERO_JOSE = configNumeroJose(process.env);
+console.log('[numero-jose] config', { activo: NUMERO_JOSE.activo, motivo: NUMERO_JOSE.motivo });
+const salidaPorNumero = crearSalidaPorNumero({ miuId: process.env.PHONE_NUMBER_ID, numerosPropiedad: cacheNumerosPropiedad,
+  numerosPropios: numerosPropiosJose(NUMERO_JOSE) });
 const whatsappApiUrl = () => salidaPorNumero.url();
+// Token de la fila en curso: el del número propio (José) o el de siempre.
+const whatsappToken = () => salidaPorNumero.token() || process.env.ACCESS_TOKEN;
 // SEGUNDO NÚMERO (TenGo Camello, 2026-10-28): sin la variable, todo lo que no
 // sea de Miu se ignora (fail-closed). El envío de Miu (arriba) no cambia.
 const TENGOCAMELLO_PHONE_NUMBER_ID = (process.env.TENGOCAMELLO_PHONE_NUMBER_ID || '').trim();
@@ -429,6 +437,7 @@ const pmsPilotClient = new PmsPilotClient({
   // BLOQUE C: puente de read tools. Si la variable no existe -- que es el
   // estado de hoy -- el cliente devuelve `not_authorized` en vez de lanzar, y
   // como la ruta nueva esta apagada nadie lo invoca.
+  capacidadesExtra: capacidadesJose(NUMERO_JOSE),
   conversationalToolsToken: process.env.PMS_LITE_CONVERSATIONAL_TOOLS_TOKEN || '',
   conversationalToolsTimeoutMs: Number(process.env.PMS_LITE_CONVERSATIONAL_TOOLS_TIMEOUT_MS || 6000)
 });
@@ -461,7 +470,7 @@ const pilotWaitAck = createWaitAck({
     await axios.post(whatsappApiUrl(), {
       messaging_product: 'whatsapp', to: phone, text: { body: text },
     }, {
-      headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
       timeout: 5_000,
     });
   },
@@ -538,7 +547,7 @@ async function sendPilotWhatsAppText(to, body) {
   const response = await axios.post(whatsappApiUrl(), {
     messaging_product: 'whatsapp', to: phone, text: { body }
   }, {
-    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
     timeout: 15000
   });
   return response.data?.messages?.[0]?.id || null;
@@ -551,7 +560,7 @@ async function sendPilotWhatsAppImage(to, link) {
   const response = await axios.post(whatsappApiUrl(), {
     messaging_product: 'whatsapp', to: phone, type: 'image', image: { link }
   }, {
-    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
     timeout: 20000
   });
   return response.data?.messages?.[0]?.id || null;
@@ -569,7 +578,7 @@ async function sendM0ApartmentVideo(to, link, caption = null) {
     messaging_product: 'whatsapp', to: phone, type: 'video',
     video: caption ? { link, caption: String(caption).slice(0, 1024) } : { link }
   }, {
-    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
     timeout: 20000
   });
   return response.data?.messages?.[0]?.id || null;
@@ -585,7 +594,7 @@ async function sendM0ApartmentPhoto(to, link, caption = null) {
     messaging_product: 'whatsapp', to: phone, type: 'image',
     image: caption ? { link, caption: String(caption).slice(0, 1024) } : { link }
   }, {
-    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
     timeout: 20000
   });
   return response.data?.messages?.[0]?.id || null;
@@ -599,7 +608,7 @@ async function sendM0GuestDocument(to, { link, filename, caption }) {
   const phone = normalizePhone(to);
   if (!phone) throw Object.assign(new Error('invalid_recipient'), { code: 'invalid_recipient' });
   const response = await axios.post(whatsappApiUrl(), documentMessagePayload(phone, { link, filename, caption }), {
-    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
     timeout: 20000
   });
   return response.data?.messages?.[0]?.id || null;
@@ -620,7 +629,7 @@ async function sendM0ClosedInternalTemplate(to, { name, language, parameters }) 
     messaging_product: 'whatsapp', to: phone, type: 'template',
     template: { name, language: { code: language }, ...(components.length ? { components } : {}) }
   }, {
-    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
     timeout: 15000
   });
   return response.data?.messages?.[0]?.id || null;
@@ -656,7 +665,7 @@ async function sendPilotWhatsAppFlow(to, { flowId, flowToken, firstScreen, ctaTe
       }
     }
   }, {
-    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
     timeout: 15000
   });
   return response.data?.messages?.[0]?.id || null;
@@ -676,7 +685,7 @@ async function sendPilotWhatsAppButtons(to, { bodyText, buttons }) {
       action: { buttons: buttons.map((b) => ({ type: 'reply', reply: { id: b.id, title: b.title } })) }
     }
   }, {
-    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
     timeout: 15000
   });
   return response.data?.messages?.[0]?.id || null;
@@ -698,7 +707,7 @@ async function sendPilotWhatsAppList(to, { bodyText, buttonText, rows }) {
         ...(r.description ? { description: r.description } : {}) })) }] }
     }
   }, {
-    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
     timeout: 15000
   });
   return response.data?.messages?.[0]?.id || null;
@@ -715,7 +724,7 @@ async function sendPilotWhatsAppReaction(to, { messageId, emoji }) {
     messaging_product: 'whatsapp', recipient_type: 'individual', to: phone, type: 'reaction',
     reaction: { message_id: messageId, emoji }
   }, {
-    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
     timeout: 15000
   });
   return response.data?.messages?.[0]?.id || null;
@@ -738,7 +747,7 @@ async function sendPilotWhatsAppTemplate(to, templateName, parameters, documentP
     type: 'template',
     template: { name: templateName, language: { code: 'es_CO' }, components }
   }, {
-    headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
     timeout: 15000
   });
   return response.data?.messages?.[0]?.id || null;
@@ -1147,7 +1156,7 @@ async function enviarWhatsApp(to, body) {
       to: phone,
       text: { body }
     }, {
-      headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
       timeout: 15000
     });
     const providerReference = response?.data?.messages?.[0]?.id || null;
@@ -1314,7 +1323,7 @@ async function enviarUbicacion(to, lat, lng, name, address = '') {
         address
       }
     }, {
-      headers: { Authorization: `Bearer ${process.env.ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${whatsappToken()}`, 'Content-Type': 'application/json' },
       timeout: 15000
     });
   } catch (error) {
@@ -1778,7 +1787,9 @@ app.post('/webhook', async (req, res) => {
     const reenvio = despacharReenvios(req.body, REENVIO, { post: postReenvio });
     if (reenvio.reenviados && !reenvio.body) return res.sendStatus(200);
     const cuerpoEntrante = reenvio.body;
-    const opcionesRuteo = { miuId: process.env.PHONE_NUMBER_ID, tengoId: TENGOCAMELLO_PHONE_NUMBER_ID, demoId: TENGOCAMELLO_DEMO_PHONE_NUMBER_ID };
+    const opcionesRuteo = { miuId: process.env.PHONE_NUMBER_ID, tengoId: TENGOCAMELLO_PHONE_NUMBER_ID, demoId: TENGOCAMELLO_DEMO_PHONE_NUMBER_ID,
+      // Número de José (Coexistence): solo sus acuses de entrega y la ventana de portería; nunca sus chats.
+      joseId: NUMERO_JOSE.activo ? NUMERO_JOSE.phoneNumberId : null };
     // MARCA (Quedó Bien, 2026-11-11): sus números salen primero del cuerpo; el resto sigue el ruteo de siempre.
     const reservadosMarca = [opcionesRuteo.miuId, opcionesRuteo.tengoId, opcionesRuteo.demoId];
     // CAMI MULTIPROPIEDAD (P5): los números de propiedad (A22) solo entran con la Cami
@@ -1798,6 +1809,11 @@ app.post('/webhook', async (req, res) => {
       ruteo = rutear(marcaIds, equiposIds, propiedadIds);
     }
     if (ruteo.propiedadChanges) console.info('[propiedad] mensaje_entrante', { count: ruteo.propiedadChanges });
+    if (ruteo.joseEntradas?.length || ruteo.joseEstados || ruteo.joseDescartados) {
+      console.info('[numero-jose] entrante', { entradas: ruteo.joseEntradas?.length || 0, estados: ruteo.joseEstados || 0, descartados: ruteo.joseDescartados || 0 });
+      if (ruteo.joseEntradas?.length) reportarEntradasJose(ruteo.joseEntradas, { pms: pmsPilotClient, pmsBaseUrl: PMS_LITE_BASE_URL,
+        phoneNumberId: NUMERO_JOSE.phoneNumberId }).catch(() => {});
+    }
     if (ruteo.desconocidos) console.warn('[webhook] numero_desconocido_ignorado', { count: ruteo.desconocidos, phone_number_ids: ruteo.idsDesconocidos });
     if (ruteo.tengoChanges.length) {
       try {
